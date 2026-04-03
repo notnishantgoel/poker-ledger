@@ -327,7 +327,7 @@ function SetupScreen({ onStart, savedNames }) {
 }
 
 /* ─────────── DASHBOARD ─────────── */
-function DashboardScreen({ game, setGame, onSettle, savedNames, onExit }) {
+function DashboardScreen({ game, setGame, onSettle, savedNames }) {
   const [modal, setModal] = useState(null);
   const [err, setErr] = useState("");
   const [buyPlayer,setBuyPlayer]=useState(""); const [buyAmt,setBuyAmt]=useState({chips:0,money:0});
@@ -447,7 +447,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, onExit }) {
   return (
     <div className="animate-fade-in w-full max-w-3xl mx-auto px-4 py-4 sm:py-8 pb-32 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5 sm:mb-6">
-        <div>
+        <div className="pr-12 sm:pr-0">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
             <Coins size={24} className="text-emerald-400" />
             Poker Ledger
@@ -475,9 +475,6 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, onExit }) {
             <LogOut size={16}/> Player Leaving
           </button>
         }
-        <button onClick={onExit} className="flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all shadow-[0_4px_14px_rgba(244,63,94,0.1)] hover:-translate-y-0.5 ml-auto">
-          <X size={16}/> End Game
-        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
@@ -675,7 +672,7 @@ function SettleScreen({ game, onBack, onReset }) {
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
-      <div className="flex items-center gap-4 sm:gap-5 mb-10">
+      <div className="flex items-center gap-4 sm:gap-5 mb-10 pr-12 sm:pr-0">
         <button onClick={onBack} className="p-3 sm:p-3.5 rounded-xl transition-all border border-white/10 hover:border-white/20 hover:bg-white/5 text-slate-300 hover:text-white glass-panel"><RotateCcw size={20}/></button>
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Settle Up</h1>
@@ -811,9 +808,14 @@ export default function App() {
         <div className="bg-glow-2"></div>
       </div>
       
-      <div className="relative min-h-screen">
+      <div className="relative min-h-screen pt-2 sm:pt-0">
+        {phase!=="loading"&&phase!=="setup"&&(
+          <button onClick={()=>setExitPrompt(true)} className="fixed top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
+            <LogOut size={18} />
+          </button>
+        )}
         {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
-        {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} onExit={()=>setExitPrompt(true)}/>}
+        {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames}/>}
         {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={()=>setExitPrompt(true)}/>}
 
         <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
