@@ -327,7 +327,7 @@ function SetupScreen({ onStart, savedNames }) {
 }
 
 /* ─────────── DASHBOARD ─────────── */
-function DashboardScreen({ game, setGame, onSettle, savedNames }) {
+function DashboardScreen({ game, setGame, onSettle, savedNames, onExit }) {
   const [modal, setModal] = useState(null);
   const [err, setErr] = useState("");
   const [buyPlayer,setBuyPlayer]=useState(""); const [buyAmt,setBuyAmt]=useState({chips:0,money:0});
@@ -466,15 +466,18 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
         </div>
       </div>
 
-      <div className="flex gap-3 mb-8 flex-wrap">
-        <button onClick={()=>open("add")} className="flex items-center gap-2 text-sm font-semibold px-5 py-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all shadow-[0_4px_14px_rgba(59,130,246,0.1)] hover:-translate-y-0.5">
+      <div className="flex gap-2 sm:gap-3 mb-6 sm:mb-8 flex-wrap">
+        <button onClick={()=>open("add")} className="flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all shadow-[0_4px_14px_rgba(59,130,246,0.1)] hover:-translate-y-0.5">
           <UserPlus size={16}/> Add Player
         </button>
         {game.players.length>1&&
-          <button onClick={()=>open("leave")} className="flex items-center gap-2 text-sm font-semibold px-5 py-3 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 transition-all shadow-[0_4px_14px_rgba(249,115,22,0.1)] hover:-translate-y-0.5">
+          <button onClick={()=>open("leave")} className="flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 transition-all shadow-[0_4px_14px_rgba(249,115,22,0.1)] hover:-translate-y-0.5">
             <LogOut size={16}/> Player Leaving
           </button>
         }
+        <button onClick={onExit} className="flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all shadow-[0_4px_14px_rgba(244,63,94,0.1)] hover:-translate-y-0.5 ml-auto">
+          <X size={16}/> End Game
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
@@ -775,6 +778,7 @@ export default function App() {
   const [game,setGame]=useState(null);
   const [phase,setPhase]=useState("loading");
   const [savedNames,setSavedNames]=useState([]);
+  const [exitPrompt, setExitPrompt]=useState(false);
 
   useEffect(()=>{(async()=>{
     const g=await store.get(GAME_KEY); const n=await store.get(NAMES_KEY);
@@ -809,8 +813,16 @@ export default function App() {
       
       <div className="relative min-h-screen">
         {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
-        {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames}/>}
-        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={handleReset}/>}
+        {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} onExit={()=>setExitPrompt(true)}/>}
+        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={()=>setExitPrompt(true)}/>}
+
+        <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">Are you sure you want to completely end this game and return to the home screen? All current game data will be lost permanently.</p>
+          <div className="flex gap-3">
+            <Btn onClick={()=>setExitPrompt(false)} variant="secondary" className="flex-1">Cancel</Btn>
+            <Btn onClick={()=>{setExitPrompt(false);handleReset();}} variant="danger" className="flex-1">End Game</Btn>
+          </div>
+        </Modal>
       </div>
     </>
   );
