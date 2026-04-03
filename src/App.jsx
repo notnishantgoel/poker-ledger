@@ -192,6 +192,19 @@ function SetupScreen({ onStart, savedNames }) {
   const nid = useRef(5);
 
   const addP = () => setPlayers(p=>[...p,{id:String(nid.current++),name:"",chips:0,money:0}]);
+  
+  const quickFill = () => {
+    const curV = parseFloat(chipValue) || 5;
+    if (!chipValue) setChipValue("5");
+    setPlayers([
+      {id: "1", name: "Nishant", chips: 40, money: round2(40 * curV)},
+      {id: "2", name: "Agrim",   chips: 20, money: round2(20 * curV)},
+      {id: "3", name: "Nema",    chips: 20, money: round2(20 * curV)},
+      {id: "4", name: "Parth",   chips: 40, money: round2(40 * curV)},
+      {id: "5", name: "Monty",   chips: 40, money: round2(40 * curV)}
+    ]);
+    nid.current = 6;
+  };
   const rmP = id => { if(players.length>2) setPlayers(p=>p.filter(x=>x.id!==id)); };
   const upd = (id, f, v) => setPlayers(p => p.map(x => {
     if (x.id !== id) return x;
@@ -259,9 +272,14 @@ function SetupScreen({ onStart, savedNames }) {
             <label className="text-xs sm:text-sm font-semibold text-slate-300 flex items-center gap-2">
               <Users size={16}/> Players
             </label>
-            <button onClick={addP} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors">
-              <Plus size={14}/> Add player
-            </button>
+            <div className="flex gap-2">
+              <button onClick={quickFill} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
+                <Sparkles size={12}/> Auto-fill
+              </button>
+              <button onClick={addP} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors">
+                <Plus size={12}/> Add player
+              </button>
+            </div>
           </div>
           
           <div className="space-y-2">
