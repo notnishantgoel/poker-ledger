@@ -61,13 +61,24 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel 
   const onC = e => { const v=e.target.value; setCStr(v); setFocus("c"); const n=parseFloat(v)||0; const m=round2(n*chipValue); setMStr(m>0?String(m):""); onChange({chips:n,money:m}); };
   const onM = e => { const v=e.target.value; setMStr(v); setFocus("m"); const n=parseFloat(v)||0; const c=chipValue>0?round2(n/chipValue):0; setCStr(c>0?String(c):""); onChange({chips:c,money:n}); };
   
+  const adjustC = delta => {
+    const current = parseFloat(cStr) || 0;
+    const n = Math.max(0, current + delta);
+    setCStr(n > 0 ? String(n) : "");
+    const m = round2(n * chipValue);
+    setMStr(m > 0 ? String(m) : "");
+    onChange({ chips: n, money: m });
+  };
+  
   return (
     <div className="flex items-end gap-3 sm:gap-4">
       <div className="flex-1 min-w-0">
         <label className="text-[10px] sm:text-xs font-semibold mb-1.5 block tracking-wider uppercase text-slate-400">{chipLabel || "Chips"}</label>
-        <div className="relative group">
+        <div className="relative group flex items-center">
+          <button onClick={()=>adjustC(-10)} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>
           <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0" 
-            className={`w-full rounded-xl px-3 py-2.5 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-emerald-500/20 focus:border-emerald-500/50" : ""}`} />
+            className={`w-full rounded-xl px-8 text-center py-2.5 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-emerald-500/20 focus:border-emerald-500/50" : ""}`} />
+          <button onClick={()=>adjustC(10)} className="absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">+</button>
         </div>
       </div>
       <div className="pb-2.5 sm:pb-3.5 text-slate-500 font-medium shrink-0">=</div>
@@ -182,7 +193,15 @@ function SetupScreen({ onStart, savedNames }) {
 
   const addP = () => setPlayers(p=>[...p,{id:String(nid.current++),name:"",chips:0,money:0}]);
   const rmP = id => { if(players.length>2) setPlayers(p=>p.filter(x=>x.id!==id)); };
-  const upd = (id,f,v) => setPlayers(p=>p.map(x=>x.id===id?{...x,[f]:v}:x));
+  const upd = (id, f, v) => setPlayers(p => p.map(x => {
+    if (x.id !== id) return x;
+    const nx = { ...x, [f]: v };
+    if (f === "name" && !x.name && v.trim() && nx.chips === 0) {
+      nx.chips = 20;
+      nx.money = round2(20 * (parseFloat(chipValue) || 5));
+    }
+    return nx;
+  }));
 
   const showSug = (id,name) => {
     if(!name||!savedNames.length){setSug({id:null,list:[]});return;}
@@ -191,7 +210,7 @@ function SetupScreen({ onStart, savedNames }) {
     setSug(list.length?{id,list:list.slice(0,5)}:{id:null,list:[]});
   };
 
-  const cv = parseFloat(chipValue)||0;
+  const cv = parseFloat(chipValue)||5;
 
   const handleStart = () => {
     setError("");
