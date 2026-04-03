@@ -77,7 +77,7 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel 
         <div className="relative group flex items-center">
           <button onClick={()=>adjustC(-10)} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>
           <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0" 
-            className={`w-full rounded-xl px-8 text-center py-2.5 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-emerald-500/20 focus:border-emerald-500/50" : ""}`} />
+            className={`w-full rounded-xl px-7 text-center py-2 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-emerald-500/20 focus:border-emerald-500/50" : ""}`} />
           <button onClick={()=>adjustC(10)} className="absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">+</button>
         </div>
       </div>
@@ -87,7 +87,7 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel 
         <div className="relative group">
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm pointer-events-none">{CURRENCY}</span>
           <input type="number" value={mStr} onChange={onM} onFocus={()=>setFocus("m")} onBlur={()=>setFocus(null)} placeholder="0" 
-            className={`w-full rounded-xl pl-7 pr-3 py-2.5 text-sm glass-input font-mono text-amber-400 ${focus === "m" ? "focus:ring-amber-500/20 focus:border-amber-500/50" : ""}`} />
+            className={`w-full rounded-xl pl-6 pr-3 py-2 text-sm glass-input font-mono text-amber-400 ${focus === "m" ? "focus:ring-amber-500/20 focus:border-amber-500/50" : ""}`} />
         </div>
       </div>
     </div>
@@ -186,7 +186,7 @@ function avatar(name, i, size="w-10 h-10", textSize="text-sm font-bold") {
 /* ─────────── SETUP ─────────── */
 function SetupScreen({ onStart, savedNames }) {
   const [chipValue, setChipValue] = useState("");
-  const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0}]);
+  const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0}]);
   const [error, setError] = useState("");
   const [sug, setSug] = useState({id:null,list:[]});
   const nid = useRef(3);
@@ -231,8 +231,8 @@ function SetupScreen({ onStart, savedNames }) {
   };
 
   return (
-    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-6 sm:py-12">
-      <div className="flex items-center gap-2.5 sm:gap-3 mb-6 sm:mb-8">
+    <div className="animate-fade-in w-full max-w-2xl mx-auto px-3 py-4 sm:py-8">
+      <div className="flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-6">
         <div className="inline-flex items-center justify-center p-2 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.2)] border border-emerald-300/30 shrink-0">
           <Coins size={20} className="text-white drop-shadow-md" />
         </div>
@@ -242,7 +242,7 @@ function SetupScreen({ onStart, savedNames }) {
         </div>
       </div>
       
-      <div className="space-y-6 glass-panel p-4 sm:p-8 rounded-[2rem]">
+      <div className="space-y-4 glass-panel p-3.5 sm:p-6 rounded-[1.5rem]">
         <div>
           <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-emerald-400/90 flex items-center gap-2">
             <Coins size={14}/> Chip value ({CURRENCY} per chip)
@@ -250,31 +250,31 @@ function SetupScreen({ onStart, savedNames }) {
           <div className="relative group">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-mono pointer-events-none">{CURRENCY}</span>
             <input type="number" value={chipValue} onChange={e=>setChipValue(e.target.value)} placeholder="5"
-              className="w-full rounded-2xl pl-9 pr-4 py-4 text-base glass-input text-amber-400 font-mono shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]" />
+              className="w-full rounded-2xl pl-9 pr-4 py-3 text-sm sm:text-base glass-input text-amber-400 font-mono shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]" />
           </div>
         </div>
         
         <div className="pt-2 border-t border-white/5">
           <div className="flex items-center justify-between mb-5">
-            <label className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+            <label className="text-xs sm:text-sm font-semibold text-slate-300 flex items-center gap-2">
               <Users size={16}/> Players
             </label>
-            <button onClick={addP} className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors">
+            <button onClick={addP} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors">
               <Plus size={14}/> Add player
             </button>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {players.map((p,i)=>(
-              <div key={p.id} className="rounded-[1.5rem] p-4 sm:p-6 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
-                <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <div key={p.id} className="rounded-[1.25rem] p-3 sm:p-4 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
+                <div className="flex items-center gap-2.5 sm:gap-4 mb-2.5">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shrink-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     {i+1}
                   </div>
                   <div className="flex-1 relative min-w-0">
                     <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
                       onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
-                      className="w-full rounded-xl px-4 py-3 sm:py-3.5 text-sm sm:text-base glass-input" />
+                      className="w-full rounded-xl px-3 py-2 text-sm sm:text-base glass-input" />
                     {sug.id===p.id&&sug.list.length>0&&(
                       <div className="absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1">
                         {sug.list.map(s=>(
@@ -286,7 +286,7 @@ function SetupScreen({ onStart, savedNames }) {
                       </div>
                     )}
                   </div>
-                  {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-2 sm:p-3 rounded-xl border border-rose-500/0 hover:border-rose-500/20 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 transition-all shrink-0"><Trash2 size={18}/></button>}
+                  {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-2 rounded-lg border border-rose-500/0 hover:border-rose-500/20 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 transition-all shrink-0"><Trash2 size={16}/></button>}
                 </div>
                 <TwoWayInput chipValue={cv} chips={p.chips} money={p.money} chipLabel="Buy-in chips" moneyLabel={`Buy-in (${CURRENCY})`}
                   onChange={({chips,money})=>{upd(p.id,"chips",chips);upd(p.id,"money",money);}} />
@@ -297,7 +297,7 @@ function SetupScreen({ onStart, savedNames }) {
         
         {error && <Err msg={error}/>}
         <div className="pt-2">
-          <Btn onClick={handleStart} full variant="primary" className="py-4 shadow-emerald-500/30 text-base shadow-[0_8px_30px_rgba(16,185,129,0.3)]"><Play size={18} fill="currentColor"/> Start Ledger</Btn>
+          <Btn onClick={handleStart} full variant="primary" className="py-3 sm:py-4 shadow-emerald-500/30 text-sm sm:text-base shadow-[0_8px_30px_rgba(16,185,129,0.3)]"><Play size={16} fill="currentColor"/> Start Ledger</Btn>
         </div>
       </div>
     </div>
@@ -637,10 +637,11 @@ function SettleScreen({ game, onBack, onReset }) {
   const [result, setResult] = useState(null);
   const [warning, setWarning] = useState("");
   const tb = game.totalBankChips;
+  const tf = Object.values(fc).reduce((s,v)=>s+(parseFloat(v)||0),0);
+  const remaining = round2(tb - tf);
 
   const calc = () => {
     setWarning("");
-    const tf = Object.values(fc).reduce((s,v)=>s+(parseFloat(v)||0),0);
     if(Math.abs(tf-tb)>0.5) setWarning(`Chip mismatch! Final (${round2(tf)}) ≠ bank (${round2(tb)}). Diff: ${round2(Math.abs(tf-tb))}`);
     const bal = game.players.map(p=>{const f=parseFloat(fc[p.id])||0;return{name:p.name,balance:round2(f*game.chipValue-p.cashInvested),finalChips:f,invested:p.cashInvested};});
     setResult({balances:bal,settlements:computeSettlements(bal)});
@@ -653,7 +654,9 @@ function SettleScreen({ game, onBack, onReset }) {
         <button onClick={onBack} className="p-3 sm:p-3.5 rounded-xl transition-all border border-white/10 hover:border-white/20 hover:bg-white/5 text-slate-300 hover:text-white glass-panel"><RotateCcw size={20}/></button>
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Settle Up</h1>
-          <p className="text-sm font-medium mt-1 text-slate-400">Bank chips in play: <span className="font-mono text-emerald-400">{round2(tb)}</span></p>
+          <p className="text-sm font-medium mt-1 text-slate-400">
+            Chips to account for: <span className={`font-mono ${remaining === 0 ? 'text-emerald-400' : remaining < 0 ? 'text-rose-400' : 'text-amber-400'}`}>{round2(remaining)}</span> <span className="text-slate-500 text-xs ml-1">(of {round2(tb)})</span>
+          </p>
         </div>
       </div>
 
