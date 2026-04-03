@@ -64,19 +64,19 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel 
   return (
     <div className="flex items-end gap-3 sm:gap-4">
       <div className="flex-1 min-w-0">
-        <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">{chipLabel || "Chips"}</label>
+        <label className="text-[10px] sm:text-xs font-semibold mb-1.5 block tracking-wider uppercase text-slate-400">{chipLabel || "Chips"}</label>
         <div className="relative group">
           <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0" 
-            className={`w-full rounded-xl px-4 py-3 sm:py-3.5 text-sm sm:text-base glass-input font-mono ${focus === "c" ? "focus:ring-emerald-500/20 focus:border-emerald-500/50" : ""}`} />
+            className={`w-full rounded-xl px-3 py-2.5 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-emerald-500/20 focus:border-emerald-500/50" : ""}`} />
         </div>
       </div>
-      <div className="pb-3 sm:pb-3.5 text-slate-500 font-medium shrink-0">=</div>
+      <div className="pb-2.5 sm:pb-3.5 text-slate-500 font-medium shrink-0">=</div>
       <div className="flex-1 min-w-0">
-        <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400 truncate">{moneyLabel || `Money (${CURRENCY})`}</label>
+        <label className="text-[10px] sm:text-xs font-semibold mb-1.5 block tracking-wider uppercase text-slate-400 truncate">{moneyLabel || `Money (${CURRENCY})`}</label>
         <div className="relative group">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm sm:text-base pointer-events-none">{CURRENCY}</span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm pointer-events-none">{CURRENCY}</span>
           <input type="number" value={mStr} onChange={onM} onFocus={()=>setFocus("m")} onBlur={()=>setFocus(null)} placeholder="0" 
-            className={`w-full rounded-xl pl-8 pr-4 py-3 sm:py-3.5 text-sm sm:text-base glass-input font-mono text-amber-400 ${focus === "m" ? "focus:ring-amber-500/20 focus:border-amber-500/50" : ""}`} />
+            className={`w-full rounded-xl pl-7 pr-3 py-2.5 text-sm glass-input font-mono text-amber-400 ${focus === "m" ? "focus:ring-amber-500/20 focus:border-amber-500/50" : ""}`} />
         </div>
       </div>
     </div>
@@ -213,13 +213,13 @@ function SetupScreen({ onStart, savedNames }) {
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-6 sm:py-12">
-      <div className="flex items-center gap-3 sm:gap-4 mb-8 sm:mb-10">
-        <div className="inline-flex items-center justify-center p-3 rounded-[1rem] bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.2)] border border-emerald-300/30 shrink-0">
-          <Coins size={24} className="text-white drop-shadow-md" />
+      <div className="flex items-center gap-2.5 sm:gap-3 mb-6 sm:mb-8">
+        <div className="inline-flex items-center justify-center p-2 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.2)] border border-emerald-300/30 shrink-0">
+          <Coins size={20} className="text-white drop-shadow-md" />
         </div>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-50 to-emerald-200 bg-clip-text text-transparent tracking-tight leading-none mb-1">Poker Ledger</h1>
-          <p className="text-slate-400 text-xs sm:text-sm font-medium">Set up your home game</p>
+          <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-emerald-50 to-emerald-200 bg-clip-text text-transparent tracking-tight leading-none mb-0.5">Poker Ledger</h1>
+          <p className="text-slate-400 text-[10px] sm:text-xs font-medium">Set up your home game</p>
         </div>
       </div>
       
@@ -405,23 +405,23 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
 
   return (
     <div className="animate-fade-in w-full max-w-3xl mx-auto px-4 py-4 sm:py-8 pb-32 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5 sm:mb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
-            <Coins size={28} className="text-emerald-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
+            <Coins size={24} className="text-emerald-400" />
             Poker Ledger
           </h1>
-          <p className="text-sm text-slate-400 mt-2 font-medium flex items-center gap-2">
-            <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/20">{game.players.length} active</span>
+          <p className="text-[10px] sm:text-xs text-slate-400 mt-1.5 font-medium flex items-center gap-1.5">
+            <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20">{game.players.length} active</span>
             <span>&middot;</span> 
             <span>{CURRENCY}{game.chipValue}/chip</span>
           </p>
         </div>
         
-        <div className="text-right px-6 py-4 rounded-3xl glass-panel relative overflow-hidden group">
+        <div className="text-right px-4 py-3 rounded-2xl glass-panel relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
-          <p className="text-xs font-semibold uppercase tracking-widest text-amber-500/80 mb-1">Total Pot</p>
-          <p className="text-3xl font-bold text-amber-400 font-mono tracking-tight drop-shadow-md">{CURRENCY}{total.toLocaleString()}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500/80 mb-0.5">Total Pot</p>
+          <p className="text-2xl font-bold text-amber-400 font-mono tracking-tight drop-shadow-md">{CURRENCY}{total.toLocaleString()}</p>
         </div>
       </div>
 
@@ -436,15 +436,15 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
         }
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
         {game.players.map((p,i)=>(
-          <div key={p.id} className="flex items-center gap-3 sm:gap-5 rounded-2xl sm:rounded-[1.5rem] px-4 py-4 animate-slide-up glass-card group" style={{animationDelay:`${i*50}ms`}}>
-            {avatar(p.name, i, "w-12 h-12", "text-base font-bold")}
+          <div key={p.id} className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 animate-slide-up glass-card group" style={{animationDelay:`${i*50}ms`}}>
+            {avatar(p.name, i, "w-10 h-10", "text-sm font-bold")}
             <div className="flex-1 min-w-0">
-              <p className="text-base font-bold text-slate-100 truncate">{p.name}</p>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mt-1">Invested</p>
+              <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
             </div>
-            <p className="text-lg font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-3 py-1.5 rounded-lg border border-amber-500/20" key={p.cashInvested}>
+            <p className="text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20" key={p.cashInvested}>
               {CURRENCY}{p.cashInvested.toLocaleString()}
             </p>
           </div>
