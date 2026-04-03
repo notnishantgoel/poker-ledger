@@ -213,12 +213,14 @@ function SetupScreen({ onStart, savedNames }) {
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-6 sm:py-12">
-      <div className="text-center mb-10 sm:mb-14">
-        <div className="inline-flex items-center justify-center p-4 sm:p-5 rounded-3xl mb-6 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_50px_rgba(16,185,129,0.3)] shadow-emerald-500/20 border border-emerald-300/30">
-          <Coins size={40} className="text-white drop-shadow-md sm:w-12 sm:h-auto" />
+      <div className="flex items-center gap-3 sm:gap-4 mb-8 sm:mb-10">
+        <div className="inline-flex items-center justify-center p-3 rounded-[1rem] bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.2)] border border-emerald-300/30 shrink-0">
+          <Coins size={24} className="text-white drop-shadow-md" />
         </div>
-        <h1 className="text-4xl sm:text-5xl font-bold mb-3 bg-gradient-to-r from-emerald-50 to-emerald-200 bg-clip-text text-transparent tracking-tight">Poker Ledger</h1>
-        <p className="text-slate-400 text-sm sm:text-base font-medium">Set up your home game</p>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-50 to-emerald-200 bg-clip-text text-transparent tracking-tight leading-none mb-1">Poker Ledger</h1>
+          <p className="text-slate-400 text-xs sm:text-sm font-medium">Set up your home game</p>
+        </div>
       </div>
       
       <div className="space-y-6 glass-panel p-4 sm:p-8 rounded-[2rem]">
