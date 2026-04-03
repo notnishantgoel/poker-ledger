@@ -189,7 +189,7 @@ function SetupScreen({ onStart, savedNames }) {
   const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0},{id:"4",name:"",chips:0,money:0}]);
   const [error, setError] = useState("");
   const [sug, setSug] = useState({id:null,list:[]});
-  const nid = useRef(3);
+  const nid = useRef(5);
 
   const addP = () => setPlayers(p=>[...p,{id:String(nid.current++),name:"",chips:0,money:0}]);
   const rmP = id => { if(players.length>2) setPlayers(p=>p.filter(x=>x.id!==id)); };
