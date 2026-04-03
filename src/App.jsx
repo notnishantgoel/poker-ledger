@@ -115,7 +115,7 @@ function PSelect({ players, value, onChange, exclude, label }) {
 }
 
 function Btn({ children, onClick, variant="primary", disabled, full, className="" }) {
-  const base = `rounded-xl px-5 py-3.5 sm:py-4 text-sm sm:text-base flex items-center justify-center gap-2.5 outline-none hover:-translate-y-0.5 ${full ? "w-full" : ""} ${className}`;
+  const base = `rounded-xl px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base flex items-center justify-center gap-2.5 outline-none hover:-translate-y-0.5 ${full ? "w-full" : ""} ${className}`;
   const variants = {
     primary: "glass-button-primary",
     secondary: "glass-button-secondary",
@@ -212,7 +212,7 @@ function SetupScreen({ onStart, savedNames }) {
   };
 
   return (
-    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
+    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-6 sm:py-12">
       <div className="text-center mb-10 sm:mb-14">
         <div className="inline-flex items-center justify-center p-4 sm:p-5 rounded-3xl mb-6 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_50px_rgba(16,185,129,0.3)] shadow-emerald-500/20 border border-emerald-300/30">
           <Coins size={40} className="text-white drop-shadow-md sm:w-12 sm:h-auto" />
@@ -221,7 +221,7 @@ function SetupScreen({ onStart, savedNames }) {
         <p className="text-slate-400 text-sm sm:text-base font-medium">Set up your home game</p>
       </div>
       
-      <div className="space-y-8 glass-panel p-5 sm:p-8 rounded-[2rem]">
+      <div className="space-y-6 glass-panel p-4 sm:p-8 rounded-[2rem]">
         <div>
           <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-emerald-400/90 flex items-center gap-2">
             <Coins size={14}/> Chip value ({CURRENCY} per chip)
@@ -243,10 +243,10 @@ function SetupScreen({ onStart, savedNames }) {
             </button>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-3">
             {players.map((p,i)=>(
-              <div key={p.id} className="rounded-[1.5rem] p-5 sm:p-6 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
-                <div className="flex items-center gap-3 sm:gap-4 mb-6">
+              <div key={p.id} className="rounded-[1.5rem] p-4 sm:p-6 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
+                <div className="flex items-center gap-3 sm:gap-4 mb-4">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     {i+1}
                   </div>
@@ -402,8 +402,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
   const lpData=game.leftPlayers||[];
 
   return (
-    <div className="animate-fade-in w-full max-w-3xl mx-auto px-4 py-6 sm:py-10 pb-36 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-8 sm:mb-10">
+    <div className="animate-fade-in w-full max-w-3xl mx-auto px-4 py-4 sm:py-8 pb-32 font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
             <Coins size={28} className="text-emerald-400" />
@@ -434,9 +434,9 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
         }
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5 mb-6">
         {game.players.map((p,i)=>(
-          <div key={p.id} className="flex items-center gap-4 sm:gap-5 rounded-2xl sm:rounded-[1.5rem] px-5 sm:px-6 py-5 animate-slide-up glass-card group" style={{animationDelay:`${i*50}ms`}}>
+          <div key={p.id} className="flex items-center gap-3 sm:gap-5 rounded-2xl sm:rounded-[1.5rem] px-4 py-4 animate-slide-up glass-card group" style={{animationDelay:`${i*50}ms`}}>
             {avatar(p.name, i, "w-12 h-12", "text-base font-bold")}
             <div className="flex-1 min-w-0">
               <p className="text-base font-bold text-slate-100 truncate">{p.name}</p>
@@ -499,10 +499,10 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 sm:pb-8 px-4">
-        <div className="flex gap-3 sm:gap-4 max-w-3xl mx-auto">
-          <Btn onClick={()=>open("buy")} variant="primary" full className="shadow-emerald-500/20"><Landmark size={18}/> <span className="hidden sm:inline">Bank</span> Buy-in</Btn>
-          <Btn onClick={()=>open("transfer")} variant="secondary" full className="border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)]"><ArrowRightLeft size={18}/> Transfer</Btn>
-          <Btn onClick={onSettle} variant="amber" full className="shadow-amber-500/20"><Calculator size={18}/> Settle <span className="hidden sm:inline">Up</span></Btn>
+        <div className="flex gap-2 sm:gap-4 max-w-3xl mx-auto">
+          <Btn onClick={()=>open("buy")} variant="primary" full className="shadow-emerald-500/20 whitespace-nowrap px-2 sm:px-5"><Landmark size={18} className="shrink-0"/> <span className="hidden sm:inline">Bank</span> Buy-in</Btn>
+          <Btn onClick={()=>open("transfer")} variant="secondary" full className="border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)] whitespace-nowrap px-2 sm:px-5"><ArrowRightLeft size={18} className="shrink-0"/> Transfer</Btn>
+          <Btn onClick={onSettle} variant="amber" full className="shadow-amber-500/20 whitespace-nowrap px-2 sm:px-5"><Calculator size={18} className="shrink-0"/> Settle <span className="hidden sm:inline">Up</span></Btn>
         </div>
       </div>
 
