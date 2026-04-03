@@ -68,9 +68,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 ::-webkit-scrollbar-thumb:hover{background:#475569}`;
 
 const C = {
-  bg0:"#020617",bg1:"#0f172a",bg2:"#1e293b",bg3:"#334155",
+  bg0:"#030712",bg1:"#111827",bg2:"#0c1222",bg3:"#334155",
+  card:"#151e2e",cardBorder:"#2a3a50",
   t1:"#f1f5f9",t2:"#e2e8f0",t3:"#94a3b8",t4:"#64748b",
-  border:"#1e293b",borderLight:"#334155",
+  border:"#1f2937",borderLight:"#374151",
+  inputBg:"#111c2e",inputBorder:"#2d4055",
   green:"#34d399",greenDark:"#064e3b",
   amber:"#fbbf24",amberDark:"#854d0e",
   red:"#f87171",redDark:"#450a0a",redBorder:"#7f1d1d",
@@ -88,19 +90,19 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel 
   }, [chips, money]);
   const onC = e => { const v=e.target.value; setCStr(v); setFocus("c"); const n=parseFloat(v)||0; const m=round2(n*chipValue); setMStr(m>0?String(m):""); onChange({chips:n,money:m}); };
   const onM = e => { const v=e.target.value; setMStr(v); setFocus("m"); const n=parseFloat(v)||0; const c=chipValue>0?round2(n/chipValue):0; setCStr(c>0?String(c):""); onChange({chips:c,money:n}); };
-  const cls = "w-full rounded-xl px-3.5 py-3 text-sm focus:outline-none transition-all duration-200 border";
+  const cls = "w-full rounded-xl px-4 py-3.5 text-sm focus:outline-none transition-all duration-200 border";
   return (
-    <div className="flex items-end gap-3">
+    <div className="flex items-end gap-4">
       <div className="flex-1">
-        <label className="text-xs font-medium mb-2 block" style={{color:C.t3}}>{chipLabel||"Chips"}</label>
+        <label className="text-xs font-semibold mb-2.5 block tracking-wide uppercase" style={{color:C.t4,letterSpacing:"0.05em"}}>{chipLabel||"Chips"}</label>
         <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0" className={cls}
-          style={{background:C.bg2,borderColor:focus==="c"?C.green:C.borderLight,color:C.t2,fontFamily:mono,boxShadow:focus==="c"?`0 0 0 3px ${C.green}20`:""}} />
+          style={{background:C.inputBg,borderColor:focus==="c"?C.green:C.inputBorder,color:C.t2,fontFamily:mono,boxShadow:focus==="c"?`0 0 0 3px ${C.green}25, 0 0 20px ${C.green}10`:"0 2px 4px rgba(0,0,0,.2)"}} />
       </div>
       <div className="pb-3 text-sm font-medium" style={{color:C.bg3}}>=</div>
       <div className="flex-1">
-        <label className="text-xs font-medium mb-2 block" style={{color:C.t3}}>{moneyLabel||`Money (${CURRENCY})`}</label>
+        <label className="text-xs font-semibold mb-2.5 block tracking-wide uppercase" style={{color:C.t4,letterSpacing:"0.05em"}}>{moneyLabel||`Money (${CURRENCY})`}</label>
         <input type="number" value={mStr} onChange={onM} onFocus={()=>setFocus("m")} onBlur={()=>setFocus(null)} placeholder="0" className={cls}
-          style={{background:C.bg2,borderColor:focus==="m"?C.amber:C.borderLight,color:C.amber,fontFamily:mono,boxShadow:focus==="m"?`0 0 0 3px ${C.amber}20`:""}} />
+          style={{background:C.inputBg,borderColor:focus==="m"?C.amber:C.inputBorder,color:C.amber,fontFamily:mono,boxShadow:focus==="m"?`0 0 0 3px ${C.amber}25, 0 0 20px ${C.amber}10`:"0 2px 4px rgba(0,0,0,.2)"}} />
       </div>
     </div>
   );
@@ -112,8 +114,8 @@ function Modal({ open, onClose, title, icon, children }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{animation:"fadeIn .2s ease"}}>
       <div className="absolute inset-0" style={{background:"rgba(0,0,0,.7)",backdropFilter:"blur(8px)"}} onClick={onClose} />
       <div className="relative w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
-        style={{background:`linear-gradient(to bottom, ${C.bg2}, ${C.bg1})`,border:`1px solid ${C.borderLight}`,animation:"slideUp .3s ease",boxShadow:"0 25px 50px -12px rgba(0,0,0,.5)"}}>
-        <div className="flex items-center gap-3 px-6 py-5 sticky top-0 z-10" style={{borderBottom:`1px solid ${C.border}`,background:C.bg2}}>
+        style={{background:`linear-gradient(to bottom, ${C.card}, ${C.bg0})`,border:`1px solid ${C.cardBorder}`,animation:"slideUp .3s ease",boxShadow:"0 25px 50px -12px rgba(0,0,0,.7)"}}>
+        <div className="flex items-center gap-3 px-6 py-5 sticky top-0 z-10" style={{borderBottom:`1px solid ${C.cardBorder}`,background:C.card}}>
           {icon}
           <h3 className="text-base font-semibold flex-1" style={{color:C.t1}}>{title}</h3>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 transition-colors" style={{color:C.t4}}><X size={18}/></button>
@@ -128,10 +130,10 @@ function PSelect({ players, value, onChange, exclude, label }) {
   const exc = Array.isArray(exclude)?exclude:exclude?[exclude]:[];
   return (
     <div>
-      <label className="text-xs font-medium mb-2 block" style={{color:C.t3}}>{label}</label>
+      <label className="text-xs font-semibold mb-2.5 block tracking-wide uppercase" style={{color:C.t4,letterSpacing:"0.05em"}}>{label}</label>
       <select value={value} onChange={e=>onChange(e.target.value)}
-        className="w-full rounded-xl px-3.5 py-3 text-sm focus:outline-none border appearance-none"
-        style={{background:C.bg2,borderColor:C.borderLight,color:C.t2}}>
+        className="w-full rounded-xl px-4 py-3.5 text-sm focus:outline-none border appearance-none"
+        style={{background:C.inputBg,borderColor:C.inputBorder,color:C.t2,boxShadow:"0 2px 4px rgba(0,0,0,.2)"}}>
         <option value="">Select player...</option>
         {players.filter(p=>!exc.includes(p.id)).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
@@ -232,9 +234,9 @@ function SetupScreen({ onStart, savedNames }) {
       </div>
       <div className="space-y-6">
         <div>
-          <label className="text-xs font-medium mb-2 block" style={{color:C.t3}}>Chip value ({CURRENCY} per chip)</label>
+          <label className="text-xs font-semibold mb-2.5 block tracking-wide uppercase" style={{color:C.t4,letterSpacing:"0.05em"}}>Chip value ({CURRENCY} per chip)</label>
           <input type="number" value={chipValue} onChange={e=>setChipValue(e.target.value)} placeholder="e.g. 5"
-            className="w-full rounded-xl px-4 py-3.5 text-sm focus:outline-none border transition-all" style={{background:C.bg2,borderColor:C.borderLight,color:C.amber,fontFamily:mono}} />
+            className="w-full rounded-xl px-4 py-3.5 text-sm focus:outline-none border transition-all" style={{background:C.inputBg,borderColor:C.inputBorder,color:C.amber,fontFamily:mono,boxShadow:"0 2px 4px rgba(0,0,0,.2)"}} />
         </div>
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -243,13 +245,13 @@ function SetupScreen({ onStart, savedNames }) {
           </div>
           <div className="space-y-4">
             {players.map((p,i)=>(
-              <div key={p.id} className="rounded-2xl p-5 ar" style={{background:C.bg1,border:`1px solid ${C.border}`,animationDelay:`${i*60}ms`,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{background:`linear-gradient(135deg,${C.bg2},${C.bg3})`,color:C.green}}>{i+1}</div>
+              <div key={p.id} className="rounded-2xl p-6 ar" style={{background:C.card,border:`1px solid ${C.cardBorder}`,animationDelay:`${i*60}ms`,boxShadow:"0 4px 16px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.03)"}}>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{background:C.greenDark,color:C.green,boxShadow:`0 0 12px ${C.green}15`}}>{i+1}</div>
                   <div className="flex-1 relative">
                     <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
                       onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
-                      className="w-full rounded-xl px-3.5 py-2.5 text-sm focus:outline-none border transition-all" style={{background:C.bg2,borderColor:C.borderLight,color:C.t2}} />
+                      className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none border transition-all" style={{background:C.inputBg,borderColor:C.inputBorder,color:C.t2,boxShadow:"0 2px 4px rgba(0,0,0,.2)"}} />
                     {sug.id===p.id&&sug.list.length>0&&(
                       <div className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-10" style={{background:C.bg2,border:`1px solid ${C.borderLight}`,boxShadow:"0 8px 24px rgba(0,0,0,.4)"}}>
                         {sug.list.map(s=>(
@@ -402,7 +404,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
           <h1 className="text-xl font-bold" style={{color:C.t1,letterSpacing:"-0.02em"}}>Poker Ledger</h1>
           <p className="text-xs mt-0.5" style={{color:C.t4}}>{game.players.length} active &middot; {CURRENCY}{game.chipValue}/chip</p>
         </div>
-        <div className="text-right px-4 py-2.5 rounded-xl" style={{background:C.bg2,border:`1px solid ${C.border}`}}>
+        <div className="text-right px-5 py-3 rounded-xl" style={{background:C.card,border:`1px solid ${C.cardBorder}`,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
           <p className="text-xs" style={{color:C.t4}}>Pot</p>
           <p className="text-base font-bold" style={{color:C.amber,fontFamily:mono}}>{CURRENCY}{total.toLocaleString()}</p>
         </div>
@@ -415,7 +417,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
 
       <div className="space-y-3 mb-6">
         {game.players.map((p,i)=>(
-          <div key={p.id} className="flex items-center gap-3.5 rounded-2xl px-5 py-4 ar" style={{background:C.bg1,border:`1px solid ${C.border}`,animationDelay:`${i*50}ms`,boxShadow:"0 2px 8px rgba(0,0,0,.15)"}}>
+          <div key={p.id} className="flex items-center gap-4 rounded-2xl px-5 py-4 ar" style={{background:C.card,border:`1px solid ${C.cardBorder}`,animationDelay:`${i*50}ms`,boxShadow:"0 4px 16px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.03)"}}>
             {avatar(p.name,i)}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate" style={{color:C.t2}}>{p.name}</p>
