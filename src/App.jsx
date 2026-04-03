@@ -5,10 +5,11 @@ import {
   RotateCcw, ArrowRight, Sparkles, Search, UserPlus,
   LogOut, Building2, Users
 } from "lucide-react";
+import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
 const NAMES_KEY = "poker-ledger-names";
-const CURRENCY = "\u20B9";
+const CURRENCY = "₹";
 
 const store = {
   async get(key) {
@@ -47,62 +48,36 @@ function computeSettlements(netBalances) {
   return out;
 }
 
-const css = `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-*{margin:0;padding:0;box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{overflow-x:hidden;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideRow{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
-@keyframes countUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-.af{animation:fadeIn .3s ease}.as{animation:slideUp .35s ease}.ar{animation:slideRow .3s ease backwards}.ac{animation:countUp .25s ease}
-input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-input[type=number]{-moz-appearance:textfield}
-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
-::selection{background:#34d39940;color:#f1f5f9}
-::-webkit-scrollbar{width:6px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:#475569}`;
-
-const C = {
-  bg0:"#030712",bg1:"#111827",bg2:"#0c1222",bg3:"#334155",
-  card:"#151e2e",cardBorder:"#2a3a50",
-  t1:"#f1f5f9",t2:"#e2e8f0",t3:"#94a3b8",t4:"#64748b",
-  border:"#1f2937",borderLight:"#374151",
-  inputBg:"#111c2e",inputBorder:"#2d4055",
-  green:"#34d399",greenDark:"#064e3b",
-  amber:"#fbbf24",amberDark:"#854d0e",
-  red:"#f87171",redDark:"#450a0a",redBorder:"#7f1d1d",
-  purple:"#a78bfa",blue:"#60a5fa",orange:"#fb923c",
-};
-const mono = "'JetBrains Mono', monospace";
-
 function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel }) {
   const [focus, setFocus] = useState(null);
   const [cStr, setCStr] = useState(chips > 0 ? String(chips) : "");
   const [mStr, setMStr] = useState(money > 0 ? String(money) : "");
+  
   useEffect(() => {
     if (focus !== "c") setCStr(chips > 0 ? String(round2(chips)) : "");
     if (focus !== "m") setMStr(money > 0 ? String(round2(money)) : "");
   }, [chips, money]);
+  
   const onC = e => { const v=e.target.value; setCStr(v); setFocus("c"); const n=parseFloat(v)||0; const m=round2(n*chipValue); setMStr(m>0?String(m):""); onChange({chips:n,money:m}); };
   const onM = e => { const v=e.target.value; setMStr(v); setFocus("m"); const n=parseFloat(v)||0; const c=chipValue>0?round2(n/chipValue):0; setCStr(c>0?String(c):""); onChange({chips:c,money:n}); };
-  const cls = "w-full rounded-xl px-4 py-3.5 text-sm focus:outline-none transition-all duration-200 border";
+  
   return (
-    <div className="flex items-end gap-4">
-      <div className="flex-1">
-        <label className="text-xs font-semibold mb-2.5 block tracking-wide uppercase" style={{color:C.t4,letterSpacing:"0.05em"}}>{chipLabel||"Chips"}</label>
-        <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0" className={cls}
-          style={{background:C.inputBg,borderColor:focus==="c"?C.green:C.inputBorder,color:C.t2,fontFamily:mono,boxShadow:focus==="c"?`0 0 0 3px ${C.green}25, 0 0 20px ${C.green}10`:"0 2px 4px rgba(0,0,0,.2)"}} />
+    <div className="flex items-end gap-3 sm:gap-4">
+      <div className="flex-1 min-w-0">
+        <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">{chipLabel || "Chips"}</label>
+        <div className="relative group">
+          <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0" 
+            className={`w-full rounded-xl px-4 py-3 sm:py-3.5 text-sm sm:text-base glass-input font-mono ${focus === "c" ? "focus:ring-emerald-500/20 focus:border-emerald-500/50" : ""}`} />
+        </div>
       </div>
-      <div className="pb-3 text-sm font-medium" style={{color:C.bg3}}>=</div>
-      <div className="flex-1">
-        <label className="text-xs font-semibold mb-2.5 block tracking-wide uppercase" style={{color:C.t4,letterSpacing:"0.05em"}}>{moneyLabel||`Money (${CURRENCY})`}</label>
-        <input type="number" value={mStr} onChange={onM} onFocus={()=>setFocus("m")} onBlur={()=>setFocus(null)} placeholder="0" className={cls}
-          style={{background:C.inputBg,borderColor:focus==="m"?C.amber:C.inputBorder,color:C.amber,fontFamily:mono,boxShadow:focus==="m"?`0 0 0 3px ${C.amber}25, 0 0 20px ${C.amber}10`:"0 2px 4px rgba(0,0,0,.2)"}} />
+      <div className="pb-3 sm:pb-3.5 text-slate-500 font-medium shrink-0">=</div>
+      <div className="flex-1 min-w-0">
+        <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400 truncate">{moneyLabel || `Money (${CURRENCY})`}</label>
+        <div className="relative group">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm sm:text-base pointer-events-none">{CURRENCY}</span>
+          <input type="number" value={mStr} onChange={onM} onFocus={()=>setFocus("m")} onBlur={()=>setFocus(null)} placeholder="0" 
+            className={`w-full rounded-xl pl-8 pr-4 py-3 sm:py-3.5 text-sm sm:text-base glass-input font-mono text-amber-400 ${focus === "m" ? "focus:ring-amber-500/20 focus:border-amber-500/50" : ""}`} />
+        </div>
       </div>
     </div>
   );
@@ -111,14 +86,13 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel 
 function Modal({ open, onClose, title, icon, children }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{animation:"fadeIn .2s ease"}}>
-      <div className="absolute inset-0" style={{background:"rgba(0,0,0,.7)",backdropFilter:"blur(8px)"}} onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
-        style={{background:`linear-gradient(to bottom, ${C.card}, ${C.bg0})`,border:`1px solid ${C.cardBorder}`,animation:"slideUp .3s ease",boxShadow:"0 25px 50px -12px rgba(0,0,0,.7)"}}>
-        <div className="flex items-center gap-3 px-6 py-5 sticky top-0 z-10" style={{borderBottom:`1px solid ${C.cardBorder}`,background:C.card}}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 sm:px-4">
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-fade-in" onClick={onClose} />
+      <div className="relative w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl overflow-hidden max-h-[90vh] overflow-y-auto glass-panel animate-slide-up shadow-[0_0_40px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-3 px-6 py-5 sticky top-0 z-10 bg-slate-900/90 backdrop-blur-xl border-b border-white/5">
           {icon}
-          <h3 className="text-base font-semibold flex-1" style={{color:C.t1}}>{title}</h3>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 transition-colors" style={{color:C.t4}}><X size={18}/></button>
+          <h3 className="text-lg font-semibold flex-1 text-slate-100">{title}</h3>
+          <button onClick={onClose} className="p-2 -mr-2 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/5 text-slate-400 transition-all"><X size={20}/></button>
         </div>
         <div className="p-6">{children}</div>
       </div>
@@ -127,35 +101,32 @@ function Modal({ open, onClose, title, icon, children }) {
 }
 
 function PSelect({ players, value, onChange, exclude, label }) {
-  const exc = Array.isArray(exclude)?exclude:exclude?[exclude]:[];
+  const exc = Array.isArray(exclude) ? exclude : exclude ? [exclude] : [];
   return (
     <div>
-      <label className="text-xs font-semibold mb-2.5 block tracking-wide uppercase" style={{color:C.t4,letterSpacing:"0.05em"}}>{label}</label>
+      <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">{label}</label>
       <select value={value} onChange={e=>onChange(e.target.value)}
-        className="w-full rounded-xl px-4 py-3.5 text-sm focus:outline-none border appearance-none"
-        style={{background:C.inputBg,borderColor:C.inputBorder,color:C.t2,boxShadow:"0 2px 4px rgba(0,0,0,.2)"}}>
-        <option value="">Select player...</option>
-        {players.filter(p=>!exc.includes(p.id)).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+        className="w-full rounded-xl px-4 py-3.5 text-sm sm:text-base glass-input text-slate-200 cursor-pointer">
+        <option value="" className="bg-slate-900 text-slate-400">Select player...</option>
+        {players.filter(p=>!exc.includes(p.id)).map(p=><option key={p.id} value={p.id} className="bg-slate-800 text-slate-100">{p.name}</option>)}
       </select>
     </div>
   );
 }
 
-function Btn({ children, onClick, variant="primary", disabled, full }) {
-  const s = {
-    primary:{background:"linear-gradient(135deg,#059669,#10b981)",color:"#fff",border:"none",boxShadow:"0 4px 14px 0 rgba(16,185,129,.35)"},
-    secondary:{background:C.bg2,color:C.t2,border:`1px solid ${C.borderLight}`,boxShadow:"none"},
-    danger:{background:"#7f1d1d",color:"#fca5a5",border:"1px solid #991b1b",boxShadow:"none"},
-    amber:{background:"linear-gradient(135deg,#b45309,#d97706)",color:"#fff",border:"none",boxShadow:"0 4px 14px 0 rgba(217,119,6,.35)"},
-    ghost:{background:"transparent",color:C.t3,border:`1px solid ${C.borderLight}`,boxShadow:"none"},
-    blue:{background:"linear-gradient(135deg,#1d4ed8,#3b82f6)",color:"#fff",border:"none",boxShadow:"0 4px 14px 0 rgba(59,130,246,.35)"},
+function Btn({ children, onClick, variant="primary", disabled, full, className="" }) {
+  const base = `rounded-xl px-5 py-3.5 sm:py-4 text-sm sm:text-base flex items-center justify-center gap-2.5 outline-none hover:-translate-y-0.5 ${full ? "w-full" : ""} ${className}`;
+  const variants = {
+    primary: "glass-button-primary",
+    secondary: "glass-button-secondary",
+    danger: "glass-button-danger",
+    amber: "glass-button-amber",
+    blue: "glass-button-blue",
+    ghost: "bg-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5 active:scale-[0.98] transition-all"
   };
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`rounded-xl px-5 py-3.5 text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${full?"w-full":""}`}
-      style={{...s[variant],opacity:disabled?.4:1,cursor:disabled?"not-allowed":"pointer"}}
-      onMouseOver={e=>{if(!disabled){e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.filter="brightness(1.1)";}}}
-      onMouseOut={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.filter="brightness(1)";}}>
+      className={`${base} ${variants[variant]} ${disabled ? 'opacity-50 cursor-not-allowed hover:transform-none' : ''}`}>
       {children}
     </button>
   );
@@ -163,28 +134,42 @@ function Btn({ children, onClick, variant="primary", disabled, full }) {
 
 function Err({ msg }) {
   if (!msg) return null;
-  return (<div className="flex items-center gap-2.5 px-4 py-3.5 rounded-xl text-sm af" style={{background:C.redDark,color:"#fca5a5",border:`1px solid ${C.redBorder}`}}>
-    <AlertTriangle size={16}/> {msg}</div>);
+  return (
+    <div className="flex items-center gap-2.5 px-4 py-3.5 rounded-xl text-sm animate-fade-in bg-rose-500/10 border border-rose-500/20 text-rose-300">
+      <AlertTriangle size={16} className="shrink-0"/> {msg}
+    </div>
+  );
 }
 
 function Toggle({ options, value, onChange }) {
   return (
-    <div className="flex gap-2.5">
-      {options.map(([val,lbl,Icon,ac,abg])=>(
+    <div className="flex gap-2">
+      {options.map(([val,lbl,Icon,activeColor])=>(
         <button key={val} onClick={()=>onChange(val)}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-medium transition-all border"
-          style={{background:value===val?abg:C.bg2,borderColor:value===val?ac:C.borderLight,color:value===val?ac:C.t4}}>
-          <Icon size={14}/> {lbl}
+          className={`flex-1 flex items-center justify-center gap-2 sm:gap-2.5 rounded-xl px-3 py-3 text-xs sm:text-sm font-medium transition-all duration-300 border ${
+            value === val 
+            ? `bg-${activeColor}-500/15 border-${activeColor}-500/30 text-${activeColor}-400 shadow-[inset_0_0_12px_rgba(0,0,0,0.2)]` 
+            : 'bg-slate-900/40 border-white/5 text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+          }`}>
+          <Icon size={16}/> <span className="truncate">{lbl}</span>
         </button>
       ))}
     </div>
   );
 }
 
-function hue(i) { return (i*67+120)%360; }
-function avatar(name,i,size="w-10 h-10",text="text-sm") {
-  return <div className={`${size} rounded-full flex items-center justify-center ${text} font-bold shrink-0`}
-    style={{background:`hsl(${hue(i)},45%,22%)`,color:`hsl(${hue(i)},65%,68%)`,boxShadow:`0 0 0 2px hsl(${hue(i)},45%,15%)`}}>{name.charAt(0).toUpperCase()}</div>;
+function hue(i) { return (i * 67 + 120) % 360; }
+function avatar(name, i, size="w-10 h-10", textSize="text-sm font-bold") {
+  return (
+    <div className={`${size} rounded-full flex items-center justify-center ${textSize} shrink-0 shadow-lg`}
+      style={{
+        background: `linear-gradient(135deg, hsl(${hue(i)},65%,22%), hsl(${hue(i)},55%,12%))`,
+        color: `hsl(${hue(i)},85%,78%)`,
+        border: `1px solid hsl(${hue(i)},45%,35%)`
+      }}>
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
 }
 
 /* ─────────── SETUP ─────────── */
@@ -216,6 +201,7 @@ function SetupScreen({ onStart, savedNames }) {
     const names=valid.map(p=>p.name.trim().toLowerCase());
     if(new Set(names).size!==names.length) return setError("Duplicate names");
     if(valid.some(p=>p.chips<=0)) return setError("All players need a buy-in");
+    
     onStart({
       chipValue:cv,
       players:valid.map(p=>({id:p.id,name:p.name.trim(),cashInvested:round2(p.chips*cv)})),
@@ -226,45 +212,60 @@ function SetupScreen({ onStart, savedNames }) {
   };
 
   return (
-    <div className="af" style={{maxWidth:520,margin:"0 auto",padding:"1.5rem 1.25rem 2rem"}}>
-      <div className="text-center" style={{marginBottom:"2.5rem"}}>
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-5" style={{background:"linear-gradient(135deg,#059669,#10b981)",boxShadow:"0 8px 24px rgba(16,185,129,.3)"}}><Coins size={34} color="#fff"/></div>
-        <h1 className="text-3xl font-bold mb-2" style={{color:C.t1,fontFamily:"'DM Sans',sans-serif",letterSpacing:"-0.02em"}}>Poker Ledger</h1>
-        <p className="text-sm" style={{color:C.t4}}>Set up your home game</p>
-      </div>
-      <div className="space-y-6">
-        <div>
-          <label className="text-xs font-semibold mb-2.5 block tracking-wide uppercase" style={{color:C.t4,letterSpacing:"0.05em"}}>Chip value ({CURRENCY} per chip)</label>
-          <input type="number" value={chipValue} onChange={e=>setChipValue(e.target.value)} placeholder="e.g. 5"
-            className="w-full rounded-xl px-4 py-3.5 text-sm focus:outline-none border transition-all" style={{background:C.inputBg,borderColor:C.inputBorder,color:C.amber,fontFamily:mono,boxShadow:"0 2px 4px rgba(0,0,0,.2)"}} />
+    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
+      <div className="text-center mb-10 sm:mb-14">
+        <div className="inline-flex items-center justify-center p-4 sm:p-5 rounded-3xl mb-6 bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_50px_rgba(16,185,129,0.3)] shadow-emerald-500/20 border border-emerald-300/30">
+          <Coins size={40} className="text-white drop-shadow-md sm:w-12 sm:h-auto" />
         </div>
+        <h1 className="text-4xl sm:text-5xl font-bold mb-3 bg-gradient-to-r from-emerald-50 to-emerald-200 bg-clip-text text-transparent tracking-tight">Poker Ledger</h1>
+        <p className="text-slate-400 text-sm sm:text-base font-medium">Set up your home game</p>
+      </div>
+      
+      <div className="space-y-8 glass-panel p-5 sm:p-8 rounded-[2rem]">
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <label className="text-sm font-semibold" style={{color:C.t3}}>Players</label>
-            <button onClick={addP} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all" style={{color:C.green,background:C.greenDark}}><Plus size={14}/> Add</button>
+          <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-emerald-400/90 flex items-center gap-2">
+            <Coins size={14}/> Chip value ({CURRENCY} per chip)
+          </label>
+          <div className="relative group">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-mono pointer-events-none">{CURRENCY}</span>
+            <input type="number" value={chipValue} onChange={e=>setChipValue(e.target.value)} placeholder="5"
+              className="w-full rounded-2xl pl-9 pr-4 py-4 text-base glass-input text-amber-400 font-mono shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]" />
           </div>
+        </div>
+        
+        <div className="pt-2 border-t border-white/5">
+          <div className="flex items-center justify-between mb-5">
+            <label className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+              <Users size={16}/> Players
+            </label>
+            <button onClick={addP} className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors">
+              <Plus size={14}/> Add player
+            </button>
+          </div>
+          
           <div className="space-y-4">
             {players.map((p,i)=>(
-              <div key={p.id} className="rounded-2xl p-6 ar" style={{background:C.card,border:`1px solid ${C.cardBorder}`,animationDelay:`${i*60}ms`,boxShadow:"0 4px 16px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.03)"}}>
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{background:C.greenDark,color:C.green,boxShadow:`0 0 12px ${C.green}15`}}>{i+1}</div>
-                  <div className="flex-1 relative">
+              <div key={p.id} className="rounded-[1.5rem] p-5 sm:p-6 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
+                <div className="flex items-center gap-3 sm:gap-4 mb-6">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    {i+1}
+                  </div>
+                  <div className="flex-1 relative min-w-0">
                     <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
                       onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
-                      className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none border transition-all" style={{background:C.inputBg,borderColor:C.inputBorder,color:C.t2,boxShadow:"0 2px 4px rgba(0,0,0,.2)"}} />
+                      className="w-full rounded-xl px-4 py-3 sm:py-3.5 text-sm sm:text-base glass-input" />
                     {sug.id===p.id&&sug.list.length>0&&(
-                      <div className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-10" style={{background:C.bg2,border:`1px solid ${C.borderLight}`,boxShadow:"0 8px 24px rgba(0,0,0,.4)"}}>
+                      <div className="absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1">
                         {sug.list.map(s=>(
-                          <button key={s} className="w-full text-left px-4 py-2.5 text-sm" style={{color:C.t2}}
-                            onMouseDown={()=>{upd(p.id,"name",s);setSug({id:null,list:[]});}}
-                            onMouseOver={e=>e.currentTarget.style.background=C.bg3} onMouseOut={e=>e.currentTarget.style.background="transparent"}>
-                            <Search size={12} style={{display:"inline",marginRight:8,color:C.t4}}/>{s}
+                          <button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2"
+                            onMouseDown={()=>{upd(p.id,"name",s);setSug({id:null,list:[]});}}>
+                            <Search size={14} className="text-slate-400 shrink-0"/> <span className="truncate">{s}</span>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
-                  {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-2 rounded-xl hover:bg-white/5 transition-colors" style={{color:C.red}}><Trash2 size={16}/></button>}
+                  {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-2 sm:p-3 rounded-xl border border-rose-500/0 hover:border-rose-500/20 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 transition-all shrink-0"><Trash2 size={18}/></button>}
                 </div>
                 <TwoWayInput chipValue={cv} chips={p.chips} money={p.money} chipLabel="Buy-in chips" moneyLabel={`Buy-in (${CURRENCY})`}
                   onChange={({chips,money})=>{upd(p.id,"chips",chips);upd(p.id,"money",money);}} />
@@ -272,8 +273,11 @@ function SetupScreen({ onStart, savedNames }) {
             ))}
           </div>
         </div>
-        <Err msg={error}/>
-        <Btn onClick={handleStart} full variant="primary"><Play size={16}/> Start Game</Btn>
+        
+        {error && <Err msg={error}/>}
+        <div className="pt-2">
+          <Btn onClick={handleStart} full variant="primary" className="py-4 shadow-emerald-500/30 text-base shadow-[0_8px_30px_rgba(16,185,129,0.3)]"><Play size={18} fill="currentColor"/> Start Ledger</Btn>
+        </div>
       </div>
     </div>
   );
@@ -398,165 +402,206 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
   const lpData=game.leftPlayers||[];
 
   return (
-    <div className="af" style={{maxWidth:560,margin:"0 auto",padding:"1.5rem 1.25rem",paddingBottom:120,fontFamily:"'DM Sans',sans-serif"}}>
-      <div className="flex items-center justify-between mb-6">
+    <div className="animate-fade-in w-full max-w-3xl mx-auto px-4 py-6 sm:py-10 pb-36 font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-8 sm:mb-10">
         <div>
-          <h1 className="text-xl font-bold" style={{color:C.t1,letterSpacing:"-0.02em"}}>Poker Ledger</h1>
-          <p className="text-xs mt-0.5" style={{color:C.t4}}>{game.players.length} active &middot; {CURRENCY}{game.chipValue}/chip</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
+            <Coins size={28} className="text-emerald-400" />
+            Poker Ledger
+          </h1>
+          <p className="text-sm text-slate-400 mt-2 font-medium flex items-center gap-2">
+            <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/20">{game.players.length} active</span>
+            <span>&middot;</span> 
+            <span>{CURRENCY}{game.chipValue}/chip</span>
+          </p>
         </div>
-        <div className="text-right px-5 py-3 rounded-xl" style={{background:C.card,border:`1px solid ${C.cardBorder}`,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
-          <p className="text-xs" style={{color:C.t4}}>Pot</p>
-          <p className="text-base font-bold" style={{color:C.amber,fontFamily:mono}}>{CURRENCY}{total.toLocaleString()}</p>
+        
+        <div className="text-right px-6 py-4 rounded-3xl glass-panel relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-500/80 mb-1">Total Pot</p>
+          <p className="text-3xl font-bold text-amber-400 font-mono tracking-tight drop-shadow-md">{CURRENCY}{total.toLocaleString()}</p>
         </div>
       </div>
 
-      <div className="flex gap-2.5 mb-6 flex-wrap">
-        <button onClick={()=>open("add")} className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2.5 rounded-xl transition-all" style={{color:C.blue,background:"#172554",border:"1px solid #1e3a5f"}}><UserPlus size={14}/> Add Player</button>
-        {game.players.length>1&&<button onClick={()=>open("leave")} className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2.5 rounded-xl transition-all" style={{color:C.orange,background:"#431407",border:"1px solid #7c2d12"}}><LogOut size={14}/> Player Leaving</button>}
+      <div className="flex gap-3 mb-8 flex-wrap">
+        <button onClick={()=>open("add")} className="flex items-center gap-2 text-sm font-semibold px-5 py-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all shadow-[0_4px_14px_rgba(59,130,246,0.1)] hover:-translate-y-0.5">
+          <UserPlus size={16}/> Add Player
+        </button>
+        {game.players.length>1&&
+          <button onClick={()=>open("leave")} className="flex items-center gap-2 text-sm font-semibold px-5 py-3 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 transition-all shadow-[0_4px_14px_rgba(249,115,22,0.1)] hover:-translate-y-0.5">
+            <LogOut size={16}/> Player Leaving
+          </button>
+        }
       </div>
 
-      <div className="space-y-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mb-8">
         {game.players.map((p,i)=>(
-          <div key={p.id} className="flex items-center gap-4 rounded-2xl px-5 py-4 ar" style={{background:C.card,border:`1px solid ${C.cardBorder}`,animationDelay:`${i*50}ms`,boxShadow:"0 4px 16px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.03)"}}>
-            {avatar(p.name,i)}
+          <div key={p.id} className="flex items-center gap-4 sm:gap-5 rounded-2xl sm:rounded-[1.5rem] px-5 sm:px-6 py-5 animate-slide-up glass-card group" style={{animationDelay:`${i*50}ms`}}>
+            {avatar(p.name, i, "w-12 h-12", "text-base font-bold")}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate" style={{color:C.t2}}>{p.name}</p>
-              <p className="text-xs mt-0.5" style={{color:C.t4}}>Invested</p>
+              <p className="text-base font-bold text-slate-100 truncate">{p.name}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mt-1">Invested</p>
             </div>
-            <p className="text-sm font-bold ac" key={p.cashInvested} style={{color:C.amber,fontFamily:mono}}>{CURRENCY}{p.cashInvested.toLocaleString()}</p>
+            <p className="text-lg font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-3 py-1.5 rounded-lg border border-amber-500/20" key={p.cashInvested}>
+              {CURRENCY}{p.cashInvested.toLocaleString()}
+            </p>
           </div>
         ))}
       </div>
 
-      {lpData.length>0&&(
-        <details className="mb-6">
-          <summary className="text-xs font-medium cursor-pointer mb-2.5 flex items-center gap-1.5" style={{color:C.t4}}><ChevronDown size={14}/> Left the game ({lpData.length})</summary>
-          <div className="space-y-1.5">{lpData.map((p,i)=>(
-            <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs" style={{background:C.bg1,border:`1px solid ${C.border}`,color:C.t4}}>
-              <span className="font-medium" style={{color:C.t3}}>{p.name}</span><span className="flex-1"/>
-              <span style={{color:p.net>=0?C.green:C.red,fontFamily:mono}}>{p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}</span>
-              {p.settledWith&&<span>w/ {p.settledWith}</span>}
+      <div className="space-y-4 max-w-2xl">
+        {lpData.length>0&&(
+          <details className="group glass-panel rounded-2xl border-white/5 overflow-hidden">
+            <summary className="text-sm font-semibold cursor-pointer p-4 sm:p-5 flex items-center gap-2.5 text-slate-300 hover:text-slate-100 transition-colors select-none">
+              <ChevronDown size={18} className="text-slate-500 group-open:rotate-180 transition-transform duration-300"/> 
+              Players who left ({lpData.length})
+            </summary>
+            <div className="p-4 sm:p-5 pt-0 space-y-2 border-t border-white/5">
+              {lpData.map((p,i)=>(
+                <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-xl px-4 py-3 text-sm bg-slate-900/50 border border-white/5">
+                  <span className="font-semibold text-slate-200">{p.name}</span><div className="flex-1 border-b border-dashed border-white/10 mx-2"/>
+                  <span className={`font-mono font-bold ${p.net>=0?'text-emerald-400 bg-emerald-400/10':'text-rose-400 bg-rose-400/10'} px-2.5 py-1 rounded-md`}>
+                    {p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}
+                  </span>
+                  {p.settledWith&&<span className="text-xs text-slate-500 font-medium">with {p.settledWith}</span>}
+                </div>
+              ))}
             </div>
-          ))}</div>
-        </details>
-      )}
+          </details>
+        )}
 
-      {game.transactions.length>0&&(
-        <details className="mb-6">
-          <summary className="text-xs font-medium cursor-pointer mb-2.5 flex items-center gap-1.5" style={{color:C.t4}}><ChevronDown size={14}/> Transaction log ({game.transactions.length})</summary>
-          <div className="space-y-1.5 max-h-52 overflow-y-auto rounded-xl p-3" style={{background:C.bg1}}>
-            {[...game.transactions].reverse().map((t,i)=>(
-              <div key={i} className="text-xs px-3.5 py-2.5 rounded-xl" style={{background:C.bg2,color:C.t3}}>
-                {t.type==="initial"&&<><span style={{color:C.green}}>{t.player}</span> bought in: {round2(t.chips)} chips ({CURRENCY}{round2(t.money)})</>}
-                {t.type==="bank-buy-in"&&<><span style={{color:C.blue}}>{t.player}</span> bank buy-in: {round2(t.chips)} chips ({CURRENCY}{round2(t.money)})</>}
-                {t.type==="transfer"&&<><span style={{color:C.orange}}>{t.seller}</span> sold {round2(t.chips)} chips to <span style={{color:C.purple}}>{t.buyer}</span> ({CURRENCY}{round2(t.money)})</>}
-                {t.type==="add-transfer"&&<><span style={{color:C.green}}>{t.player}</span> joined via <span style={{color:C.orange}}>{t.from}</span>: {round2(t.chips)} chips ({CURRENCY}{round2(t.money)})</>}
-                {t.type==="leave-bank-return"&&<><span style={{color:C.orange}}>{t.player}</span> returned {round2(t.chips)} chips to bank</>}
-                {t.type==="leave-transfer"&&<><span style={{color:C.orange}}>{t.player}</span> gave {round2(t.chips)} chips to <span style={{color:C.blue}}>{t.to}</span></>}
-                {t.type==="leave-settle"&&<><span style={{color:C.red}}>{t.from}</span> pays <span style={{color:C.green}}>{t.to}</span> {CURRENCY}{round2(t.amount)}</>}
+        {game.transactions.length>0&&(
+          <details className="group glass-panel rounded-2xl border-white/5 overflow-hidden" open>
+            <summary className="text-sm font-semibold cursor-pointer p-4 sm:p-5 flex items-center gap-2.5 text-slate-300 hover:text-slate-100 transition-colors select-none">
+              <ChevronDown size={18} className="text-slate-500 group-open:rotate-180 transition-transform duration-300"/> 
+              Transaction Log ({game.transactions.length})
+            </summary>
+            <div className="p-4 sm:p-5 pt-0 border-t border-white/5">
+              <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-2 no-scrollbar">
+                {[...game.transactions].reverse().map((t,i)=>(
+                  <div key={i} className="text-xs sm:text-sm px-4 py-3 rounded-xl bg-slate-900/50 border border-white/5 text-slate-400 flex items-start gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-slate-600"/>
+                    <div>
+                      {t.type==="initial"&&<><span className="font-semibold text-emerald-400">{t.player}</span> bought in: <span className="font-mono">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
+                      {t.type==="bank-buy-in"&&<><span className="font-semibold text-blue-400">{t.player}</span> bank buy-in: <span className="font-mono">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
+                      {t.type==="transfer"&&<><span className="font-semibold text-orange-400">{t.seller}</span> sold <span className="font-mono text-slate-300">{round2(t.chips)}</span> chips to <span className="font-semibold text-purple-400">{t.buyer}</span> ({CURRENCY}{round2(t.money)})</>}
+                      {t.type==="add-transfer"&&<><span className="font-semibold text-emerald-400">{t.player}</span> joined via <span className="font-semibold text-orange-400">{t.from}</span>: <span className="font-mono px-1 bg-slate-800 rounded">{round2(t.chips)} chips</span> ({CURRENCY}{round2(t.money)})</>}
+                      {t.type==="leave-bank-return"&&<><span className="font-semibold text-orange-400">{t.player}</span> returned <span className="font-mono text-slate-300">{round2(t.chips)}</span> chips to bank</>}
+                      {t.type==="leave-transfer"&&<><span className="font-semibold text-orange-400">{t.player}</span> gave <span className="font-mono text-slate-300">{round2(t.chips)}</span> chips to <span className="font-semibold text-blue-400">{t.to}</span></>}
+                      {t.type==="leave-settle"&&<><span className="font-semibold text-rose-400">{t.from}</span> pays <span className="font-semibold text-emerald-400">{t.to}</span> <span className="font-mono font-bold text-amber-400">{CURRENCY}{round2(t.amount)}</span></>}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </details>
-      )}
-
-      <div className="fixed bottom-0 left-0 right-0 flex gap-2.5 p-4 z-40" style={{background:`linear-gradient(to top, ${C.bg0} 80%, transparent)`,paddingBottom:"max(1rem, env(safe-area-inset-bottom))"}}>
-        <Btn onClick={()=>open("buy")} variant="primary" full><Landmark size={16}/> Bank Buy-in</Btn>
-        <Btn onClick={()=>open("transfer")} variant="secondary" full><ArrowRightLeft size={16}/> Transfer</Btn>
-        <Btn onClick={onSettle} variant="amber" full><Calculator size={16}/> Settle</Btn>
+            </div>
+          </details>
+        )}
       </div>
 
-      {/* Bank Buy-in */}
-      <Modal open={modal==="buy"} onClose={reset} title="Bank Buy-in" icon={<Landmark size={20} style={{color:C.green}}/>}>
-        <div className="space-y-5">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 sm:pb-8 px-4">
+        <div className="flex gap-3 sm:gap-4 max-w-3xl mx-auto">
+          <Btn onClick={()=>open("buy")} variant="primary" full className="shadow-emerald-500/20"><Landmark size={18}/> <span className="hidden sm:inline">Bank</span> Buy-in</Btn>
+          <Btn onClick={()=>open("transfer")} variant="secondary" full className="border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)]"><ArrowRightLeft size={18}/> Transfer</Btn>
+          <Btn onClick={onSettle} variant="amber" full className="shadow-amber-500/20"><Calculator size={18}/> Settle <span className="hidden sm:inline">Up</span></Btn>
+        </div>
+      </div>
+
+      {/* Modals remain mostly identical in layout but updated to Tailwind */}
+      <Modal open={modal==="buy"} onClose={reset} title="Bank Buy-in" icon={<div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><Landmark size={20}/></div>}>
+        <div className="space-y-6">
           <PSelect players={game.players} value={buyPlayer} onChange={setBuyPlayer} label="Player"/>
           <TwoWayInput chipValue={game.chipValue} chips={buyAmt.chips} money={buyAmt.money} onChange={setBuyAmt}/>
-          <Err msg={err}/><Btn onClick={submitBuy} full variant="primary"><Check size={16}/> Confirm Buy-in</Btn>
+          <Err msg={err}/>
+          <Btn onClick={submitBuy} full variant="primary" className="mt-2"><Check size={18}/> Confirm Buy-in</Btn>
         </div>
       </Modal>
 
-      {/* Transfer */}
-      <Modal open={modal==="transfer"} onClose={reset} title="Player Transfer" icon={<ArrowRightLeft size={20} style={{color:C.purple}}/>}>
-        <div className="space-y-5">
+      <Modal open={modal==="transfer"} onClose={reset} title="Player Transfer" icon={<div className="p-2 bg-purple-500/20 rounded-lg text-purple-400"><ArrowRightLeft size={20}/></div>}>
+        <div className="space-y-6">
           <PSelect players={game.players} value={tSeller} onChange={setTSeller} exclude={tBuyer} label="Seller (giving chips)"/>
           <PSelect players={game.players} value={tBuyer} onChange={setTBuyer} exclude={tSeller} label="Buyer (receiving chips)"/>
           <TwoWayInput chipValue={game.chipValue} chips={tAmt.chips} money={tAmt.money} onChange={setTAmt}/>
-          <Err msg={err}/><Btn onClick={submitTransfer} full variant="primary"><Check size={16}/> Confirm Transfer</Btn>
+          <Err msg={err}/>
+          <Btn onClick={submitTransfer} full variant="primary" className="mt-2"><Check size={18}/> Confirm Transfer</Btn>
         </div>
       </Modal>
 
-      {/* Add Player */}
-      <Modal open={modal==="add"} onClose={reset} title="Add Player" icon={<UserPlus size={20} style={{color:C.blue}}/>}>
-        <div className="space-y-5">
+      <Modal open={modal==="add"} onClose={reset} title="Add Player" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><UserPlus size={20}/></div>}>
+        <div className="space-y-6">
           <div className="relative">
-            <label className="text-xs font-medium mb-2 block" style={{color:C.t3}}>Player name</label>
+            <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">Player name</label>
             <input value={newName} onChange={e=>{setNewName(e.target.value);showNS(e.target.value);}} onBlur={()=>setTimeout(()=>setNameSug([]),200)}
-              placeholder="Name" className="w-full rounded-xl px-3.5 py-3 text-sm focus:outline-none border transition-all" style={{background:C.bg2,borderColor:C.borderLight,color:C.t2}}/>
+              placeholder="Name" className="w-full rounded-xl px-4 py-3.5 text-base glass-input"/>
             {nameSug.length>0&&(
-              <div className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-10" style={{background:C.bg2,border:`1px solid ${C.borderLight}`,boxShadow:"0 8px 24px rgba(0,0,0,.4)"}}>
-                {nameSug.map(s=><button key={s} className="w-full text-left px-4 py-2.5 text-sm" style={{color:C.t2}}
-                  onMouseDown={()=>{setNewName(s);setNameSug([]);}} onMouseOver={e=>e.currentTarget.style.background=C.bg3} onMouseOut={e=>e.currentTarget.style.background="transparent"}>{s}</button>)}
+              <div className="absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1 shadow-2xl">
+                {nameSug.map(s=><button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors"
+                  onMouseDown={()=>{setNewName(s);setNameSug([]);}}>{s}</button>)}
               </div>
             )}
           </div>
           <div>
-            <label className="text-xs font-medium mb-2.5 block" style={{color:C.t3}}>Getting chips from</label>
-            <Toggle value={newSrc} onChange={setNewSrc} options={[["bank","Bank",Building2,C.green,C.greenDark],["player","Player",Users,C.purple,"#312e81"]]}/>
+            <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-slate-400">Getting chips from</label>
+            <Toggle value={newSrc} onChange={setNewSrc} options={[["bank","Bank",Building2,"emerald"],["player","Player",Users,"purple"]]}/>
           </div>
           {newSrc==="player"&&<PSelect players={game.players} value={newSrcPlayer} onChange={setNewSrcPlayer} label="Selling player"/>}
           <TwoWayInput chipValue={game.chipValue} chips={newAmt.chips} money={newAmt.money} onChange={setNewAmt} chipLabel="Buy-in chips" moneyLabel={`Buy-in (${CURRENCY})`}/>
-          <Err msg={err}/><Btn onClick={submitAdd} full variant="blue"><UserPlus size={16}/> Add to Game</Btn>
+          <Err msg={err}/>
+          <Btn onClick={submitAdd} full variant="blue" className="mt-2"><UserPlus size={18}/> Add to Game</Btn>
         </div>
       </Modal>
 
-      {/* Player Leaving */}
-      <Modal open={modal==="leave"} onClose={reset} title="Player Leaving" icon={<LogOut size={20} style={{color:C.orange}}/>}>
+      <Modal open={modal==="leave"} onClose={reset} title="Player Leaving" icon={<div className="p-2 bg-orange-500/20 rounded-lg text-orange-400"><LogOut size={20}/></div>}>
         {lStep===1?(
-          <div className="space-y-5">
+          <div className="space-y-6">
             <PSelect players={game.players} value={lp} onChange={setLp} label="Who is leaving?"/>
             <div>
-              <label className="text-xs font-medium mb-2 block" style={{color:C.t3}}>Their final chip count</label>
+              <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">Their final chip count</label>
               <input type="number" value={lChips} onChange={e=>setLChips(e.target.value)} placeholder="0"
-                className="w-full rounded-xl px-3.5 py-3 text-sm focus:outline-none border transition-all" style={{background:C.bg2,borderColor:C.borderLight,color:C.t2,fontFamily:mono}}/>
+                className="w-full rounded-xl px-4 py-3.5 text-base glass-input font-mono"/>
             </div>
             <div>
-              <label className="text-xs font-medium mb-2.5 block" style={{color:C.t3}}>What happens to their chips?</label>
-              <Toggle value={lDest} onChange={setLDest} options={[["bank","Return to Bank",Building2,C.green,C.greenDark],["player","Give to Player",Users,C.purple,"#312e81"]]}/>
+              <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-slate-400">What happens to their chips?</label>
+              <Toggle value={lDest} onChange={setLDest} options={[["bank","Return to Bank",Building2,"emerald"],["player","Give to Player",Users,"purple"]]}/>
             </div>
             {lDest==="player"&&lp&&<PSelect players={game.players} value={lDestP} onChange={setLDestP} exclude={lp} label="Who gets the chips?"/>}
-            <Err msg={err}/><Btn onClick={calcLeave} full variant="amber"><ArrowRight size={16}/> Calculate Settlement</Btn>
+            <Err msg={err}/>
+            <Btn onClick={calcLeave} full variant="amber" className="mt-2"><ArrowRight size={18}/> Calculate Settlement</Btn>
           </div>
         ):(
-          <div className="space-y-5 as">
-            <div className="rounded-2xl p-5" style={{background:C.bg1,border:`1px solid ${C.border}`}}>
-              <p className="text-sm font-semibold mb-4" style={{color:C.t1}}>{lCalc.name}&apos;s settlement</p>
-              <div className="space-y-2 text-xs" style={{color:C.t3}}>
-                <div className="flex justify-between"><span>Final chips</span><span style={{color:C.t2,fontFamily:mono}}>{lCalc.fc}</span></div>
-                <div className="flex justify-between"><span>Chip value</span><span style={{color:C.t2,fontFamily:mono}}>{CURRENCY}{lCalc.chipMon.toLocaleString()}</span></div>
-                <div className="flex justify-between"><span>Cash invested</span><span style={{color:C.t2,fontFamily:mono}}>{CURRENCY}{lCalc.invested.toLocaleString()}</span></div>
-                {lDest==="player"&&lCalc.fc>0&&<div className="flex justify-between" style={{color:C.t4}}><span>After chip transfer</span><span style={{fontFamily:mono}}>{CURRENCY}{lCalc.adj.toLocaleString()}</span></div>}
-                <div className="flex justify-between pt-3 mt-3" style={{borderTop:`1px solid ${C.border}`}}>
-                  <span className="font-semibold">Net balance</span>
-                  <span className="font-bold" style={{color:lCalc.net>0?C.green:lCalc.net<0?C.red:C.t3,fontFamily:mono}}>{lCalc.net>=0?"+":""}{CURRENCY}{round2(lCalc.net).toLocaleString()}</span>
+          <div className="space-y-6 animate-slide-up">
+            <div className="rounded-2xl p-6 glass-card bg-slate-900/60 border-white/10">
+              <p className="text-base font-bold mb-4 text-slate-100 flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-400"/> {lCalc.name}&apos;s settlement
+              </p>
+              <div className="space-y-3 text-sm text-slate-300">
+                <div className="flex justify-between items-center"><span>Final chips</span><span className="font-mono bg-slate-800/50 px-2 py-0.5 rounded text-slate-200">{lCalc.fc}</span></div>
+                <div className="flex justify-between items-center"><span>Chip value</span><span className="font-mono text-amber-400/90">{CURRENCY}{lCalc.chipMon.toLocaleString()}</span></div>
+                <div className="flex justify-between items-center"><span>Cash invested</span><span className="font-mono text-slate-200">{CURRENCY}{lCalc.invested.toLocaleString()}</span></div>
+                {lDest==="player"&&lCalc.fc>0&&<div className="flex justify-between items-center text-slate-400"><span>After chip transfer</span><span className="font-mono">{CURRENCY}{lCalc.adj.toLocaleString()}</span></div>}
+                <div className="flex justify-between pt-4 mt-4 border-t border-white/10">
+                  <span className="font-bold text-slate-200">Net balance</span>
+                  <span className={`font-mono text-base font-bold bg-slate-950/50 px-3 py-1 rounded-lg border ${lCalc.net>0?'text-emerald-400 border-emerald-500/20':lCalc.net<0?'text-rose-400 border-rose-500/20':'text-slate-400 border-white/10'}`}>
+                    {lCalc.net>=0?"+":""}{CURRENCY}{round2(lCalc.net).toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
             {Math.abs(lCalc.net)>=0.5?(
               <>
-                <div className="rounded-xl px-4 py-3 text-xs" style={{background:lCalc.net>0?C.greenDark:C.redDark,color:lCalc.net>0?C.green:"#fca5a5"}}>
+                <div className={`rounded-xl px-5 py-4 text-sm font-medium border shadow-inner ${lCalc.net>0?'bg-emerald-500/10 border-emerald-500/20 text-emerald-300':'bg-rose-500/10 border-rose-500/20 text-rose-300'}`}>
                   {lCalc.net>0?`${lCalc.name} is owed ${CURRENCY}${round2(lCalc.net).toLocaleString()}. Who pays?`:`${lCalc.name} owes ${CURRENCY}${round2(Math.abs(lCalc.net)).toLocaleString()}. Who gets paid?`}
                 </div>
                 <PSelect players={game.players} value={lSetP} onChange={setLSetP} exclude={lp} label={lCalc.net>0?"Who pays them?":"Who do they pay?"}/>
               </>
             ):(
-              <div className="rounded-xl px-4 py-3 text-xs flex items-center gap-2" style={{background:C.greenDark,color:C.green}}>
-                <Check size={14}/> {lCalc.name} is exactly even.
+              <div className="rounded-xl px-5 py-4 text-sm font-medium flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 shadow-[inset_0_0_20px_rgba(16,185,129,0.1)]">
+                <div className="bg-emerald-500/20 p-1.5 rounded-full"><Check size={16}/></div> {lCalc.name} is exactly even.
               </div>
             )}
             <Err msg={err}/>
-            <div className="flex gap-2.5">
-              <Btn onClick={()=>{setLStep(1);setErr("");}} variant="ghost" full><RotateCcw size={14}/> Back</Btn>
-              <Btn onClick={submitLeave} variant="amber" full><Check size={16}/> Confirm &amp; Remove</Btn>
+            <div className="flex gap-3 mt-2">
+              <Btn onClick={()=>{setLStep(1);setErr("");}} variant="secondary" className="flex-1"><RotateCcw size={16}/> Back</Btn>
+              <Btn onClick={submitLeave} variant="amber" className="flex-[2]"><Check size={18}/> Confirm & Remove</Btn>
             </div>
           </div>
         )}
@@ -575,92 +620,103 @@ function SettleScreen({ game, onBack, onReset }) {
   const calc = () => {
     setWarning("");
     const tf = Object.values(fc).reduce((s,v)=>s+(parseFloat(v)||0),0);
-    if(Math.abs(tf-tb)>0.5) setWarning(`Chip mismatch! Final (${round2(tf)}) \u2260 bank (${round2(tb)}). Diff: ${round2(Math.abs(tf-tb))}`);
+    if(Math.abs(tf-tb)>0.5) setWarning(`Chip mismatch! Final (${round2(tf)}) ≠ bank (${round2(tb)}). Diff: ${round2(Math.abs(tf-tb))}`);
     const bal = game.players.map(p=>{const f=parseFloat(fc[p.id])||0;return{name:p.name,balance:round2(f*game.chipValue-p.cashInvested),finalChips:f,invested:p.cashInvested};});
     setResult({balances:bal,settlements:computeSettlements(bal)});
   };
   const lpData=game.leftPlayers||[];
 
   return (
-    <div className="af" style={{maxWidth:560,margin:"0 auto",padding:"1.5rem 1.25rem 2rem",fontFamily:"'DM Sans',sans-serif"}}>
-      <div className="flex items-center gap-3.5 mb-8">
-        <button onClick={onBack} className="p-2.5 rounded-xl transition-colors" style={{color:C.t3,background:C.bg2,border:`1px solid ${C.border}`}}><RotateCcw size={16}/></button>
-        <div><h1 className="text-xl font-bold" style={{color:C.t1,letterSpacing:"-0.02em"}}>Settle Up</h1>
-        <p className="text-xs mt-0.5" style={{color:C.t4}}>Bank chips in play: {round2(tb)}</p></div>
+    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
+      <div className="flex items-center gap-4 sm:gap-5 mb-10">
+        <button onClick={onBack} className="p-3 sm:p-3.5 rounded-xl transition-all border border-white/10 hover:border-white/20 hover:bg-white/5 text-slate-300 hover:text-white glass-panel"><RotateCcw size={20}/></button>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Settle Up</h1>
+          <p className="text-sm font-medium mt-1 text-slate-400">Bank chips in play: <span className="font-mono text-emerald-400">{round2(tb)}</span></p>
+        </div>
       </div>
 
       {!result?(
-        <div className="space-y-5">
-          <p className="text-sm" style={{color:C.t3}}>Enter each player&apos;s final chip count:</p>
-          <div className="space-y-3">
+        <div className="space-y-8 glass-panel p-5 sm:p-8 rounded-[2rem]">
+          <p className="text-sm sm:text-base font-semibold text-slate-300">Enter each player's final chip count:</p>
+          <div className="space-y-4">
           {game.players.map((p,i)=>(
-            <div key={p.id} className="flex items-center gap-3.5 rounded-2xl px-5 py-4 ar" style={{background:C.bg1,border:`1px solid ${C.border}`,animationDelay:`${i*50}ms`,boxShadow:"0 2px 8px rgba(0,0,0,.15)"}}>
-              {avatar(p.name,i,"w-9 h-9","text-xs")}
-              <div className="flex-1 min-w-0"><span className="text-sm font-medium" style={{color:C.t2}}>{p.name}</span>
-              <p className="text-xs mt-0.5" style={{color:C.t4}}>Inv: {CURRENCY}{p.cashInvested.toLocaleString()}</p></div>
-              <input type="number" value={fc[p.id]} onChange={e=>setFc(prev=>({...prev,[p.id]:e.target.value}))} placeholder="0"
-                className="w-24 rounded-xl px-3 py-2.5 text-sm text-right focus:outline-none border transition-all" style={{background:C.bg2,borderColor:C.borderLight,color:C.t2,fontFamily:mono}}/>
-              <span className="text-xs shrink-0" style={{color:C.t4}}>chips</span>
+            <div key={p.id} className="flex items-center gap-4 sm:gap-5 rounded-[1.5rem] px-5 sm:px-6 py-4 sm:py-5 glass-card animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+              {avatar(p.name, i, "w-10 h-10 sm:w-12 sm:h-12", "text-sm sm:text-base font-bold")}
+              <div className="flex-1 min-w-0">
+                <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
+                <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Inv: <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <input type="number" value={fc[p.id]} onChange={e=>setFc(prev=>({...prev,[p.id]:e.target.value}))} placeholder="0"
+                  className="w-20 sm:w-28 rounded-xl px-3 sm:px-4 py-3 text-base text-right glass-input font-mono shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"/>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 shrink-0 hidden sm:block">chips</span>
+              </div>
             </div>
           ))}
           </div>
-          {warning&&<div className="flex items-start gap-2.5 px-4 py-3.5 rounded-xl text-sm af" style={{background:"#422006",color:C.amber,border:`1px solid ${C.amberDark}`}}><AlertTriangle size={16} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
-          <Btn onClick={calc} full variant="amber"><Calculator size={16}/> Calculate Settlement</Btn>
+          {warning&&<div className="flex items-start gap-3 px-5 py-4 rounded-xl text-sm font-medium animate-fade-in bg-amber-500/10 border border-amber-500/20 text-amber-300"><AlertTriangle size={18} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
+          <div className="pt-2">
+            <Btn onClick={calc} full variant="amber" className="py-4 text-base"><Calculator size={20}/> Calculate Settlement</Btn>
+          </div>
         </div>
       ):(
-        <div className="space-y-7 as">
-          <div>
-            <h2 className="text-sm font-semibold mb-3.5" style={{color:C.t3}}>Player balances</h2>
-            <div className="space-y-2.5">{result.balances.map((b,i)=>(
-              <div key={b.name} className="flex items-center gap-3.5 rounded-2xl px-5 py-4 ar"
-                style={{background:C.bg1,border:`1px solid ${b.balance>0?C.greenDark:b.balance<0?C.redDark:C.border}`,animationDelay:`${i*60}ms`,boxShadow:"0 2px 8px rgba(0,0,0,.15)"}}>
-                <span className="text-sm font-medium flex-1" style={{color:C.t2}}>{b.name}</span>
+        <div className="space-y-8 animate-slide-up">
+          <div className="glass-panel p-5 sm:p-8 rounded-[2rem]">
+            <h2 className="text-sm font-semibold mb-5 tracking-wider uppercase text-slate-400">Player balances</h2>
+            <div className="space-y-3">{result.balances.map((b,i)=>(
+              <div key={b.name} className={`flex items-center gap-4 rounded-[1.5rem] px-5 py-4 animate-slide-up border ${b.balance>0?'bg-emerald-500/5 border-emerald-500/20':b.balance<0?'bg-rose-500/5 border-rose-500/20':'bg-white/5 border-white/10'}`} style={{animationDelay:`${i*60}ms`}}>
+                <span className="text-base sm:text-lg font-bold flex-1 text-slate-100 truncate">{b.name}</span>
                 <div className="text-right">
-                  <p className="text-xs" style={{color:C.t4}}>{b.finalChips} chips &middot; Inv. {CURRENCY}{b.invested.toLocaleString()}</p>
-                  <p className="text-sm font-bold mt-0.5" style={{color:b.balance>0?C.green:b.balance<0?C.red:C.t3,fontFamily:mono}}>{b.balance>=0?"+":""}{CURRENCY}{round2(b.balance).toLocaleString()}</p>
+                  <p className="text-xs font-medium text-slate-400"><span className="font-mono">{b.finalChips}</span> chips &middot; Inv. {CURRENCY}{b.invested.toLocaleString()}</p>
+                  <p className={`text-lg font-bold mt-1 font-mono ${b.balance>0?'text-emerald-400':b.balance<0?'text-rose-400':'text-slate-400'}`}>
+                    {b.balance>=0?"+":""}{CURRENCY}{round2(b.balance).toLocaleString()}
+                  </p>
                 </div>
               </div>
             ))}</div>
           </div>
 
-          {warning&&<div className="flex items-start gap-2.5 px-4 py-3.5 rounded-xl text-sm" style={{background:"#422006",color:C.amber,border:`1px solid ${C.amberDark}`}}><AlertTriangle size={16} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
+          {warning&&<div className="flex items-start gap-3 px-5 py-4 rounded-xl text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-300"><AlertTriangle size={18} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
 
           {lpData.length>0&&(
-            <div>
-              <h2 className="text-sm font-semibold mb-2.5" style={{color:C.t3}}>Already settled (left earlier)</h2>
-              <div className="space-y-1.5">{lpData.map((p,i)=>(
-                <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs" style={{background:C.bg1,border:`1px solid ${C.border}`,color:C.t4}}>
-                  <span style={{color:C.t3}}>{p.name}</span><span className="flex-1"/>
-                  <span style={{color:p.net>=0?C.green:C.red,fontFamily:mono}}>{p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}</span>
-                  {p.settledWith&&<span>w/ {p.settledWith}</span>}
+            <div className="glass-panel p-5 sm:p-8 rounded-[2rem]">
+              <h2 className="text-sm font-semibold mb-4 tracking-wider uppercase text-slate-400">Already settled (left earlier)</h2>
+              <div className="space-y-2">{lpData.map((p,i)=>(
+                <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-xl px-5 py-3.5 text-sm bg-slate-900/60 border border-white/5 text-slate-300">
+                  <span className="font-semibold text-slate-100">{p.name}</span><div className="flex-1 border-b border-dashed border-white/10 mx-2"/>
+                  <span className={`font-mono font-bold ${p.net>=0?'text-emerald-400':'text-rose-400'}`}>{p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}</span>
+                  {p.settledWith&&<span className="text-xs text-slate-500">w/ {p.settledWith}</span>}
                 </div>
               ))}</div>
             </div>
           )}
 
-          <div>
-            <h2 className="text-sm font-semibold mb-3.5 flex items-center gap-2" style={{color:C.t3}}>
-              <Sparkles size={14} style={{color:C.amber}}/> Settlements ({result.settlements.length} transaction{result.settlements.length!==1?"s":""})
+          <div className="glass-panel p-5 sm:p-8 rounded-[2rem] bg-gradient-to-b from-indigo-950/40 to-slate-900/60 shadow-[0_0_40px_rgba(79,70,229,0.1)] border-indigo-500/20">
+            <h2 className="text-base font-bold mb-6 flex items-center gap-3 text-indigo-200">
+              <Sparkles size={20} className="text-amber-400"/> Settlements ({result.settlements.length} transaction{result.settlements.length!==1?"s":""})
             </h2>
-            {result.settlements.length===0?<p className="text-sm" style={{color:C.t4}}>Everyone is even!</p>:(
-              <div className="space-y-2.5">{result.settlements.map((s,i)=>(
-                <div key={i} className="flex items-center gap-2 sm:gap-3.5 rounded-2xl px-4 sm:px-5 py-4 ar"
-                  style={{background:C.bg1,border:"1px solid #312e81",animationDelay:`${i*80}ms`,boxShadow:"0 2px 8px rgba(0,0,0,.15)"}}>
-                  <span className="text-xs sm:text-sm font-semibold shrink-0" style={{color:C.red}}>{s.from}</span>
-                  <div className="flex items-center gap-1.5 flex-1 justify-center min-w-0">
-                    <div className="h-px flex-1" style={{background:C.bg3}}/>
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0" style={{background:C.amber,color:C.bg2,fontFamily:mono}}>{CURRENCY}{s.amount.toLocaleString()}</span>
-                    <ArrowRight size={12} style={{color:C.t4}} className="shrink-0"/>
-                    <div className="h-px flex-1" style={{background:C.bg3}}/>
+            {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-emerald-400">Everyone is even! 🎉</p></div>:(
+              <div className="space-y-3">{result.settlements.map((s,i)=>(
+                <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-2xl px-5 py-4 animate-slide-up bg-slate-900/80 border border-indigo-500/30 shadow-lg" style={{animationDelay:`${i*80}ms`}}>
+                  <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
+                    <div className="h-px flex-1 bg-indigo-500/30"/>
+                    <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono shadow-[inset_0_0_10px_rgba(245,158,11,0.1)]">
+                      {CURRENCY}{s.amount.toLocaleString()}
+                    </span>
+                    <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
+                    <div className="h-px flex-1 bg-indigo-500/30"/>
                   </div>
-                  <span className="text-xs sm:text-sm font-semibold shrink-0" style={{color:C.green}}>{s.to}</span>
+                  <span className="text-sm sm:text-base font-bold shrink-0 text-emerald-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
                 </div>
               ))}</div>
             )}
           </div>
-          <div className="flex gap-2.5">
-            <Btn onClick={()=>setResult(null)} variant="secondary" full><RotateCcw size={16}/> Re-enter</Btn>
-            <Btn onClick={onReset} variant="danger" full><Trash2 size={16}/> New Game</Btn>
+          
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
+            <Btn onClick={()=>setResult(null)} variant="secondary" className="flex-1 py-4 text-base"><RotateCcw size={18}/> Re-enter</Btn>
+            <Btn onClick={onReset} variant="danger" className="flex-1 py-4 text-base"><Trash2 size={18}/> New Game</Btn>
           </div>
         </div>
       )}
@@ -692,17 +748,24 @@ export default function App() {
   const handleReset=async()=>{await store.delete(GAME_KEY);setGame(null);setPhase("setup");};
 
   if(phase==="loading") return (
-    <div className="flex items-center justify-center" style={{minHeight:"100vh",background:C.bg0}}>
-      <div style={{color:C.t4,animation:"pulse 1.5s infinite"}}><Coins size={32}/></div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-emerald-500 z-50">
+      <Coins size={48} className="animate-bounce" />
+      <div className="mt-4 text-slate-500 font-medium tracking-widest uppercase text-sm animate-pulse">Loading Ledger...</div>
     </div>
   );
 
   return (
-    <div style={{minHeight:"100vh",background:`linear-gradient(180deg,${C.bg0} 0%,${C.bg1} 100%)`,fontFamily:"'DM Sans',sans-serif",color:C.t2}}>
-      <style>{css}</style>
-      {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
-      {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames}/>}
-      {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={handleReset}/>}
-    </div>
+    <>
+      <div className="bg-glow-container">
+        <div className="bg-glow-1"></div>
+        <div className="bg-glow-2"></div>
+      </div>
+      
+      <div className="relative min-h-screen">
+        {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
+        {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames}/>}
+        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={handleReset}/>}
+      </div>
+    </>
   );
 }
