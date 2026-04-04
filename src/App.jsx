@@ -161,7 +161,7 @@ function PSelect({ players, value, onChange, exclude, label, showEndOption }) {
 }
 
 function Btn({ children, onClick, variant="primary", disabled, full, className="" }) {
-  const base = `rounded-xl px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base flex items-center justify-center gap-2.5 outline-none hover:-translate-y-0.5 ${full ? "w-full" : ""} ${className}`;
+  const base = `rounded-xl px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base flex items-center justify-center gap-2.5 outline-none ${full ? "w-full" : ""} ${className}`;
   const variants = {
     primary: "glass-button-primary",
     secondary: "glass-button-secondary",
@@ -194,7 +194,7 @@ function Toggle({ options, value, onChange }) {
         const IconComponent = iComp;
         return (
           <button key={val} onClick={()=>onChange(val)}
-            className={`flex-1 flex items-center justify-center gap-2 sm:gap-2.5 rounded-xl px-3 py-3 text-xs sm:text-sm font-medium transition-all duration-300 border ${
+            className={`flex-1 flex items-center justify-center gap-2 sm:gap-2.5 rounded-xl px-3 py-3 text-xs sm:text-sm font-medium transition-colors duration-150 border ${
               value === val 
               ? `bg-${activeColor}-500/15 border-${activeColor}-500/30 text-${activeColor}-400 shadow-[inset_0_0_12px_rgba(0,0,0,0.2)]` 
               : 'bg-slate-900/40 border-white/5 text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
@@ -510,7 +510,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     setErr("");
     setBiTarget(id);
     setBiMode(mode);
-    setBiSources([{ id: Date.now(), type: mode === "add" ? "player" : "bank", player: "", chips: 0, money: 0 }]);
+    setBiSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]);
     setModal("buyin");
   }, []);
 
