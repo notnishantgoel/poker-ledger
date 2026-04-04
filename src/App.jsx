@@ -38,17 +38,22 @@ function pid() { return String(_pid++); }
 const haptic = () => { try { if(navigator.vibrate) navigator.vibrate(40); } catch { /* ignore */ } };
 
 function computeSettlements(netBalances) {
+  // Clone balances to avoid mutating the original objects used for display
   const b = netBalances.map(x => ({ ...x, balance: round2(x.balance) }));
   const out = [];
-  for (let i = 0; i < 200; i++) {
-    const maxC = b.reduce((m, x) => x.balance > m.balance ? x : m, b[0]);
-    const maxD = b.reduce((m, x) => x.balance < m.balance ? x : m, b[0]);
-    if (maxC.balance < 0.5 && maxD.balance > -0.5) break;
-    const amt = round2(Math.min(maxC.balance, Math.abs(maxD.balance)));
-    if (amt < 0.5) break;
-    out.push({ from: maxD.name, to: maxC.name, amount: amt });
-    maxC.balance = round2(maxC.balance - amt);
-    maxD.balance = round2(maxD.balance + amt);
+  const p = b.filter(x => x.balance > 0.01).sort((a,b)=>b.balance-a.balance);
+  const n = b.filter(x => x.balance < -0.01).sort((a,b)=>a.balance-b.balance);
+
+  let pi=0; let ni=0;
+  while(pi < p.length && ni < n.length) {
+    const amt = Math.min(p[pi].balance, Math.abs(n[ni].balance));
+    if (amt > 0.01) {
+      out.push({ from: n[ni].name, to: p[pi].name, amount: round2(amt) });
+    }
+    p[pi].balance = round2(p[pi].balance - amt);
+    n[ni].balance = round2(n[ni].balance + amt);
+    if(p[pi].balance <= 0.01) pi++;
+    if(Math.abs(n[ni].balance) <= 0.01) ni++;
   }
   return out;
 }
@@ -782,7 +787,7 @@ function SettleScreen({ game, onBack, onReset }) {
           <div className="space-y-4">
           {game.players.map((p,i)=>(
             <div key={p.id} className="flex items-center gap-4 sm:gap-5 rounded-[1.5rem] px-5 sm:px-6 py-4 sm:py-5 glass-card animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
-              {avatar(p.name, i, "w-10 h-10 sm:w-12 sm:h-12", "text-sm sm:text-base font-bold")}
+              <Avatar name={p.name} i={i} size="w-10 h-10 sm:w-12 sm:h-12" textSize="text-sm sm:text-base font-bold" />
               <div className="flex-1 min-w-0">
                 <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
                 <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Inv: <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
