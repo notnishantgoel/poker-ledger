@@ -6,8 +6,14 @@ import {
   Plus, Trash2, ArrowRightLeft, Landmark, Calculator, X,
   Coins, AlertTriangle, Check, ChevronDown, Play,
   RotateCcw, ArrowRight, Sparkles, Search, UserPlus,
-  LogOut, Building2, Users, Palette, Crown, Download, Share2
+  LogOut, Building2, Users, Palette, Crown, Download, Share2,
+  Link2, Wifi, WifiOff, Copy, ExternalLink
 } from "lucide-react";
+import {
+  createSession, joinSession, updateSessionGame,
+  listenToSession, deleteSession, isFirebaseReady,
+  getSessionUrl, getSessionIdFromUrl
+} from "./firebase.js";
 import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
@@ -443,7 +449,7 @@ function SetupScreen({ onStart, savedNames }) {
 }
 
 /* ─────────── DASHBOARD ─────────── */
-function DashboardScreen({ game, setGame, onSettle, savedNames }) {
+function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewerCount }) {
   const [modal, setModal] = useState(null);
   const [err, setErr] = useState("");
   const [biTarget, setBiTarget] = useState(""); const [biSrc, setBiSrc] = useState("bank"); const [biSrcP, setBiSrcP] = useState(""); const [biAmt, setBiAmt] = useState({chips:0,money:0});
@@ -584,6 +590,14 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
             <span className="bg-theme-500/20 text-theme-400 px-1.5 py-0.5 rounded border border-theme-500/20">{game.players.length} active</span>
             <span>&middot;</span> 
             <span>{CURRENCY}{game.chipValue}/chip</span>
+            {sessionId && (
+              <>
+                <span>&middot;</span>
+                <span className="flex items-center gap-1 bg-blue-500/15 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20">
+                  <Wifi size={10} /> Live{viewerCount > 1 ? ` · ${viewerCount}` : ''}
+                </span>
+              </>
+            )}
           </p>
         </div>
         
@@ -935,24 +949,154 @@ export default function App() {
   const [savedNames,setSavedNames]=useState([]);
   const [exitPrompt, setExitPrompt]=useState(false);
 
+  // ── Session state ──
+  const [sessionId, setSessionId] = useState(null);
+  const [_isHost, setIsHost] = useState(false);
+  const [viewerCount, setViewerCount] = useState(0);
+  const [shareModal, setShareModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const unsubRef = useRef(null);
+  const isRemoteUpdate = useRef(false);
+
+  // ── Initial load: check URL for session, or load from localStorage ──
   useEffect(()=>{(async()=>{
+    const urlSessionId = getSessionIdFromUrl();
+    
+    if (urlSessionId && isFirebaseReady()) {
+      // Joining a shared session
+      try {
+        const sessionData = await joinSession(urlSessionId);
+        if (sessionData && sessionData.game) {
+          setSessionId(urlSessionId);
+          setIsHost(false);
+          isRemoteUpdate.current = true;
+          setGame(sessionData.game);
+          setPhase(sessionData.game.phase || "game");
+          return;
+        }
+      } catch (e) {
+        console.warn("Failed to join session:", e);
+      }
+    }
+    
+    // Fallback: load from localStorage
     const g=await store.get(GAME_KEY); const n=await store.get(NAMES_KEY);
     setSavedNames(n||[]);
     if(g&&g.phase){setGame(g);setPhase(g.phase);} else setPhase("setup");
   })();},[]);
 
+  // ── Listen for real-time changes when in a session ──
+  useEffect(() => {
+    if (!sessionId || !isFirebaseReady()) return;
+    
+    const unsub = listenToSession(sessionId, (data) => {
+      if (!data) {
+        // Session was deleted
+        setSessionId(null);
+        setIsHost(false);
+        return;
+      }
+      setViewerCount(data.viewerCount || 1);
+      if (data.game) {
+        isRemoteUpdate.current = true;
+        setGame(data.game);
+        if (data.game.phase) setPhase(data.game.phase);
+      }
+    });
+    unsubRef.current = unsub;
+    
+    return () => { if (unsub) unsub(); };
+  }, [sessionId]);
+
+  // ── Persist game state (localStorage + Firebase) ──
   useEffect(()=>{
-    if(game){
-      store.set(GAME_KEY,{...game,phase});
-      const names=[...(game.players||[]),...(game.leftPlayers||[])].map(p=>p.name);
-      setTimeout(()=>{
-        setSavedNames(prev=>{const m=[...new Set([...prev,...names])];store.set(NAMES_KEY,m);return m;});
-      }, 0);
+    if (!game) return;
+    
+    // Always save to localStorage
+    store.set(GAME_KEY,{...game,phase});
+    const names=[...(game.players||[]),...(game.leftPlayers||[])].map(p=>p.name);
+    setTimeout(()=>{
+      setSavedNames(prev=>{const m=[...new Set([...prev,...names])];store.set(NAMES_KEY,m);return m;});
+    }, 0);
+    
+    // Write to Firebase if in a session and this is a LOCAL change
+    if (sessionId && isFirebaseReady() && !isRemoteUpdate.current) {
+      updateSessionGame(sessionId, {...game, phase}).catch(console.warn);
     }
-  },[game,phase]);
+    isRemoteUpdate.current = false;
+  },[game,phase,sessionId]);
 
   const handleStart=data=>{setGame(data);setPhase("game");};
-  const handleReset=async()=>{await store.delete(GAME_KEY);setGame(null);setPhase("setup");};
+  const handleReset=async()=>{
+    if (sessionId) {
+      try { await deleteSession(sessionId); } catch(e) { console.warn(e); }
+      setSessionId(null);
+      setIsHost(false);
+      window.location.hash = '';
+    }
+    await store.delete(GAME_KEY);
+    setGame(null);
+    setPhase("setup");
+  };
+
+  // ── Share session ──
+  const handleShare = async () => {
+    if (!isFirebaseReady()) {
+      alert("Firebase is not configured. Please set up Firebase first.");
+      return;
+    }
+    
+    if (sessionId) {
+      // Already shared — just show the modal
+      setShareModal(true);
+      return;
+    }
+    
+    try {
+      const hostName = game?.players?.[0]?.name || "Host";
+      const id = await createSession({...game, phase}, hostName);
+      setSessionId(id);
+      setIsHost(true);
+      window.location.hash = `/session/${id}`;
+      setShareModal(true);
+    } catch (e) {
+      console.error("Failed to create session:", e);
+      alert("Failed to create session. Check Firebase config.");
+    }
+  };
+  
+  const copyLink = () => {
+    if (!sessionId) return;
+    const url = getSessionUrl(sessionId);
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // Fallback for mobile
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const nativeShare = () => {
+    if (!sessionId) return;
+    const url = getSessionUrl(sessionId);
+    if (navigator.share) {
+      navigator.share({
+        title: 'Poker Ledger Session',
+        text: 'Join my poker session!',
+        url: url,
+      }).catch(()=>{});
+    } else {
+      copyLink();
+    }
+  };
 
   if(phase==="loading") return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-theme-500 z-50">
@@ -972,9 +1116,20 @@ export default function App() {
         {phase!=="loading"&&phase!=="setup"&&(
           <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex gap-2">
             {phase==="game" && (
-              <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 transition-all shadow-[0_4px_15px_rgba(59,130,246,0.2)] backdrop-blur-md">
-                <UserPlus size={18} />
-              </button>
+              <>
+                {isFirebaseReady() && (
+                  <button onClick={()=>{haptic(); handleShare();}} className={`p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border transition-all backdrop-blur-md ${
+                    sessionId 
+                      ? 'border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 shadow-[0_4px_15px_rgba(59,130,246,0.2)]' 
+                      : 'border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 shadow-[0_4px_15px_rgba(168,85,247,0.2)]'
+                  }`}>
+                    {sessionId ? <Wifi size={18} /> : <Share2 size={18} />}
+                  </button>
+                )}
+                <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 transition-all shadow-[0_4px_15px_rgba(59,130,246,0.2)] backdrop-blur-md">
+                  <UserPlus size={18} />
+                </button>
+              </>
             )}
             <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
               <LogOut size={18} />
@@ -982,14 +1137,47 @@ export default function App() {
           </div>
         )}
         {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
-        {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames}/>}
+        {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} />}
         {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={()=>setExitPrompt(true)}/>}
 
+        {/* Exit Confirmation */}
         <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">Are you sure you want to completely end this game and return to the home screen? All current game data will be lost permanently.</p>
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">Are you sure you want to completely end this game and return to the home screen? {sessionId ? 'This will end the shared session for everyone.' : 'All current game data will be lost permanently.'}</p>
           <div className="flex gap-3">
             <Btn onClick={()=>setExitPrompt(false)} variant="secondary" className="flex-1">Cancel</Btn>
             <Btn onClick={()=>{setExitPrompt(false);handleReset();}} variant="danger" className="flex-1">End Game</Btn>
+          </div>
+        </Modal>
+
+        {/* Share Session Modal */}
+        <Modal open={shareModal} onClose={()=>setShareModal(false)} title="Share Session" icon={<div className="p-2 bg-purple-500/20 rounded-lg text-purple-400"><Link2 size={20}/></div>}>
+          <div className="space-y-5">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-semibold mb-4">
+                <Wifi size={14} /> Session Active
+              </div>
+              <p className="text-slate-400 text-sm">Anyone with this link can view and edit the game in real-time.</p>
+            </div>
+            
+            {sessionId && (
+              <div className="bg-slate-950/60 border border-white/10 rounded-xl p-4 font-mono text-sm text-slate-300 break-all select-text">
+                {getSessionUrl(sessionId)}
+              </div>
+            )}
+            
+            <div className="flex gap-3">
+              <Btn onClick={copyLink} variant="secondary" full className="flex-1">
+                {copied ? <><Check size={16}/> Copied!</> : <><Copy size={16}/> Copy Link</>}
+              </Btn>
+              <Btn onClick={nativeShare} variant="primary" full className="flex-1">
+                <ExternalLink size={16}/> Share
+              </Btn>
+            </div>
+            
+            <div className="text-center text-xs text-slate-500">
+              Session Code: <span className="font-mono font-bold text-slate-400">{sessionId}</span>
+              {viewerCount > 0 && <span className="ml-2">· {viewerCount} connected</span>}
+            </div>
           </div>
         </Modal>
       </div>
