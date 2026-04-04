@@ -138,9 +138,9 @@ function Modal({ open, onClose, title, icon, children }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 sm:px-4">
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-fade-in" onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl overflow-hidden max-h-[90vh] overflow-y-auto glass-panel animate-slide-up shadow-[0_0_40px_rgba(0,0,0,0.5)]">
-        <div className="flex items-center gap-3 px-6 py-5 sticky top-0 z-10 bg-slate-900/90 backdrop-blur-xl border-b border-white/5">
+      <div className="absolute inset-0 bg-slate-950/80 animate-fade-in" onClick={onClose} />
+      <div className="relative w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl overflow-hidden max-h-[90vh] overflow-y-auto glass-panel animate-slide-up shadow-[0_0_40px_rgba(0,0,0,0.5)]" style={{willChange:'transform'}}>
+        <div className="flex items-center gap-3 px-6 py-5 sticky top-0 z-10 bg-slate-900/95 border-b border-white/5">
           {icon}
           <h3 className="text-lg font-semibold flex-1 text-slate-100">{title}</h3>
           <button onClick={onClose} className="p-2 -mr-2 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/5 text-slate-400 transition-all"><X size={20}/></button>
@@ -546,14 +546,12 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     setLp(""); setLFinalAmount({chips:0,money:0}); setLDestSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]); setLStep(1); setLCalc(null); setLSetP(""); setLSettlements([{ id: Date.now(), player: "", amount: 0 }]); setLSettleAtEnd(false);
   };
   const open = m => { reset(); setTimeout(()=>setModal(m),0); };
-  const openBi = (id, mode = "add") => { 
-    reset(); 
-    setTimeout(()=>{
-      setBiTarget(id); 
-      setBiMode(mode);
-      setBiSources([{ id: Date.now(), type: mode === "add" ? "player" : "bank", player: "", chips: 0, money: 0 }]);
-      setModal("buyin");
-    }, 0); 
+  const openBi = (id, mode = "add") => {
+    setErr("");
+    setBiTarget(id);
+    setBiMode(mode);
+    setBiSources([{ id: Date.now(), type: mode === "add" ? "player" : "bank", player: "", chips: 0, money: 0 }]);
+    setModal("buyin");
   };
 
   const submitBuyIn = () => {
