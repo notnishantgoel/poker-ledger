@@ -127,15 +127,16 @@ function Modal({ open, onClose, title, icon, children }) {
   );
 }
 
-function PSelect({ players, value, onChange, exclude, label }) {
+function PSelect({ players, value, onChange, exclude, label, showEndOption }) {
   const exc = Array.isArray(exclude) ? exclude : exclude ? [exclude] : [];
   return (
     <div>
       <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">{label}</label>
       <select value={value} onChange={e=>onChange(e.target.value)}
         className="w-full rounded-xl px-4 py-3.5 text-sm sm:text-base glass-input text-slate-200 cursor-pointer">
-        <option value="" className="bg-slate-900 text-slate-400">Select player...</option>
+        <option value="" className="bg-slate-900 text-slate-400">Select...</option>
         {players.filter(p=>!exc.includes(p.id)).map(p=><option key={p.id} value={p.id} className="bg-slate-800 text-slate-100">{p.name}</option>)}
+        {showEndOption && <option value="end-game" className="bg-slate-800 text-amber-400">Settle at end of game</option>}
       </select>
     </div>
   );
@@ -519,11 +520,16 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
 
     let settledWithName = null;
     if(Math.abs(lCalc.net)>=0.5&&lSetP) {
-      up = up.map(p => p.id === lSetP ? {...p, cashInvested: round2(p.cashInvested + lCalc.net)} : p);
-      const sw=up.find(x=>x.id===lSetP);
-      settledWithName = sw.name;
-      if(lCalc.net>0) txns.push({type:"leave-settle",from:sw.name,to:lCalc.name,amount:round2(lCalc.net),time:Date.now()});
-      else txns.push({type:"leave-settle",from:lCalc.name,to:sw.name,amount:round2(Math.abs(lCalc.net)),time:Date.now()});
+      if (lSetP !== "end-game") {
+        up = up.map(p => p.id === lSetP ? {...p, cashInvested: round2(p.cashInvested + lCalc.net)} : p);
+        const sw=up.find(x=>x.id===lSetP);
+        settledWithName = sw?.name || null;
+      } else {
+        settledWithName = null; // Will show as End of Game
+      }
+      
+      if(lCalc.net>0) txns.push({type:"leave-settle",from:settledWithName||"END-OF-GAME",to:lCalc.name,amount:round2(lCalc.net),time:Date.now()});
+      else txns.push({type:"leave-settle",from:lCalc.name,to:settledWithName||"END-OF-GAME",amount:round2(Math.abs(lCalc.net)),time:Date.now()});
     }
 
     const ulp=game.players.find(x=>x.id===lp);
@@ -705,9 +711,9 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
             {Math.abs(lCalc.net)>=0.5?(
               <>
                 <div className={`rounded-xl px-5 py-4 text-sm font-medium border shadow-inner ${lCalc.net>0?'bg-theme-500/10 border-theme-500/20 text-theme-300':'bg-rose-500/10 border-rose-500/20 text-rose-300'}`}>
-                  {lCalc.net>0?`${lCalc.name} is owed ${CURRENCY}${round2(lCalc.net).toLocaleString()}. Who pays?`:`${lCalc.name} owes ${CURRENCY}${round2(Math.abs(lCalc.net)).toLocaleString()}. Who gets paid?`}
+                  {lCalc.net>0?`${lCalc.name} is owed ${CURRENCY}${round2(lCalc.net).toLocaleString()}. Who handles it?`:`${lCalc.name} owes ${CURRENCY}${round2(Math.abs(lCalc.net)).toLocaleString()}. Who gets it?`}
                 </div>
-                <PSelect players={game.players} value={lSetP} onChange={setLSetP} exclude={lp} label={lCalc.net>0?"Who pays them?":"Who do they pay?"}/>
+                <PSelect players={game.players} value={lSetP} onChange={setLSetP} exclude={lp} label="Settlement Responsibility" showEndOption={true} />
               </>
             ):(
               <div className="rounded-xl px-5 py-4 text-sm font-medium flex items-center gap-3 bg-theme-500/10 border border-theme-500/30 text-theme-300 shadow-[inset_0_0_20px_rgba(16,185,129,0.1)]">
@@ -738,9 +744,32 @@ function SettleScreen({ game, onBack, onReset }) {
   const calc = () => {
     setWarning("");
     if(Math.abs(tf-tb)>0.5) setWarning(`Chip mismatch! Final (${round2(tf)}) ≠ bank (${round2(tb)}). Diff: ${round2(Math.abs(tf-tb))}`);
-    const bal = game.players.map(p=>{const f=parseFloat(fc[p.id])||0;return{name:p.name,balance:round2(f*game.chipValue-p.cashInvested),finalChips:f,invested:p.cashInvested};});
+    
+    // 1. Current players
+    const bal = game.players.map(p=>{
+      const f=parseFloat(fc[p.id])||0;
+      return{name:p.name,balance:round2(f*game.chipValue-p.cashInvested),finalChips:f,invested:p.cashInvested};
+    });
+
+    // 2. Add non-settled left players to the debt pool
+    const lpBalances = (game.leftPlayers||[])
+      .filter(p => !p.settledWith) // Those who chose "Settle at End"
+      .map(p => ({
+        name: p.name,
+        balance: p.net,
+        finalChips: p.finalChips,
+        invested: p.cashInvested,
+        isLeft: true
+      }));
+
+    const combined = [...bal, ...lpBalances];
     const winnerName = bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0])?.balance > 0 ? bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0]).name : null;
-    setResult({balances:bal,settlements:computeSettlements(bal), winner: winnerName});
+    
+    setResult({
+      balances: bal, // Display only on-table players in the balance list
+      settlements: computeSettlements(combined), // Calculate settlements for everyone
+      winner: winnerName
+    });
   };
   const lpData=game.leftPlayers||[];
 
