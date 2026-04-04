@@ -283,7 +283,7 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
 });
 
 /* ─────────── SETUP ─────────── */
-function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi, onViewHistory }) {
+function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi }) {
   const [chipValue, setChipValue] = useState("");
   const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0},{id:"4",name:"",chips:0,money:0}]);
   const [error, setError] = useState("");
@@ -336,7 +336,12 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi, onViewHistory }
     
     onStart({
       chipValue:cv,
-      players:valid.map(p=>({id:p.id,name:p.name.trim(),cashInvested:round2(p.chips*cv)})),
+      players:valid.map(p=>({
+        id:p.id,
+        name:p.name.trim(),
+        cashInvested:round2(p.chips*cv),
+        upi: upiMap && upiMap[p.name.trim()] ? upiMap[p.name.trim()] : ""
+      })),
       totalBankChips:valid.reduce((s,p)=>s+p.chips,0),
       leftPlayers:[],
       transactions:valid.map(p=>({type:"initial",player:p.name.trim(),chips:p.chips,money:round2(p.chips*cv),time:Date.now()})),
@@ -388,15 +393,12 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi, onViewHistory }
             <span className="text-sm sm:text-base font-bold text-slate-200">Players</span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-theme-500/15 text-theme-400 border border-theme-500/20">{players.filter(p=>p.name.trim()).length}/{players.length}</span>
           </div>
-          <div className="flex gap-2">
-            <button onClick={onViewHistory} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 transition-colors">
-              <History size={12}/> History
+          <div className="flex gap-1.5 sm:gap-2">
+            <button onClick={quickFill} className="flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
+              <Sparkles size={14}/> <span className="hidden sm:inline">Auto-fill</span>
             </button>
-            <button onClick={quickFill} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
-              <Sparkles size={12}/> Auto-fill
-            </button>
-            <button onClick={addP} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-theme-500/30 bg-theme-500/10 hover:bg-theme-500/20 text-theme-400 transition-colors">
-              <Plus size={12}/> Add
+            <button onClick={addP} className="flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-theme-500/30 bg-theme-500/10 hover:bg-theme-500/20 text-theme-400 transition-colors">
+              <Plus size={14}/> <span className="hidden sm:inline">Add Player</span><span className="sm:hidden">Add</span>
             </button>
           </div>
         </div>
@@ -411,20 +413,20 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi, onViewHistory }
         <div className="space-y-2">
           {players.map((p,i)=>(
             <div key={p.id} className="rounded-xl p-2 sm:p-4 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
-              <div className="flex items-center gap-2 sm:gap-4 mb-2">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">
+              <div className="flex items-start gap-2 sm:gap-4 mb-2">
+                <div className="mt-2 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">
                   {i+1}
                 </div>
-                <div className="flex-1 relative min-w-0 flex flex-col gap-1.5">
+                <div className="flex-1 relative min-w-0 flex flex-col gap-2">
                   <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
                     onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
-                    className="w-full rounded-xl px-3 py-2 text-sm sm:text-base glass-input" />
+                    className="w-full rounded-xl px-3 py-2.5 sm:py-2 text-sm sm:text-base glass-input" />
                   
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Smartphone size={12}/></span>
                     <input value={p.name ? upiMap[p.name] || "" : ""} onChange={e=>p.name && onUpdateUpi(p.name, e.target.value)} 
                       placeholder="UPI ID or Num (optional)"
-                      className="w-full rounded-lg pl-7 pr-3 py-1.5 text-xs glass-input placeholder:text-slate-600 focus:bg-slate-900/60"
+                      className="w-full rounded-lg pl-8 pr-3 py-2 text-xs glass-input placeholder:text-slate-600 focus:bg-slate-900/60"
                       disabled={!p.name} />
                   </div>
 
@@ -788,9 +790,15 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 }
 
 /* ─────────── SETTLE ─────────── */
-function SettleScreen({ game, onBack, onReset, upiMap }) {
+function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult }) {
   const [fc, setFc] = useState(()=>{const m={};game.players.forEach(p=>m[p.id]="");return m;});
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(game.settleResult || null);
+  const [prevGameResult, setPrevGameResult] = useState(game.settleResult);
+  
+  if (game.settleResult !== prevGameResult) {
+    setPrevGameResult(game.settleResult);
+    setResult(game.settleResult);
+  }
   const [warning, setWarning] = useState("");
   const tb = game.totalBankChips;
   const tf = Object.values(fc).reduce((s,v)=>s+(parseFloat(v)||0),0);
@@ -820,11 +828,13 @@ function SettleScreen({ game, onBack, onReset, upiMap }) {
     const combined = [...bal, ...lpBalances];
     const winnerName = bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0])?.balance > 0 ? bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0]).name : null;
     
-    setResult({
+    const finalResult = {
       balances: bal, // Display only on-table players in the balance list
       settlements: computeSettlements(combined), // Calculate settlements for everyone
       winner: winnerName
-    });
+    };
+    if (onSettleResult) onSettleResult(finalResult);
+    setResult(finalResult);
   };
   const lpData=game.leftPlayers||[];
 
@@ -927,8 +937,11 @@ function SettleScreen({ game, onBack, onReset, upiMap }) {
               <Sparkles size={20} className="text-amber-400"/> Settlements ({result.settlements.length} transaction{result.settlements.length!==1?"s":""})
             </h2>
             {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>:(
-              <div className="space-y-3">{result.settlements.map((s,i)=>(
-                <div key={i} className="flex flex-col gap-2 rounded-2xl px-5 py-4 animate-slide-up bg-slate-900/80 border border-indigo-500/30 shadow-lg" style={{animationDelay:`${i*80}ms`}}>
+              <div className="space-y-3">{result.settlements.map((s,i)=>{
+                const pInfo = game.players.find(p=>p.name===s.to) || game.leftPlayers?.find(p=>p.name===s.to);
+                const targetUpi = pInfo?.upi || (upiMap && upiMap[s.to]);
+                return (
+                 <div key={i} className="flex flex-col gap-2 rounded-2xl px-5 py-4 animate-slide-up bg-slate-900/80 border border-indigo-500/30 shadow-lg" style={{animationDelay:`${i*80}ms`}}>
                   <div className="flex items-center gap-3 sm:gap-4">
                     <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
                     <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
@@ -941,22 +954,26 @@ function SettleScreen({ game, onBack, onReset, upiMap }) {
                     </div>
                     <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
                   </div>
-                  {upiMap && upiMap[s.to] && (
+                  {targetUpi && (
                     <div className="flex justify-end mt-1">
-                      <a href={`upi://pay?pa=${upiMap[s.to]}&pn=${encodeURIComponent(s.to)}&am=${s.amount}&cu=INR`} 
+                      <a href={`upi://pay?pa=${targetUpi}&pn=${encodeURIComponent(s.to)}&am=${s.amount}&cu=INR`} 
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors text-xs font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]"
                         onClick={()=>haptic()}>
                         <QrCode size={14}/> Pay with UPI
                       </a>
                     </div>
                   )}
-                </div>
-              ))}</div>
+                 </div>
+                );
+              })}</div>
             )}
           </div>
           
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-4">
-            <Btn onClick={()=>setResult(null)} variant="secondary" className="flex-1 py-3 text-sm sm:text-base"><RotateCcw size={18}/> Re-enter</Btn>
+            <Btn onClick={()=>{
+              setResult(null);
+              if (onSettleResult) onSettleResult(null);
+            }} variant="secondary" className="flex-1 py-3 text-sm sm:text-base"><RotateCcw size={18}/> Re-enter</Btn>
             <Btn onClick={()=>{haptic(); shareReceipt();}} variant="primary" className="flex-1 py-3 text-sm sm:text-base"><Download size={18}/> Share Receipt</Btn>
             <Btn onClick={()=>onReset(result)} variant="danger" className="flex-1 py-3 text-sm sm:text-base"><Trash2 size={18}/> New Game</Btn>
           </div>
@@ -1222,8 +1239,13 @@ export default function App() {
       </div>
       
       <div className="relative min-h-screen pt-2 sm:pt-0">
-        {phase!=="loading"&&phase!=="setup"&&(
+        {phase!=="loading"&&(
           <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex gap-2">
+            {phase==="setup" && (
+              <button onClick={()=>{haptic(); setPhase("history");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-all shadow-[0_4px_15px_rgba(168,85,247,0.2)] backdrop-blur-md">
+                <History size={18} />
+              </button>
+            )}
             {phase==="game" && (
               <>
                 {isFirebaseReady() && (
@@ -1240,15 +1262,17 @@ export default function App() {
                 </button>
               </>
             )}
-            <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
-              <LogOut size={18} />
-            </button>
+            {(phase==="game" || phase==="settle") && (
+              <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
+                <LogOut size={18} />
+              </button>
+            )}
           </div>
         )}
-        {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} onViewHistory={()=>setPhase("history")} />}
+        {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase("setup")} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} />}
-        {phase==="settle"&&game&&<SettleScreen game={game} upiMap={upiMap} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)}/>}
+        {phase==="settle"&&game&&<SettleScreen game={game} upiMap={upiMap} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))}/>}
 
         {/* Exit Confirmation */}
         <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
