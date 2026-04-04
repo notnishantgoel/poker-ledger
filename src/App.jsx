@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useSwipeable } from "react-swipeable";
 import SlotCounter from "react-slot-counter";
 import * as htmlToImage from "html-to-image";
