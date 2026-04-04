@@ -1225,13 +1225,15 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
             const currentChips = parseFloat(fc[p.id]) || 0;
             const maxForPlayer = round2(currentChips + remaining);
             return (
-            <div key={p.id} className="flex items-center gap-4 sm:gap-5 rounded-[1.5rem] px-5 sm:px-6 py-4 sm:py-5 glass-card animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
-              <Avatar name={p.name} i={i} size="w-10 h-10 sm:w-12 sm:h-12" textSize="text-sm sm:text-base font-bold" />
-              <div className="flex-1 min-w-0">
-                <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
-                <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Inv: <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
+            <div key={p.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5 rounded-[1.5rem] px-4 sm:px-6 py-4 sm:py-5 glass-card animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+              <div className="flex items-center gap-3 sm:gap-4 sm:flex-1 sm:min-w-0">
+                <Avatar name={p.name} i={i} size="w-9 h-9 sm:w-12 sm:h-12" textSize="text-sm sm:text-base font-bold" />
+                <div className="min-w-0">
+                  <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
+                  <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Inv: <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
+                </div>
               </div>
-              <div className="w-48 sm:w-64">
+              <div className="sm:w-64">
                 <TwoWayInput chipValue={game.chipValue} chips={currentChips} money={round2(currentChips*game.chipValue)}
                   onChange={(v) => handleFcChange(p.id, v.chips)} chipLabel={null} moneyLabel={null}
                   maxChips={maxForPlayer} />
