@@ -26,7 +26,7 @@ const store = {
     } catch (e) { console.error("Storage error:", e); }
   },
   async delete(key) {
-    try { localStorage.removeItem(key); } catch {}
+    try { localStorage.removeItem(key); } catch (_err) { /* ignore */ }
   }
 };
 
@@ -34,9 +34,9 @@ function round2(n) { return Math.round(n * 100) / 100; }
 let _pid = 100;
 function pid() { return String(_pid++); }
 
-export const haptic = () => { try { if(navigator.vibrate) navigator.vibrate(40); } catch(e){} };
+const haptic = () => { try { if(navigator.vibrate) navigator.vibrate(40); } catch(_e){ /* ignore */ } };
 
-export function AnimatedNumber({ value, prefix="", suffix="", decimals=0, duration=400 }) {
+function AnimatedNumber({ value, prefix="", suffix="", decimals=0, duration=400 }) {
   const [displayValue, setDisplayValue] = useState(value);
   const rafRef = useRef(null);
 
@@ -58,6 +58,7 @@ export function AnimatedNumber({ value, prefix="", suffix="", decimals=0, durati
     };
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, duration]);
 
   const formatted = decimals > 0 ? displayValue.toFixed(decimals) : Math.round(displayValue).toString();
@@ -84,21 +85,19 @@ function computeSettlements(netBalances) {
 
 function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel }) {
   const [focus, setFocus] = useState(null);
-
-  const getSwipeHandlers = (id) => useSwipeable({
-    onSwipedLeft: () => { setLp(id); open("leave"); haptic(); },
-    onSwipedRight: () => { setBuyPlayer(id); open("add"); haptic(); },
-    trackMouse: false,
-    preventScrollOnSwipe: true,
-    delta: 50
-  });
   const [cStr, setCStr] = useState(chips > 0 ? String(chips) : "");
   const [mStr, setMStr] = useState(money > 0 ? String(money) : "");
   
   useEffect(() => {
-    if (focus !== "c") setCStr(chips > 0 ? String(round2(chips)) : "");
-    if (focus !== "m") setMStr(money > 0 ? String(round2(money)) : "");
-  }, [chips, money]);
+    let focusTimer;
+    if (focus !== "c") {
+      focusTimer = setTimeout(() => setCStr(chips > 0 ? String(round2(chips)) : ""), 0);
+    }
+    if (focus !== "m") {
+      focusTimer = setTimeout(() => setMStr(money > 0 ? String(round2(money)) : ""), 0);
+    }
+    return () => clearTimeout(focusTimer);
+  }, [chips, money, focus]);
   
   const onC = e => { const v=e.target.value; setCStr(v); setFocus("c"); const n=parseFloat(v)||0; const m=round2(n*chipValue); setMStr(m>0?String(m):""); onChange({chips:n,money:m}); };
   const onM = e => { const v=e.target.value; setMStr(v); setFocus("m"); const n=parseFloat(v)||0; const c=chipValue>0?round2(n/chipValue):0; setCStr(c>0?String(c):""); onChange({chips:c,money:n}); };
@@ -117,10 +116,10 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel 
       <div className="flex-1 min-w-0">
         {chipLabel !== null && <label className="text-[10px] sm:text-xs font-semibold mb-1.5 block tracking-wider uppercase text-slate-400">{chipLabel || "Chips"}</label>}
         <div className="relative group flex items-center">
-          <button onClick={(e)=>{haptic(); adjustC(-10)}} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>
+          <button onClick={()=>{haptic(); adjustC(-10)}} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>
           <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0" 
             className={`w-full rounded-xl px-7 text-center py-2 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-theme-500/20 focus:border-theme-500/50" : ""}`} />
-          <button onClick={(e)=>{haptic(); adjustC(10)}} className="absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">+</button>
+          <button onClick={()=>{haptic(); adjustC(10)}} className="absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">+</button>
         </div>
       </div>
       <div className="pb-2 text-slate-500 font-medium shrink-0">=</div>
@@ -197,14 +196,14 @@ function Err({ msg }) {
 function Toggle({ options, value, onChange }) {
   return (
     <div className="flex gap-2">
-      {options.map(([val,lbl,Icon,activeColor])=>(
+      {options.map(([val,lbl,IconComp,activeColor])=>(
         <button key={val} onClick={()=>onChange(val)}
           className={`flex-1 flex items-center justify-center gap-2 sm:gap-2.5 rounded-xl px-3 py-3 text-xs sm:text-sm font-medium transition-all duration-300 border ${
             value === val 
             ? `bg-${activeColor}-500/15 border-${activeColor}-500/30 text-${activeColor}-400 shadow-[inset_0_0_12px_rgba(0,0,0,0.2)]` 
             : 'bg-slate-900/40 border-white/5 text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
           }`}>
-          <Icon size={16}/> <span className="truncate">{lbl}</span>
+          <IconComp size={16}/> <span className="truncate">{lbl}</span>
         </button>
       ))}
     </div>
@@ -221,6 +220,32 @@ function avatar(name, i, size="w-10 h-10", textSize="text-sm font-bold") {
         border: `1px solid hsl(${hue(i)},45%,35%)`
       }}>
       {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
+  const handlers = useSwipeable({
+    onSwipedLeft: onSwipeLeft,
+    onSwipedRight: onSwipeRight,
+    preventScrollOnSwipe: true,
+    delta: 50
+  });
+
+  return (
+    <div {...handlers} className="relative group isolate animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+      <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-500/20 rounded-xl sm:rounded-2xl opacity-0"></div>
+      <div className="absolute inset-y-0 right-0 w-1/2 bg-orange-500/20 rounded-xl sm:rounded-2xl opacity-0"></div>
+      <div className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 transition-transform active:scale-[0.98] w-full cursor-pointer">
+        {avatar(p.name, i, "w-10 h-10", "text-sm font-bold")}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
+        </div>
+        <p className="text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20" key={p.cashInvested}>
+          <AnimatedNumber value={p.cashInvested} prefix={CURRENCY} />
+        </p>
+      </div>
     </div>
   );
 }
@@ -520,29 +545,9 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
-        {game.players.map((p,i)=>{
-          const handlers = useSwipeable({
-            onSwipedLeft: () => { setLp(p.id); open("leave"); haptic(); },
-            onSwipedRight: () => { setBuyPlayer(p.id); open("add"); haptic(); },
-            preventScrollOnSwipe: true,
-            delta: 50
-          });
-          return (
-          <div {...handlers} key={p.id} className="relative group isolate animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
-            <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-500/20 rounded-xl sm:rounded-2xl opacity-0"></div>
-            <div className="absolute inset-y-0 right-0 w-1/2 bg-orange-500/20 rounded-xl sm:rounded-2xl opacity-0"></div>
-            <div className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 transition-transform active:scale-[0.98] w-full">
-              {avatar(p.name, i, "w-10 h-10", "text-sm font-bold")}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
-            </div>
-            <p className="text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20" key={p.cashInvested}>
-              <AnimatedNumber value={p.cashInvested} prefix={CURRENCY} />
-            </p>
-            </div>
-          </div>
-        )})}
+        {game.players.map((p,i)=>(
+          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={()=>{setLp(p.id); open("leave"); haptic();}} onSwipeRight={()=>{setBuyPlayer(p.id); open("add"); haptic();}} />
+        ))}
       </div>
 
       <div className="space-y-4 max-w-2xl">
@@ -898,7 +903,9 @@ export default function App() {
     if(game){
       store.set(GAME_KEY,{...game,phase});
       const names=[...(game.players||[]),...(game.leftPlayers||[])].map(p=>p.name);
-      setSavedNames(prev=>{const m=[...new Set([...prev,...names])];store.set(NAMES_KEY,m);return m;});
+      setTimeout(()=>{
+        setSavedNames(prev=>{const m=[...new Set([...prev,...names])];store.set(NAMES_KEY,m);return m;});
+      }, 0);
     }
   },[game,phase]);
 

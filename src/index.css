@@ -46,7 +46,7 @@
 
 @layer base {
   body {
-    @apply bg-slate-950 text-slate-200 antialiased overflow-x-hidden min-h-screen text-base selection:bg-theme-500/30 selection:text-theme-100;
+    @apply bg-slate-950 text-slate-200 antialiased overflow-x-hidden min-h-screen text-base selection:bg-theme-500/30 selection:text-white;
   }
   
   input[type=number]::-webkit-inner-spin-button, 
@@ -58,5 +58,28 @@
   input[type=number] {
     -moz-appearance: textfield;
     appearance: textfield;
+  }
+}
+@layer components {
+  /* Glassmorphism primitives */
+  .glass-panel {
+    @apply bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl;
+  }
+
+  .glass-card {
+    @apply bg-white/[0.03] backdrop-blur-lg border border-white/[0.08] shadow-lg hover:bg-white/[0.05] transition-colors duration-300;
+  }
+
+  /* Inputs */
+  .glass-input {
+    @apply bg-slate-950/60 border border-white/10 focus:border-theme-500/50 focus:ring-4 focus:ring-theme-500/10 focus:bg-slate-900 shadow-inner text-slate-100 placeholder-slate-500 transition-all duration-300;
+  }
+
+  select.glass-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 2.5rem;
   }
 }
