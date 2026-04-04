@@ -19,6 +19,8 @@
   filter: blur(140px);
   opacity: 0.4;
   animation: float 20s infinite alternate ease-in-out;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .bg-glow-1 {

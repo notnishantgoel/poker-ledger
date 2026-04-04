@@ -625,12 +625,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
       </div>
 
       {/* Modals remain mostly identical in layout but updated to Tailwind */}
-      <Modal open={modal==="buyin"} onClose={reset} title="Buy-in & Transfer" icon={<div className="p-2 bg-theme-500/20 rounded-lg text-theme-400"><ArrowRightLeft size={20}/></div>}>
+      <Modal open={modal==="buyin"} onClose={reset} title={<>Buy-in & Transfer <span className="mx-2 text-white/30">&middot;</span> {game.players.find(p=>p.id===biTarget)?.name}</>} icon={<div className="p-2 bg-theme-500/20 rounded-lg text-theme-400"><ArrowRightLeft size={20}/></div>}>
         <div className="space-y-6">
-          <div className="bg-slate-900/50 border border-white/5 p-4 rounded-xl flex items-center justify-between text-slate-200 shadow-inner">
-            <span className="text-sm font-medium text-slate-400">Buying in for</span>
-            <span className="font-bold text-base bg-slate-800 px-3 py-1 rounded-lg border border-white/5">{game.players.find(p=>p.id===biTarget)?.name}</span>
-          </div>
           <div>
             <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-slate-400">Source of chips</label>
             <Toggle value={biSrc} onChange={setBiSrc} options={[["bank","Bank",Building2,"theme"],["player","Player",Users,"purple"]]}/>
@@ -666,13 +662,9 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
         </div>
       </Modal>
 
-      <Modal open={modal==="leave"} onClose={reset} title="Player Leaving" icon={<div className="p-2 bg-orange-500/20 rounded-lg text-orange-400"><LogOut size={20}/></div>}>
+      <Modal open={modal==="leave"} onClose={reset} title={<>Player Leaving <span className="mx-2 text-white/30">&middot;</span> {game.players.find(p=>p.id===lp)?.name}</>} icon={<div className="p-2 bg-orange-500/20 rounded-lg text-orange-400"><LogOut size={20}/></div>}>
         {lStep===1?(
           <div className="space-y-6">
-            <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-xl flex items-center justify-between text-orange-200">
-              <span className="text-sm font-medium">Player leaving</span>
-              <span className="font-bold text-base">{game.players.find(p=>p.id===lp)?.name}</span>
-            </div>
             <div>
               <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">Their final chip count</label>
               <input type="number" value={lChips} onChange={e=>setLChips(e.target.value)} placeholder="0"
