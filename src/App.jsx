@@ -201,9 +201,10 @@ function SetupScreen({ onStart, savedNames }) {
       {id: "2", name: "Agrim",   chips: 20, money: round2(20 * curV)},
       {id: "3", name: "Nema",    chips: 20, money: round2(20 * curV)},
       {id: "4", name: "Parth",   chips: 40, money: round2(40 * curV)},
-      {id: "5", name: "Monty",   chips: 40, money: round2(40 * curV)}
+      {id: "5", name: "Monty",   chips: 40, money: round2(40 * curV)},
+      {id: "6", name: "Ritabrata", chips: 20, money: round2(20 * curV)}
     ]);
-    nid.current = 6;
+    nid.current = 7;
   };
   const rmP = id => { if(players.length>2) setPlayers(p=>p.filter(x=>x.id!==id)); };
   const upd = (id, f, v) => setPlayers(p => p.map(x => {
