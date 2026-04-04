@@ -20,6 +20,14 @@
 @layer base {
   body {
     @apply bg-slate-950 text-slate-200 antialiased overflow-x-hidden min-h-screen text-base selection:bg-theme-500/30 selection:text-white;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input, textarea, [contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
   }
   
   input[type=number]::-webkit-inner-spin-button, 
