@@ -435,6 +435,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
   };
   const open = m => { reset(); setTimeout(()=>setModal(m),0); };
   const openBi = id => { reset(); setTimeout(()=>{setBiTarget(id); setModal("buyin");},0); };
+  const openLeave = id => { reset(); setTimeout(()=>{setLp(id); setModal("leave");},0); };
 
   useEffect(() => {
     const handleAdd = () => open("add");
@@ -577,7 +578,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
         {game.players.map((p,i)=>(
-          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={()=>{setLp(p.id); open("leave"); haptic();}} onSwipeRight={()=>{openBi(p.id); haptic();}} />
+          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={()=>{openLeave(p.id); haptic();}} onSwipeRight={()=>{openBi(p.id); haptic();}} />
         ))}
       </div>
 
