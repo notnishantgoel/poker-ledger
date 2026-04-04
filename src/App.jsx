@@ -250,8 +250,8 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
       if (leftBgRef.current) leftBgRef.current.style.opacity = x > 20 ? '1' : '0';
       if (rightBgRef.current) rightBgRef.current.style.opacity = x < -20 ? '1' : '0';
     },
-    onSwipedLeft: (e) => { if (e.deltaX < -50) onSwipeLeft(); resetSwipe(); },
-    onSwipedRight: (e) => { if (e.deltaX > 50) onSwipeRight(); resetSwipe(); },
+    onSwipedLeft: (e) => { if (e.deltaX < -50) onSwipeLeft(p.id); resetSwipe(); },
+    onSwipedRight: (e) => { if (e.deltaX > 50) onSwipeRight(p.id); resetSwipe(); },
     onSwiped: () => resetSwipe(),
     preventScrollOnSwipe: false,
     trackMouse: true,
@@ -266,7 +266,7 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
       <div ref={rightBgRef} className="absolute inset-y-0 right-0 w-1/2 bg-rose-500/20 text-rose-400 flex items-center justify-end pr-4 sm:pr-5 font-bold transition-opacity duration-200" style={{opacity: 0}}>
         Exiting <LogOut size={20} className="ml-2"/>
       </div>
-      <div ref={cardRef} onClick={() => onSwipeRight()} className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 w-full cursor-pointer transition-transform duration-300">
+      <div ref={cardRef} onClick={() => onSwipeRight(p.id)} className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 w-full cursor-pointer transition-transform duration-300">
         <Avatar name={p.name} i={i} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
@@ -292,7 +292,7 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
                 </div>
                 {/* Main actions */}
                 <div className="p-1.5 space-y-0.5">
-                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeRight(); }}
+                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeRight(p.id); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-theme-500/10 group">
                     <div className="w-8 h-8 rounded-lg bg-theme-500/10 flex items-center justify-center shrink-0 group-hover:bg-theme-500/20 transition-colors">
                       <ArrowRightLeft size={14} className="text-theme-400"/>
@@ -302,7 +302,7 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
                       <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Add chips or move stacks</p>
                     </div>
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeLeft(); }}
+                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeLeft(p.id); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-rose-500/10 group">
                     <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0 group-hover:bg-rose-500/20 transition-colors">
                       <LogOut size={14} className="text-rose-400"/>
@@ -546,13 +546,13 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     setLp(""); setLFinalAmount({chips:0,money:0}); setLDestSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]); setLStep(1); setLCalc(null); setLSetP(""); setLSettlements([{ id: Date.now(), player: "", amount: 0 }]); setLSettleAtEnd(false);
   };
   const open = m => { reset(); setTimeout(()=>setModal(m),0); };
-  const openBi = (id, mode = "add") => {
+  const openBi = useCallback((id, mode = "add") => {
     setErr("");
     setBiTarget(id);
     setBiMode(mode);
     setBiSources([{ id: Date.now(), type: mode === "add" ? "player" : "bank", player: "", chips: 0, money: 0 }]);
     setModal("buyin");
-  };
+  }, []);
 
   const submitBuyIn = () => {
     setErr("");
@@ -594,13 +594,21 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     reset();
   };
 
-  const openLeave = (id) => {
-    reset();
-    setTimeout(() => {
-      setLp(id);
-      setModal("leave");
-    }, 0);
-  };
+  const openLeave = useCallback((id) => {
+    setErr("");
+    setLp(id);
+    setLStep(1);
+    setLCalc(null);
+    setLFinalAmount({chips:0, money:0});
+    setLDestSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]);
+    setLSettlements([{ id: Date.now(), player: "", amount: 0 }]);
+    setLSettleAtEnd(false);
+    setModal("leave");
+  }, []);
+
+  const handleSwipeRight = useCallback((id) => { openBi(id, "add"); haptic(); }, [openBi]);
+  const handleSwipeLeft  = useCallback((id) => { openLeave(id); haptic(); }, [openLeave]);
+  const handleSettle     = useCallback(() => { onSettle(); haptic(); }, [onSettle]);
 
   const submitAdd = () => {
     setErr("");
@@ -774,7 +782,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
         {game.players.map((p,i)=>(
-          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={()=>{openLeave(p.id); haptic();}} onSwipeRight={()=>{openBi(p.id, "add"); haptic();}} onSettle={()=>{onSettle(); haptic();}} />
+          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={handleSwipeLeft} onSwipeRight={handleSwipeRight} onSettle={handleSettle} />
         ))}
       </div>
 
