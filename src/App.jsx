@@ -802,7 +802,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                               {t.type==="leave-settle"&&<><span className="font-semibold text-rose-400">{t.from}</span> pays <span className="font-semibold text-theme-400">{t.to}</span> <span className="font-mono font-bold text-amber-400">{CURRENCY}{round2(t.amount)}</span></>}
                             </div>
                           </div>
-                          <button onClick={()=>onReverse(t.idx)} className="p-2 -mr-2 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-0 group-hover/txn:opacity-100"><Trash2 size={14}/></button>
+                          <button onClick={()=>onReverse(t.idx)} className="p-2 -mr-2 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100"><Trash2 size={14}/></button>
                         </div>
                       );
                     } else {
@@ -824,7 +824,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                                   {leaveExit.settleAtEnd && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">settle at end</span>}
                                 </div>
                               </div>
-                              <button onClick={()=>onReverse(leaveExit.idx)} className="p-2 -mr-2 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-0 group-hover/txn:opacity-100" title="Undo exit — bring player back">
+                              <button onClick={()=>onReverse(leaveExit.idx)} className="p-2 -mr-2 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100" title="Undo exit — bring player back">
                                 <RotateCcw size={14}/>
                               </button>
                             </div>
@@ -870,7 +870,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                                     <ArrowRight size={10} className="text-slate-600"/>
                                     <span>{round2(item.chips)} chips <span className="text-slate-500">({CURRENCY}{round2(item.money)})</span> {isReturn ? 'to' : 'from'} <span className="font-semibold text-slate-300">{from}</span></span>
                                   </div>
-                                  <button onClick={()=>onReverse(item.idx)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-0 group-hover/item:opacity-100">
+                                  <button onClick={()=>onReverse(item.idx)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/item:opacity-100">
                                     <Trash2 size={12}/>
                                   </button>
                                 </div>
