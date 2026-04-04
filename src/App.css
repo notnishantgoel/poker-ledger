@@ -16,29 +16,28 @@
 .bg-glow-1, .bg-glow-2 {
   position: absolute;
   border-radius: 50%;
-  filter: blur(140px);
-  opacity: 0.4;
+  opacity: 0.35;
   animation: float 20s infinite alternate ease-in-out;
   will-change: transform;
   transform: translateZ(0);
 }
 
 .bg-glow-1 {
-  top: -10%;
-  left: -10%;
-  width: 50vw;
-  height: 50vw;
-  background: radial-gradient(circle, var(--bg-glow-rgba) 0%, transparent 70%);
+  top: -15%;
+  left: -15%;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle at center, var(--bg-glow-rgba) 0%, transparent 80%);
   animation-delay: 0s;
   transition: all 0.5s ease-in-out;
 }
 
 .bg-glow-2 {
-  bottom: -10%;
-  right: -10%;
-  width: 60vw;
-  height: 60vw;
-  background: radial-gradient(circle, var(--bg-glow-alt) 0%, transparent 70%);
+  bottom: -15%;
+  right: -15%;
+  width: 70vw;
+  height: 70vw;
+  background: radial-gradient(circle at center, var(--bg-glow-alt) 0%, transparent 80%);
   animation-delay: -10s;
   transition: all 0.5s ease-in-out;
 }
