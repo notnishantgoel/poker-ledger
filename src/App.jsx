@@ -198,37 +198,60 @@ function avatar(name, i, size="w-10 h-10", textSize="text-sm font-bold") {
 }
 
 function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
-  const [offset, setOffset] = useState(0);
+  const cardRef = useRef(null);
+  const leftBgRef = useRef(null);
+  const rightBgRef = useRef(null);
+  const isDragging = useRef(false);
+
+  const resetSwipe = () => {
+    isDragging.current = false;
+    if (cardRef.current) {
+      cardRef.current.style.transform = 'translateX(0px)';
+      cardRef.current.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    }
+    if (leftBgRef.current) leftBgRef.current.style.opacity = '0';
+    if (rightBgRef.current) rightBgRef.current.style.opacity = '0';
+  };
 
   const handlers = useSwipeable({
     onSwiping: (e) => {
-      setOffset(Math.max(-100, Math.min(100, e.deltaX)));
+      // strictly enforce horizontal swipe, ignore if scrolling vertically
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !isDragging.current) return;
+      isDragging.current = true;
+      const x = Math.max(-100, Math.min(100, e.deltaX));
+      
+      if (cardRef.current) {
+        cardRef.current.style.transform = `translateX(${x}px)`;
+        cardRef.current.style.transition = 'none';
+      }
+      if (leftBgRef.current) leftBgRef.current.style.opacity = x > 20 ? '1' : '0';
+      if (rightBgRef.current) rightBgRef.current.style.opacity = x < -20 ? '1' : '0';
     },
     onSwipedLeft: (e) => {
       if (e.deltaX < -50) onSwipeLeft();
-      setOffset(0);
+      resetSwipe();
     },
     onSwipedRight: (e) => {
       if (e.deltaX > 50) onSwipeRight();
-      setOffset(0);
+      resetSwipe();
     },
     onSwiped: () => {
-      setOffset(0);
+      resetSwipe();
     },
-    preventScrollOnSwipe: true,
+    preventScrollOnSwipe: false,
     trackMouse: true,
-    delta: 10
+    delta: 20
   });
 
   return (
     <div {...handlers} className="relative group isolate overflow-hidden rounded-xl sm:rounded-2xl animate-slide-up bg-slate-800/40" style={{animationDelay:`${i*50}ms`}}>
-      <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-500/20 text-blue-400 flex items-center pl-4 sm:pl-5 font-bold transition-opacity duration-200" style={{opacity: offset > 20 ? 1 : 0}}>
+      <div ref={leftBgRef} className="absolute inset-y-0 left-0 w-1/2 bg-blue-500/20 text-blue-400 flex items-center pl-4 sm:pl-5 font-bold transition-opacity duration-200" style={{opacity: 0}}>
         <UserPlus size={20} className="mr-2"/> Buy-in
       </div>
-      <div className="absolute inset-y-0 right-0 w-1/2 bg-rose-500/20 text-rose-400 flex items-center justify-end pr-4 sm:pr-5 font-bold transition-opacity duration-200" style={{opacity: offset < -20 ? 1 : 0}}>
+      <div ref={rightBgRef} className="absolute inset-y-0 right-0 w-1/2 bg-rose-500/20 text-rose-400 flex items-center justify-end pr-4 sm:pr-5 font-bold transition-opacity duration-200" style={{opacity: 0}}>
         Cash out <LogOut size={20} className="ml-2"/>
       </div>
-      <div className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 w-full cursor-pointer" style={{transform: `translateX(${offset}px)`, transition: offset === 0 ? 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'}}>
+      <div ref={cardRef} className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 w-full cursor-pointer transition-transform duration-300">
         {avatar(p.name, i, "w-10 h-10", "text-sm font-bold")}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
@@ -391,47 +414,47 @@ function SetupScreen({ onStart, savedNames }) {
 function DashboardScreen({ game, setGame, onSettle, savedNames }) {
   const [modal, setModal] = useState(null);
   const [err, setErr] = useState("");
-  const [buyPlayer,setBuyPlayer]=useState(""); const [buyAmt,setBuyAmt]=useState({chips:0,money:0});
-  const [tSeller,setTSeller]=useState(""); const [tBuyer,setTBuyer]=useState(""); const [tAmt,setTAmt]=useState({chips:0,money:0});
+  const [biTarget, setBiTarget] = useState(""); const [biSrc, setBiSrc] = useState("bank"); const [biSrcP, setBiSrcP] = useState(""); const [biAmt, setBiAmt] = useState({chips:0,money:0});
   const [newName,setNewName]=useState(""); const [newSrc,setNewSrc]=useState("bank"); const [newSrcPlayer,setNewSrcPlayer]=useState(""); const [newAmt,setNewAmt]=useState({chips:0,money:0}); const [nameSug,setNameSug]=useState([]);
   const [lp,setLp]=useState(""); const [lChips,setLChips]=useState(""); const [lDest,setLDest]=useState("bank"); const [lDestP,setLDestP]=useState(""); const [lStep,setLStep]=useState(1); const [lCalc,setLCalc]=useState(null); const [lSetP,setLSetP]=useState("");
 
   const total = game.players.reduce((s,p)=>s+p.cashInvested,0);
 
   const reset = () => {
-    setModal(null);setErr("");setBuyPlayer("");setBuyAmt({chips:0,money:0});
-    setTSeller("");setTBuyer("");setTAmt({chips:0,money:0});
-    setNewName("");setNewSrc("bank");setNewSrcPlayer("");setNewAmt({chips:0,money:0});setNameSug([]);
-    setLp("");setLChips("");setLDest("bank");setLDestP("");setLStep(1);setLCalc(null);setLSetP("");
+    setModal(null); setErr("");
+    setBiTarget(""); setBiSrc("bank"); setBiSrcP(""); setBiAmt({chips:0,money:0});
+    setNewName(""); setNewSrc("bank"); setNewSrcPlayer(""); setNewAmt({chips:0,money:0}); setNameSug([]);
+    setLp(""); setLChips(""); setLDest("bank"); setLDestP(""); setLStep(1); setLCalc(null); setLSetP("");
   };
   const open = m => { reset(); setTimeout(()=>setModal(m),0); };
+  const openBi = id => { reset(); setTimeout(()=>{setBiTarget(id); setModal("buyin");},0); };
 
-  const submitBuy = () => {
+  const submitBuyIn = () => {
     setErr("");
-    if(!buyPlayer) return setErr("Select a player"); if(buyAmt.chips<=0) return setErr("Enter an amount");
-    const pl=game.players.find(p=>p.id===buyPlayer);
-    setGame(g=>({...g,
-      players:g.players.map(p=>p.id===buyPlayer?{...p,cashInvested:round2(p.cashInvested+buyAmt.money)}:p),
-      totalBankChips:g.totalBankChips+buyAmt.chips,
-      transactions:[...g.transactions,{type:"bank-buy-in",player:pl.name,chips:buyAmt.chips,money:buyAmt.money,time:Date.now()}],
-    })); reset();
-  };
-
-  const submitTransfer = () => {
-    setErr("");
-    if(!tSeller||!tBuyer) return setErr("Select both players");
-    if(tSeller===tBuyer) return setErr("Must be different players");
-    if(tAmt.chips<=0) return setErr("Enter an amount");
-    const seller=game.players.find(p=>p.id===tSeller);
-    const buyer=game.players.find(p=>p.id===tBuyer);
-    setGame(g=>({...g,
-      players:g.players.map(p=>{
-        if(p.id===tBuyer) return {...p,cashInvested:round2(p.cashInvested+tAmt.money)};
-        if(p.id===tSeller) return {...p,cashInvested:round2(p.cashInvested-tAmt.money)};
-        return p;
-      }),
-      transactions:[...g.transactions,{type:"transfer",seller:seller.name,buyer:buyer.name,chips:tAmt.chips,money:tAmt.money,time:Date.now()}],
-    })); reset();
+    if(!biTarget) return setErr("Select player buying in");
+    if(biAmt.chips<=0) return setErr("Enter an amount");
+    const target = game.players.find(p=>p.id===biTarget);
+    
+    if (biSrc === "bank") {
+      setGame(g=>({...g,
+        players: g.players.map(p=>p.id===biTarget?{...p,cashInvested:round2(p.cashInvested+biAmt.money)}:p),
+        totalBankChips: g.totalBankChips+biAmt.chips,
+        transactions: [...g.transactions,{type:"bank-buy-in",player:target.name,chips:biAmt.chips,money:biAmt.money,time:Date.now()}]
+      }));
+    } else {
+      if(!biSrcP) return setErr("Select source player");
+      if(biSrcP===biTarget) return setErr("Cannot buy from self");
+      const src = game.players.find(p=>p.id===biSrcP);
+      setGame(g=>({...g,
+        players: g.players.map(p=>{
+          if(p.id===biTarget) return {...p,cashInvested:round2(p.cashInvested+biAmt.money)};
+          if(p.id===biSrcP) return {...p,cashInvested:round2(p.cashInvested-biAmt.money)};
+          return p;
+        }),
+        transactions: [...g.transactions,{type:"transfer",seller:src.name,buyer:target.name,chips:biAmt.chips,money:biAmt.money,time:Date.now()}]
+      }));
+    }
+    reset();
   };
 
   const submitAdd = () => {
@@ -533,16 +556,11 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
         <button onClick={()=>open("add")} className="flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all shadow-[0_4px_14px_rgba(59,130,246,0.1)] hover:-translate-y-0.5">
           <UserPlus size={16}/> Add Player
         </button>
-        {game.players.length>1&&
-          <button onClick={()=>open("leave")} className="flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 transition-all shadow-[0_4px_14px_rgba(249,115,22,0.1)] hover:-translate-y-0.5">
-            <LogOut size={16}/> Player Leaving
-          </button>
-        }
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
         {game.players.map((p,i)=>(
-          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={()=>{setLp(p.id); open("leave"); haptic();}} onSwipeRight={()=>{setBuyPlayer(p.id); open("add"); haptic();}} />
+          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={()=>{setLp(p.id); open("leave"); haptic();}} onSwipeRight={()=>{openBi(p.id); haptic();}} />
         ))}
       </div>
 
@@ -595,31 +613,27 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 sm:pb-8 px-4">
-        <div className="flex gap-2 sm:gap-4 max-w-3xl mx-auto">
-          <Btn onClick={()=>open("buy")} variant="primary" full className="shadow-theme-500/20 whitespace-nowrap px-2 sm:px-5"><Landmark size={18} className="shrink-0"/> <span className="hidden sm:inline">Bank</span> Buy-in</Btn>
-          <Btn onClick={()=>open("transfer")} variant="secondary" full className="border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)] whitespace-nowrap px-2 sm:px-5"><ArrowRightLeft size={18} className="shrink-0"/> Transfer</Btn>
-          <Btn onClick={onSettle} variant="amber" full className="shadow-amber-500/20 whitespace-nowrap px-2 sm:px-5"><Calculator size={18} className="shrink-0"/> Settle <span className="hidden sm:inline">Up</span></Btn>
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 sm:pb-8 px-4 pointer-events-none">
+        <div className="flex gap-2 sm:gap-4 max-w-3xl mx-auto pointer-events-auto">
+          <Btn onClick={onSettle} variant="amber" full className="shadow-amber-500/20 whitespace-nowrap px-2 sm:px-5 py-4 text-base sm:text-lg"><Calculator size={20} className="shrink-0"/> Settle Up Game</Btn>
         </div>
       </div>
 
       {/* Modals remain mostly identical in layout but updated to Tailwind */}
-      <Modal open={modal==="buy"} onClose={reset} title="Bank Buy-in" icon={<div className="p-2 bg-theme-500/20 rounded-lg text-theme-400"><Landmark size={20}/></div>}>
+      <Modal open={modal==="buyin"} onClose={reset} title="Buy-in & Transfer" icon={<div className="p-2 bg-theme-500/20 rounded-lg text-theme-400"><ArrowRightLeft size={20}/></div>}>
         <div className="space-y-6">
-          <PSelect players={game.players} value={buyPlayer} onChange={setBuyPlayer} label="Player"/>
-          <TwoWayInput chipValue={game.chipValue} chips={buyAmt.chips} money={buyAmt.money} onChange={setBuyAmt}/>
+          <div className="bg-slate-900/50 border border-white/5 p-4 rounded-xl flex items-center justify-between text-slate-200 shadow-inner">
+            <span className="text-sm font-medium text-slate-400">Buying in for</span>
+            <span className="font-bold text-base bg-slate-800 px-3 py-1 rounded-lg border border-white/5">{game.players.find(p=>p.id===biTarget)?.name}</span>
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-slate-400">Source of chips</label>
+            <Toggle value={biSrc} onChange={setBiSrc} options={[["bank","Bank",Building2,"theme"],["player","Player",Users,"purple"]]}/>
+          </div>
+          {biSrc==="player"&&<PSelect players={game.players} value={biSrcP} onChange={setBiSrcP} exclude={biTarget} label="Taking chips from"/>}
+          <TwoWayInput chipValue={game.chipValue} chips={biAmt.chips} money={biAmt.money} onChange={setBiAmt}/>
           <Err msg={err}/>
-          <Btn onClick={submitBuy} full variant="primary" className="mt-2"><Check size={18}/> Confirm Buy-in</Btn>
-        </div>
-      </Modal>
-
-      <Modal open={modal==="transfer"} onClose={reset} title="Player Transfer" icon={<div className="p-2 bg-purple-500/20 rounded-lg text-purple-400"><ArrowRightLeft size={20}/></div>}>
-        <div className="space-y-6">
-          <PSelect players={game.players} value={tSeller} onChange={setTSeller} exclude={tBuyer} label="Seller (giving chips)"/>
-          <PSelect players={game.players} value={tBuyer} onChange={setTBuyer} exclude={tSeller} label="Buyer (receiving chips)"/>
-          <TwoWayInput chipValue={game.chipValue} chips={tAmt.chips} money={tAmt.money} onChange={setTAmt}/>
-          <Err msg={err}/>
-          <Btn onClick={submitTransfer} full variant="primary" className="mt-2"><Check size={18}/> Confirm Transfer</Btn>
+          <Btn onClick={submitBuyIn} full variant="primary" className="mt-2"><Check size={18}/> Confirm Transaction</Btn>
         </div>
       </Modal>
 
@@ -650,7 +664,10 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
       <Modal open={modal==="leave"} onClose={reset} title="Player Leaving" icon={<div className="p-2 bg-orange-500/20 rounded-lg text-orange-400"><LogOut size={20}/></div>}>
         {lStep===1?(
           <div className="space-y-6">
-            <PSelect players={game.players} value={lp} onChange={setLp} label="Who is leaving?"/>
+            <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-xl flex items-center justify-between text-orange-200">
+              <span className="text-sm font-medium">Player leaving</span>
+              <span className="font-bold text-base">{game.players.find(p=>p.id===lp)?.name}</span>
+            </div>
             <div>
               <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">Their final chip count</label>
               <input type="number" value={lChips} onChange={e=>setLChips(e.target.value)} placeholder="0"
