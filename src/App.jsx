@@ -278,20 +278,54 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
             <SlotCounter value={p.cashInvested.toLocaleString()} charClassName="text-amber-400 font-mono text-base font-bold" debounceDelay={1} />
           </div>
           <div className="relative">
-            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+              className={`p-1.5 rounded-lg transition-all ${menuOpen ? "bg-white/10 text-slate-200" : "hover:bg-white/10 text-slate-400"}`}>
               <MoreVertical size={18}/>
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 rounded-xl overflow-hidden z-50 glass-panel border-white/10 shadow-2xl animate-fade-in p-1">
-                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeRight(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-white/10 rounded-lg transition-colors">
-                   <ArrowRightLeft size={14} className="text-theme-400"/> Buy-in / Transfer
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeLeft(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-rose-500/10 hover:text-rose-400 rounded-lg transition-colors">
-                   <LogOut size={14} className="text-rose-400"/> Cash out / Exit
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSettle(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-amber-500/10 hover:text-amber-400 rounded-lg transition-colors">
-                   <Calculator size={14} className="text-amber-400"/> Global Settle Up
-                </button>
+              <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl z-50 animate-scale-in overflow-hidden"
+                style={{background:'rgba(10,15,30,0.97)', backdropFilter:'blur(24px)', boxShadow:'0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.07)'}}>
+                {/* Header */}
+                <div className="px-4 py-3 border-b border-white/[0.06]">
+                  <p className="text-[9px] uppercase tracking-widest font-bold text-slate-500 mb-0.5">Actions</p>
+                  <p className="text-sm font-bold text-slate-200 truncate">{p.name}</p>
+                </div>
+                {/* Main actions */}
+                <div className="p-1.5 space-y-0.5">
+                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeRight(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-theme-500/10 group">
+                    <div className="w-8 h-8 rounded-lg bg-theme-500/10 flex items-center justify-center shrink-0 group-hover:bg-theme-500/20 transition-colors">
+                      <ArrowRightLeft size={14} className="text-theme-400"/>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-semibold text-slate-200 leading-tight">Buy-in / Transfer</p>
+                      <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Add chips or move stacks</p>
+                    </div>
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeLeft(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-rose-500/10 group">
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0 group-hover:bg-rose-500/20 transition-colors">
+                      <LogOut size={14} className="text-rose-400"/>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-semibold text-rose-400 leading-tight">Cash Out / Exit</p>
+                      <p className="text-[10px] text-rose-400/50 leading-tight mt-0.5">Remove from this game</p>
+                    </div>
+                  </button>
+                </div>
+                {/* Settle — separated */}
+                <div className="border-t border-white/[0.06] p-1.5">
+                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSettle(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-amber-500/10 group">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0 group-hover:bg-amber-500/20 transition-colors">
+                      <Calculator size={14} className="text-amber-400"/>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-semibold text-amber-400 leading-tight">Global Settle Up</p>
+                      <p className="text-[10px] text-amber-400/50 leading-tight mt-0.5">End game & calculate</p>
+                    </div>
+                  </button>
+                </div>
               </div>
             )}
           </div>
