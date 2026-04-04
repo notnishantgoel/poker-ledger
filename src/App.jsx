@@ -401,10 +401,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
     if(lDest==="player"&&lDestP===lp) return setErr("Cannot be same player");
     const p=game.players.find(x=>x.id===lp);
     const chipMon=round2(fc*game.chipValue);
-    let adj=p.cashInvested;
-    if(lDest==="player"&&fc>0) adj=round2(adj-chipMon);
-    const net=round2(chipMon-adj);
-    setLCalc({name:p.name,fc,chipMon,invested:p.cashInvested,adj,net}); setLStep(2);
+    const net=round2(chipMon-p.cashInvested);
+    setLCalc({name:p.name,fc,chipMon,invested:p.cashInvested,net}); setLStep(2);
   };
 
   const submitLeave = () => {
@@ -412,26 +410,27 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
     if(!lCalc) return;
     if(Math.abs(lCalc.net)>=0.5&&!lSetP) return setErr("Select settlement person");
     const txns=[]; let up=[...game.players]; let ub=game.totalBankChips;
+    
     if(lDest==="bank"&&lCalc.fc>0) {
       ub-=lCalc.fc;
       txns.push({type:"leave-bank-return",player:lCalc.name,chips:lCalc.fc,money:lCalc.chipMon,time:Date.now()});
     } else if(lDest==="player"&&lCalc.fc>0) {
       const dest=game.players.find(x=>x.id===lDestP);
-      up=up.map(p=>{
-        if(p.id===lDestP) return {...p,cashInvested:round2(p.cashInvested+lCalc.chipMon)};
-        if(p.id===lp) return {...p,cashInvested:round2(p.cashInvested-lCalc.chipMon)};
-        return p;
-      });
+      up=up.map(p=> p.id===lDestP ? {...p, cashInvested: round2(p.cashInvested + lCalc.chipMon)} : p);
       txns.push({type:"leave-transfer",player:lCalc.name,to:dest.name,chips:lCalc.fc,money:lCalc.chipMon,time:Date.now()});
     }
-    const ulp=up.find(x=>x.id===lp);
-    const finalNet=round2(lCalc.fc*game.chipValue-ulp.cashInvested);
-    if(Math.abs(finalNet)>=0.5&&lSetP) {
+
+    let settledWithName = null;
+    if(Math.abs(lCalc.net)>=0.5&&lSetP) {
+      up = up.map(p => p.id === lSetP ? {...p, cashInvested: round2(p.cashInvested + lCalc.net)} : p);
       const sw=up.find(x=>x.id===lSetP);
-      if(finalNet>0) txns.push({type:"leave-settle",from:sw.name,to:lCalc.name,amount:round2(finalNet),time:Date.now()});
-      else txns.push({type:"leave-settle",from:lCalc.name,to:sw.name,amount:round2(Math.abs(finalNet)),time:Date.now()});
+      settledWithName = sw.name;
+      if(lCalc.net>0) txns.push({type:"leave-settle",from:sw.name,to:lCalc.name,amount:round2(lCalc.net),time:Date.now()});
+      else txns.push({type:"leave-settle",from:lCalc.name,to:sw.name,amount:round2(Math.abs(lCalc.net)),time:Date.now()});
     }
-    const left={...ulp,name:lCalc.name,finalChips:lCalc.fc,net:finalNet,settledWith:lSetP?up.find(x=>x.id===lSetP)?.name:null};
+
+    const ulp=game.players.find(x=>x.id===lp);
+    const left={...ulp, finalChips:lCalc.fc, net:lCalc.net, settledWith: settledWithName};
     setGame(g=>({...g,players:up.filter(p=>p.id!==lp),totalBankChips:ub,leftPlayers:[...(g.leftPlayers||[]),left],transactions:[...g.transactions,...txns]}));
     reset();
   };
@@ -620,7 +619,6 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
                 <div className="flex justify-between items-center"><span>Final chips</span><span className="font-mono bg-slate-800/50 px-2 py-0.5 rounded text-slate-200">{lCalc.fc}</span></div>
                 <div className="flex justify-between items-center"><span>Chip value</span><span className="font-mono text-amber-400/90">{CURRENCY}{lCalc.chipMon.toLocaleString()}</span></div>
                 <div className="flex justify-between items-center"><span>Cash invested</span><span className="font-mono text-slate-200">{CURRENCY}{lCalc.invested.toLocaleString()}</span></div>
-                {lDest==="player"&&lCalc.fc>0&&<div className="flex justify-between items-center text-slate-400"><span>After chip transfer</span><span className="font-mono">{CURRENCY}{lCalc.adj.toLocaleString()}</span></div>}
                 <div className="flex justify-between pt-4 mt-4 border-t border-white/10">
                   <span className="font-bold text-slate-200">Net balance</span>
                   <span className={`font-mono text-base font-bold bg-slate-950/50 px-3 py-1 rounded-lg border ${lCalc.net>0?'text-emerald-400 border-emerald-500/20':lCalc.net<0?'text-rose-400 border-rose-500/20':'text-slate-400 border-white/10'}`}>
