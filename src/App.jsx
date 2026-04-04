@@ -7,7 +7,8 @@ import {
   Coins, AlertTriangle, Check, ChevronDown, Play,
   RotateCcw, ArrowRight, Sparkles, Search, UserPlus,
   LogOut, Building2, Users, Palette, Crown, Download, Share2,
-  Link2, Wifi, WifiOff, Copy, ExternalLink
+  Link2, Wifi, WifiOff, Copy, ExternalLink,
+  History, QrCode, Clock, ChevronRight, Smartphone
 } from "lucide-react";
 import {
   createSession, joinSession, updateSessionGame,
@@ -18,6 +19,8 @@ import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
 const NAMES_KEY = "poker-ledger-names";
+const HISTORY_KEY = "poker-ledger-history";
+const UPI_KEY = "poker-ledger-upi";
 const CURRENCY = "₹";
 
 const store = {
@@ -280,7 +283,7 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
 });
 
 /* ─────────── SETUP ─────────── */
-function SetupScreen({ onStart, savedNames }) {
+function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi, onViewHistory }) {
   const [chipValue, setChipValue] = useState("");
   const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0},{id:"4",name:"",chips:0,money:0}]);
   const [error, setError] = useState("");
@@ -386,6 +389,9 @@ function SetupScreen({ onStart, savedNames }) {
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-theme-500/15 text-theme-400 border border-theme-500/20">{players.filter(p=>p.name.trim()).length}/{players.length}</span>
           </div>
           <div className="flex gap-2">
+            <button onClick={onViewHistory} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 transition-colors">
+              <History size={12}/> History
+            </button>
             <button onClick={quickFill} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
               <Sparkles size={12}/> Auto-fill
             </button>
@@ -409,12 +415,21 @@ function SetupScreen({ onStart, savedNames }) {
                 <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">
                   {i+1}
                 </div>
-                <div className="flex-1 relative min-w-0">
+                <div className="flex-1 relative min-w-0 flex flex-col gap-1.5">
                   <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
                     onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
                     className="w-full rounded-xl px-3 py-2 text-sm sm:text-base glass-input" />
+                  
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Smartphone size={12}/></span>
+                    <input value={p.name ? upiMap[p.name] || "" : ""} onChange={e=>p.name && onUpdateUpi(p.name, e.target.value)} 
+                      placeholder="UPI ID or Num (optional)"
+                      className="w-full rounded-lg pl-7 pr-3 py-1.5 text-xs glass-input placeholder:text-slate-600 focus:bg-slate-900/60"
+                      disabled={!p.name} />
+                  </div>
+
                   {sug.id===p.id&&sug.list.length>0&&(
-                    <div className="absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1">
+                    <div className="absolute left-0 right-0 top-[40px] mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1">
                       {sug.list.map(s=>(
                         <button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2"
                           onMouseDown={()=>{upd(p.id,"name",s);setSug({id:null,list:[]});}}>
@@ -773,7 +788,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 }
 
 /* ─────────── SETTLE ─────────── */
-function SettleScreen({ game, onBack, onReset }) {
+function SettleScreen({ game, onBack, onReset, upiMap }) {
   const [fc, setFc] = useState(()=>{const m={};game.players.forEach(p=>m[p.id]="");return m;});
   const [result, setResult] = useState(null);
   const [warning, setWarning] = useState("");
@@ -913,17 +928,28 @@ function SettleScreen({ game, onBack, onReset }) {
             </h2>
             {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>:(
               <div className="space-y-3">{result.settlements.map((s,i)=>(
-                <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-2xl px-5 py-4 animate-slide-up bg-slate-900/80 border border-indigo-500/30 shadow-lg" style={{animationDelay:`${i*80}ms`}}>
-                  <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
-                  <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
-                    <div className="h-px flex-1 bg-indigo-500/30"/>
-                    <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono shadow-[inset_0_0_10px_rgba(245,158,11,0.1)]">
-                      {CURRENCY}{s.amount.toLocaleString()}
-                    </span>
-                    <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
-                    <div className="h-px flex-1 bg-indigo-500/30"/>
+                <div key={i} className="flex flex-col gap-2 rounded-2xl px-5 py-4 animate-slide-up bg-slate-900/80 border border-indigo-500/30 shadow-lg" style={{animationDelay:`${i*80}ms`}}>
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
+                      <div className="h-px flex-1 bg-indigo-500/30"/>
+                      <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono shadow-[inset_0_0_10px_rgba(245,158,11,0.1)]">
+                        {CURRENCY}{s.amount.toLocaleString()}
+                      </span>
+                      <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
+                      <div className="h-px flex-1 bg-indigo-500/30"/>
+                    </div>
+                    <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
                   </div>
-                  <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
+                  {upiMap && upiMap[s.to] && (
+                    <div className="flex justify-end mt-1">
+                      <a href={`upi://pay?pa=${upiMap[s.to]}&pn=${encodeURIComponent(s.to)}&am=${s.amount}&cu=INR`} 
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors text-xs font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]"
+                        onClick={()=>haptic()}>
+                        <QrCode size={14}/> Pay with UPI
+                      </a>
+                    </div>
+                  )}
                 </div>
               ))}</div>
             )}
@@ -932,7 +958,7 @@ function SettleScreen({ game, onBack, onReset }) {
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-4">
             <Btn onClick={()=>setResult(null)} variant="secondary" className="flex-1 py-3 text-sm sm:text-base"><RotateCcw size={18}/> Re-enter</Btn>
             <Btn onClick={()=>{haptic(); shareReceipt();}} variant="primary" className="flex-1 py-3 text-sm sm:text-base"><Download size={18}/> Share Receipt</Btn>
-            <Btn onClick={onReset} variant="danger" className="flex-1 py-3 text-sm sm:text-base"><Trash2 size={18}/> New Game</Btn>
+            <Btn onClick={()=>onReset(result)} variant="danger" className="flex-1 py-3 text-sm sm:text-base"><Trash2 size={18}/> New Game</Btn>
           </div>
         </div>
       )}
@@ -942,12 +968,75 @@ function SettleScreen({ game, onBack, onReset }) {
 
 
 
+/* ─────────── HISTORY ─────────── */
+function HistoryScreen({ history, onBack }) {
+  return (
+    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
+      <div className="flex items-center gap-4 sm:gap-5 mb-10">
+        <button onClick={onBack} className="p-3 sm:p-3.5 rounded-xl transition-all border border-white/10 hover:border-white/20 hover:bg-white/5 text-slate-300 hover:text-white glass-panel"><RotateCcw size={20}/></button>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Game History</h1>
+          <p className="text-sm font-medium mt-1 text-slate-400">Past sessions and settlements</p>
+        </div>
+      </div>
+      
+      {history.length === 0 ? (
+        <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
+          <Clock size={40} className="mx-auto text-slate-600 mb-4" />
+          <p className="text-base font-medium text-slate-400">No game history yet.</p>
+          <p className="text-sm text-slate-500 mt-2">Completed games will appear here.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {history.map((h, i) => {
+            const date = new Date(h.id).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            return (
+              <div key={h.id} className="glass-panel p-5 rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+                <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+                  <div className="flex items-center gap-2 text-slate-300 font-semibold text-sm">
+                    <Clock size={16} className="text-purple-400" /> {date}
+                  </div>
+                  {h.result?.winner && (
+                    <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                      <Crown size={12}/> {h.result.winner}
+                    </div>
+                  )}
+                </div>
+                {h.result?.settlements?.length > 0 ? (
+                  <div className="space-y-2">
+                    {h.result.settlements.map((s, j) => (
+                      <div key={j} className="flex justify-between items-center text-sm">
+                        <span className="text-rose-400 font-medium truncate max-w-[80px] sm:max-w-[120px]">{s.from}</span>
+                        <div className="flex items-center gap-2 flex-1 mx-2">
+                          <div className="h-px flex-1 bg-white/5" />
+                          <span className="text-amber-400 font-mono text-xs font-bold">{CURRENCY}{s.amount.toLocaleString()}</span>
+                          <ArrowRight size={12} className="text-slate-500" />
+                          <div className="h-px flex-1 bg-white/5" />
+                        </div>
+                        <span className="text-theme-400 font-medium truncate max-w-[80px] sm:max-w-[120px] text-right">{s.to}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─────────── APP ROOT ─────────── */
 export default function App() {
   const [game,setGame]=useState(null);
   const [phase,setPhase]=useState("loading");
   const [savedNames,setSavedNames]=useState([]);
   const [exitPrompt, setExitPrompt]=useState(false);
+  const [upiMap, setUpiMap] = useState({});
+  const [history, setHistory] = useState([]);
 
   // ── Session state ──
   const [sessionId, setSessionId] = useState(null);
@@ -981,7 +1070,10 @@ export default function App() {
     
     // Fallback: load from localStorage
     const g=await store.get(GAME_KEY); const n=await store.get(NAMES_KEY);
+    const u=await store.get(UPI_KEY); const h=await store.get(HISTORY_KEY);
     setSavedNames(n||[]);
+    setUpiMap(u||{});
+    setHistory(h||[]);
     if(g&&g.phase){setGame(g);setPhase(g.phase);} else setPhase("setup");
   })();},[]);
 
@@ -1027,7 +1119,16 @@ export default function App() {
   },[game,phase,sessionId]);
 
   const handleStart=data=>{setGame(data);setPhase("game");};
-  const handleReset=async()=>{
+  const handleReset=async(completedResult = null)=>{
+    if (completedResult) {
+      const record = { id: Date.now(), gameData: { ...game }, result: completedResult };
+      setHistory(prev => {
+        const next = [record, ...prev].slice(0, 50);
+        store.set(HISTORY_KEY, next);
+        return next;
+      });
+    }
+
     if (sessionId) {
       try { await deleteSession(sessionId); } catch(e) { console.warn(e); }
       setSessionId(null);
@@ -1037,6 +1138,14 @@ export default function App() {
     await store.delete(GAME_KEY);
     setGame(null);
     setPhase("setup");
+  };
+
+  const handleUpdateUpi = (name, upi) => {
+    setUpiMap(prev => {
+      const next = { ...prev, [name]: upi.trim() };
+      store.set(UPI_KEY, next);
+      return next;
+    });
   };
 
   // ── Share session ──
@@ -1136,16 +1245,17 @@ export default function App() {
             </button>
           </div>
         )}
-        {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
+        {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} onViewHistory={()=>setPhase("history")} />}
+        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase("setup")} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} />}
-        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={()=>setExitPrompt(true)}/>}
+        {phase==="settle"&&game&&<SettleScreen game={game} upiMap={upiMap} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)}/>}
 
         {/* Exit Confirmation */}
         <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
           <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">Are you sure you want to completely end this game and return to the home screen? {sessionId ? 'This will end the shared session for everyone.' : 'All current game data will be lost permanently.'}</p>
           <div className="flex gap-3">
             <Btn onClick={()=>setExitPrompt(false)} variant="secondary" className="flex-1">Cancel</Btn>
-            <Btn onClick={()=>{setExitPrompt(false);handleReset();}} variant="danger" className="flex-1">End Game</Btn>
+            <Btn onClick={()=>{handleReset(typeof exitPrompt === 'object' ? exitPrompt : null);setExitPrompt(false);}} variant="danger" className="flex-1">End Game</Btn>
           </div>
         </Modal>
 
