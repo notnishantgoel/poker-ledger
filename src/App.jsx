@@ -810,7 +810,7 @@ export default function App() {
       
       <div className="relative min-h-screen pt-2 sm:pt-0">
         {phase!=="loading"&&phase!=="setup"&&(
-          <button onClick={()=>setExitPrompt(true)} className="fixed top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
+          <button onClick={()=>setExitPrompt(true)} className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
             <LogOut size={18} />
           </button>
         )}
