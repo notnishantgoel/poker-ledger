@@ -351,21 +351,12 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi }) {
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-6 sm:py-12">
       {/* ── Hero Section ── */}
-      <div className="text-center mb-8 sm:mb-12">
-        <div className="relative inline-flex items-center justify-center mb-5">
-          {/* Outer glow ring */}
-          <div className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-theme-500/20 blur-xl animate-pulse" />
-          {/* Icon container */}
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-theme-400 via-theme-500 to-theme-600 shadow-[0_0_40px_rgba(16,185,129,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center border border-theme-300/30 animate-hero-icon">
-            <Coins size={32} className="text-white drop-shadow-lg" />
-          </div>
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">
-          <span className="bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">Poker</span>{' '}
-          <span className="bg-gradient-to-r from-theme-300 to-theme-500 bg-clip-text text-transparent">Ledger</span>
+      <div className="text-center mb-6 sm:mb-10">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-1 text-slate-100 opacity-90">
+          Poker <span className="text-theme-400">Ledger</span>
         </h1>
-        <p className="text-slate-400 text-sm sm:text-base font-medium max-w-xs mx-auto leading-relaxed">
-          Track buy-ins, transfers & settlements for your home game
+        <p className="text-slate-500 text-[10px] sm:text-xs font-semibold tracking-[0.1em] uppercase opacity-60">
+          Home Game Tracker
         </p>
       </div>
 
@@ -599,8 +590,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     <div className="animate-fade-in w-full max-w-3xl mx-auto px-4 py-4 sm:py-8 pb-32 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5 sm:mb-6">
         <div className="pr-12 sm:pr-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
-            <Coins size={24} className="text-theme-400" />
+          <h1 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
+            <Coins size={20} className="text-theme-400" />
             Poker Ledger
           </h1>
           <p className="text-[10px] sm:text-xs text-slate-400 mt-1.5 font-medium flex items-center gap-1.5">
@@ -790,8 +781,13 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 }
 
 /* ─────────── SETTLE ─────────── */
-function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult }) {
-  const [fc, setFc] = useState(()=>{const m={};game.players.forEach(p=>m[p.id]="");return m;});
+function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChange }) {
+  const [fc, setFc] = useState(() => {
+    if (game.fc) return game.fc;
+    const m = {};
+    game.players.forEach(p => m[p.id] = "");
+    return m;
+  });
   const [result, setResult] = useState(game.settleResult || null);
   const [prevGameResult, setPrevGameResult] = useState(game.settleResult);
   
@@ -799,6 +795,16 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult }) {
     setPrevGameResult(game.settleResult);
     setResult(game.settleResult);
   }
+  
+  if (game.fc && JSON.stringify(game.fc) !== JSON.stringify(fc)) {
+    setFc(game.fc);
+  }
+  
+  const handleFcChange = (id, val) => {
+    const newFc = {...fc, [id]: val};
+    setFc(newFc);
+    if (onFcChange) onFcChange(newFc);
+  };
   const [warning, setWarning] = useState("");
   const tb = game.totalBankChips;
   const tf = Object.values(fc).reduce((s,v)=>s+(parseFloat(v)||0),0);
@@ -887,7 +893,7 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult }) {
                 <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Inv: <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
-                <input type="number" value={fc[p.id]} onChange={e=>setFc(prev=>({...prev,[p.id]:e.target.value}))} placeholder="0"
+                <input type="number" value={fc[p.id]} onChange={e=>handleFcChange(p.id, e.target.value)} placeholder="0"
                   className="w-20 sm:w-28 rounded-xl px-3 sm:px-4 py-3 text-base text-right glass-input font-mono shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"/>
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 shrink-0 hidden sm:block">chips</span>
               </div>
@@ -1272,7 +1278,7 @@ export default function App() {
         {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase("setup")} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} />}
-        {phase==="settle"&&game&&<SettleScreen game={game} upiMap={upiMap} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))}/>}
+        {phase==="settle"&&game&&<SettleScreen game={game} upiMap={upiMap} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))}/>}
 
         {/* Exit Confirmation */}
         <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
