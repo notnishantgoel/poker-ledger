@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSwipeable } from "react-swipeable";
+import SlotCounter from "react-slot-counter";
 import * as htmlToImage from "html-to-image";
 import {
   Plus, Trash2, ArrowRightLeft, Landmark, Calculator, X,
@@ -26,7 +27,7 @@ const store = {
     } catch (e) { console.error("Storage error:", e); }
   },
   async delete(key) {
-    try { localStorage.removeItem(key); } catch (_err) { /* ignore */ }
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
   }
 };
 
@@ -34,38 +35,7 @@ function round2(n) { return Math.round(n * 100) / 100; }
 let _pid = 100;
 function pid() { return String(_pid++); }
 
-const haptic = () => { try { if(navigator.vibrate) navigator.vibrate(40); } catch(_e){ /* ignore */ } };
-
-function AnimatedNumber({ value, prefix="", suffix="", decimals=0, duration=400 }) {
-  const [displayValue, setDisplayValue] = useState(value);
-  const rafRef = useRef(null);
-
-  useEffect(() => {
-    let start = performance.now();
-    let startVal = displayValue;
-    let endVal = value;
-    if (startVal === endVal) return;
-    
-    const animate = (time) => {
-      let progress = (time - start) / duration;
-      if (progress > 1) progress = 1;
-      const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      const currentVal = startVal + (endVal - startVal) * easeProgress;
-      setDisplayValue(currentVal);
-      if (progress < 1) {
-        rafRef.current = requestAnimationFrame(animate);
-      }
-    };
-    rafRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(rafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, duration]);
-
-  const formatted = decimals > 0 ? displayValue.toFixed(decimals) : Math.round(displayValue).toString();
-  const parts = formatted.split(".");
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return <span>{prefix}{parts.join(".")}{suffix}</span>;
-}
+const haptic = () => { try { if(navigator.vibrate) navigator.vibrate(40); } catch { /* ignore */ } };
 
 function computeSettlements(netBalances) {
   const b = netBalances.map(x => ({ ...x, balance: round2(x.balance) }));
@@ -196,16 +166,19 @@ function Err({ msg }) {
 function Toggle({ options, value, onChange }) {
   return (
     <div className="flex gap-2">
-      {options.map(([val,lbl,IconComp,activeColor])=>(
-        <button key={val} onClick={()=>onChange(val)}
-          className={`flex-1 flex items-center justify-center gap-2 sm:gap-2.5 rounded-xl px-3 py-3 text-xs sm:text-sm font-medium transition-all duration-300 border ${
-            value === val 
-            ? `bg-${activeColor}-500/15 border-${activeColor}-500/30 text-${activeColor}-400 shadow-[inset_0_0_12px_rgba(0,0,0,0.2)]` 
-            : 'bg-slate-900/40 border-white/5 text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
-          }`}>
-          <IconComp size={16}/> <span className="truncate">{lbl}</span>
-        </button>
-      ))}
+      {options.map(([val, lbl, iComp, activeColor]) => {
+        const IconComponent = iComp;
+        return (
+          <button key={val} onClick={()=>onChange(val)}
+            className={`flex-1 flex items-center justify-center gap-2 sm:gap-2.5 rounded-xl px-3 py-3 text-xs sm:text-sm font-medium transition-all duration-300 border ${
+              value === val 
+              ? `bg-${activeColor}-500/15 border-${activeColor}-500/30 text-${activeColor}-400 shadow-[inset_0_0_12px_rgba(0,0,0,0.2)]` 
+              : 'bg-slate-900/40 border-white/5 text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+            }`}>
+            <IconComponent size={16}/> <span className="truncate">{lbl}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -225,26 +198,46 @@ function avatar(name, i, size="w-10 h-10", textSize="text-sm font-bold") {
 }
 
 function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
+  const [offset, setOffset] = useState(0);
+
   const handlers = useSwipeable({
-    onSwipedLeft: onSwipeLeft,
-    onSwipedRight: onSwipeRight,
+    onSwiping: (e) => {
+      setOffset(Math.max(-100, Math.min(100, e.deltaX)));
+    },
+    onSwipedLeft: (e) => {
+      if (e.deltaX < -50) onSwipeLeft();
+      setOffset(0);
+    },
+    onSwipedRight: (e) => {
+      if (e.deltaX > 50) onSwipeRight();
+      setOffset(0);
+    },
+    onSwiped: () => {
+      setOffset(0);
+    },
     preventScrollOnSwipe: true,
-    delta: 50
+    trackMouse: true,
+    delta: 10
   });
 
   return (
-    <div {...handlers} className="relative group isolate animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
-      <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-500/20 rounded-xl sm:rounded-2xl opacity-0"></div>
-      <div className="absolute inset-y-0 right-0 w-1/2 bg-orange-500/20 rounded-xl sm:rounded-2xl opacity-0"></div>
-      <div className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 transition-transform active:scale-[0.98] w-full cursor-pointer">
+    <div {...handlers} className="relative group isolate overflow-hidden rounded-xl sm:rounded-2xl animate-slide-up bg-slate-800/40" style={{animationDelay:`${i*50}ms`}}>
+      <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-500/20 text-blue-400 flex items-center pl-4 sm:pl-5 font-bold transition-opacity duration-200" style={{opacity: offset > 20 ? 1 : 0}}>
+        <UserPlus size={20} className="mr-2"/> Buy-in
+      </div>
+      <div className="absolute inset-y-0 right-0 w-1/2 bg-rose-500/20 text-rose-400 flex items-center justify-end pr-4 sm:pr-5 font-bold transition-opacity duration-200" style={{opacity: offset < -20 ? 1 : 0}}>
+        Cash out <LogOut size={20} className="ml-2"/>
+      </div>
+      <div className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 w-full cursor-pointer" style={{transform: `translateX(${offset}px)`, transition: offset === 0 ? 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'}}>
         {avatar(p.name, i, "w-10 h-10", "text-sm font-bold")}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
         </div>
-        <p className="text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20" key={p.cashInvested}>
-          <AnimatedNumber value={p.cashInvested} prefix={CURRENCY} />
-        </p>
+        <div className="flex text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20">
+          <span className="mr-0.5">{CURRENCY}</span>
+          <SlotCounter value={p.cashInvested.toLocaleString()} charClassName="text-amber-400 font-mono text-base font-bold" debounceDelay={1} />
+        </div>
       </div>
     </div>
   );
@@ -529,7 +522,10 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
         <div className="text-right px-4 py-3 rounded-2xl glass-panel relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
           <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500/80 mb-0.5">Total Pot</p>
-          <p className="text-2xl font-bold text-amber-400 font-mono tracking-tight drop-shadow-md">{CURRENCY}{total.toLocaleString()}</p>
+          <div className="flex text-2xl font-bold text-amber-400 font-mono tracking-tight drop-shadow-md">
+            <span className="mr-0.5">{CURRENCY}</span>
+            <SlotCounter value={total.toLocaleString()} charClassName="text-amber-400 font-mono text-2xl font-bold" />
+          </div>
         </div>
       </div>
 
@@ -855,36 +851,7 @@ function SettleScreen({ game, onBack, onReset }) {
   );
 }
 
-function ThemeSwitcher() {
-  const THEMES = ["emerald", "gold", "sapphire", "amethyst"];
-  const themeColors = {emerald:"bg-[#10b981]", gold:"bg-[#f59e0b]", sapphire:"bg-[#3b82f6]", amethyst:"bg-[#a855f7]"};
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "emerald");
-  const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
-  // wait, where do I put it? absolute top-3 right-14 ?
-  return (
-    <div className="absolute top-3 right-16 sm:top-5 sm:right-20 z-50">
-      <button onClick={()=>{haptic(); setOpen(!open)}} className={`p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 hover:bg-white/10 transition-all shadow-lg backdrop-blur-md ${open?'bg-white/10 ring-2 ring-white/20':''}`}>
-        <Palette size={18} />
-      </button>
-      {open && (
-        <div className="absolute top-full right-0 mt-2 p-2 rounded-xl bg-slate-900/95 border border-white/10 shadow-2xl backdrop-blur-xl flex flex-col gap-1 min-w-[120px] animate-slide-up origin-top-right">
-          {THEMES.map(t => (
-            <button key={t} onClick={()=>{haptic(); setTheme(t); setOpen(false);}} className={`flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/10 transition-colors ${theme===t?'bg-white/5':''}`}>
-              <span className="text-xs font-semibold text-slate-200 capitalize">{t}</span>
-              <div className={`w-3 h-3 rounded-full ${themeColors[t]}`} />
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ─────────── APP ROOT ─────────── */
 export default function App() {
@@ -932,7 +899,6 @@ export default function App() {
             <button onClick={()=>{haptic(); setExitPrompt(true);}} className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
               <LogOut size={18} />
             </button>
-            <ThemeSwitcher />
           </>
         )}
         {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
