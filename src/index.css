@@ -1,8 +1,52 @@
 @import "tailwindcss";
 
+@theme {
+  --color-theme-300: var(--th-300);
+  --color-theme-400: var(--th-400);
+  --color-theme-500: var(--th-500);
+  --color-theme-600: var(--th-600);
+}
+
+:root {
+  /* Default: Casino Emerald */
+  --th-300: #6ee7b7;
+  --th-400: #34d399;
+  --th-500: #10b981;
+  --th-600: #059669;
+  --bg-glow-rgba: rgba(16, 185, 129, 0.25);
+  --bg-glow-alt: rgba(59, 130, 246, 0.2);
+}
+
+:root[data-theme="gold"] {
+  --th-300: #fcd34d;
+  --th-400: #fbbf24;
+  --th-500: #f59e0b;
+  --th-600: #d97706;
+  --bg-glow-rgba: rgba(245, 158, 11, 0.25);
+  --bg-glow-alt: rgba(239, 68, 68, 0.2);
+}
+
+:root[data-theme="sapphire"] {
+  --th-300: #93c5fd;
+  --th-400: #60a5fa;
+  --th-500: #3b82f6;
+  --th-600: #2563eb;
+  --bg-glow-rgba: rgba(59, 130, 246, 0.25);
+  --bg-glow-alt: rgba(168, 85, 247, 0.2);
+}
+
+:root[data-theme="amethyst"] {
+  --th-300: #d8b4fe;
+  --th-400: #c084fc;
+  --th-500: #a855f7;
+  --th-600: #9333ea;
+  --bg-glow-rgba: rgba(168, 85, 247, 0.25);
+  --bg-glow-alt: rgba(236, 72, 153, 0.2);
+}
+
 @layer base {
   body {
-    @apply bg-slate-950 text-slate-200 antialiased overflow-x-hidden min-h-screen text-base selection:bg-emerald-500/30 selection:text-emerald-100;
+    @apply bg-slate-950 text-slate-200 antialiased overflow-x-hidden min-h-screen text-base selection:bg-theme-500/30 selection:text-theme-100;
   }
   
   input[type=number]::-webkit-inner-spin-button, 
@@ -13,5 +57,6 @@
   
   input[type=number] {
     -moz-appearance: textfield;
+    appearance: textfield;
   }
 }

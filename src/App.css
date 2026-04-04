@@ -26,8 +26,9 @@
   left: -10%;
   width: 50vw;
   height: 50vw;
-  background: radial-gradient(circle, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0) 70%);
+  background: radial-gradient(circle, var(--bg-glow-rgba) 0%, transparent 70%);
   animation-delay: 0s;
+  transition: all 0.5s ease-in-out;
 }
 
 .bg-glow-2 {
@@ -35,8 +36,9 @@
   right: -10%;
   width: 60vw;
   height: 60vw;
-  background: radial-gradient(circle, rgba(59,130,246,0.2) 0%, rgba(59,130,246,0) 70%);
+  background: radial-gradient(circle, var(--bg-glow-alt) 0%, transparent 70%);
   animation-delay: -10s;
+  transition: all 0.5s ease-in-out;
 }
 
 @keyframes float {
@@ -56,7 +58,7 @@
 
 /* Inputs */
 .glass-input {
-  @apply bg-slate-950/60 border border-white/10 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-slate-900 shadow-inner text-slate-100 placeholder-slate-500 transition-all duration-300;
+  @apply bg-slate-950/60 border border-white/10 focus:border-theme-500/50 focus:ring-4 focus:ring-theme-500/10 focus:bg-slate-900 shadow-inner text-slate-100 placeholder-slate-500 transition-all duration-300;
 }
 
 select.glass-input {

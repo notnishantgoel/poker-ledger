@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { useSwipeable } from "react-swipeable";
+import * as htmlToImage from "html-to-image";
 import {
   Plus, Trash2, ArrowRightLeft, Landmark, Calculator, X,
   Coins, AlertTriangle, Check, ChevronDown, Play,
   RotateCcw, ArrowRight, Sparkles, Search, UserPlus,
-  LogOut, Building2, Users
+  LogOut, Building2, Users, Palette, Crown, Download, Share2
 } from "lucide-react";
 import './App.css';
 
@@ -32,6 +34,38 @@ function round2(n) { return Math.round(n * 100) / 100; }
 let _pid = 100;
 function pid() { return String(_pid++); }
 
+export const haptic = () => { try { if(navigator.vibrate) navigator.vibrate(40); } catch(e){} };
+
+export function AnimatedNumber({ value, prefix="", suffix="", decimals=0, duration=400 }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    let start = performance.now();
+    let startVal = displayValue;
+    let endVal = value;
+    if (startVal === endVal) return;
+    
+    const animate = (time) => {
+      let progress = (time - start) / duration;
+      if (progress > 1) progress = 1;
+      const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      const currentVal = startVal + (endVal - startVal) * easeProgress;
+      setDisplayValue(currentVal);
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value, duration]);
+
+  const formatted = decimals > 0 ? displayValue.toFixed(decimals) : Math.round(displayValue).toString();
+  const parts = formatted.split(".");
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return <span>{prefix}{parts.join(".")}{suffix}</span>;
+}
+
 function computeSettlements(netBalances) {
   const b = netBalances.map(x => ({ ...x, balance: round2(x.balance) }));
   const out = [];
@@ -50,6 +84,14 @@ function computeSettlements(netBalances) {
 
 function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel }) {
   const [focus, setFocus] = useState(null);
+
+  const getSwipeHandlers = (id) => useSwipeable({
+    onSwipedLeft: () => { setLp(id); open("leave"); haptic(); },
+    onSwipedRight: () => { setBuyPlayer(id); open("add"); haptic(); },
+    trackMouse: false,
+    preventScrollOnSwipe: true,
+    delta: 50
+  });
   const [cStr, setCStr] = useState(chips > 0 ? String(chips) : "");
   const [mStr, setMStr] = useState(money > 0 ? String(money) : "");
   
@@ -75,10 +117,10 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel 
       <div className="flex-1 min-w-0">
         {chipLabel !== null && <label className="text-[10px] sm:text-xs font-semibold mb-1.5 block tracking-wider uppercase text-slate-400">{chipLabel || "Chips"}</label>}
         <div className="relative group flex items-center">
-          <button onClick={()=>adjustC(-10)} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>
+          <button onClick={(e)=>{haptic(); adjustC(-10)}} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>
           <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0" 
-            className={`w-full rounded-xl px-7 text-center py-2 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-emerald-500/20 focus:border-emerald-500/50" : ""}`} />
-          <button onClick={()=>adjustC(10)} className="absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">+</button>
+            className={`w-full rounded-xl px-7 text-center py-2 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-theme-500/20 focus:border-theme-500/50" : ""}`} />
+          <button onClick={(e)=>{haptic(); adjustC(10)}} className="absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">+</button>
         </div>
       </div>
       <div className="pb-2 text-slate-500 font-medium shrink-0">=</div>
@@ -247,18 +289,18 @@ function SetupScreen({ onStart, savedNames }) {
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-2 py-3 sm:py-8">
       <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-6">
-        <div className="inline-flex items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.2)] border border-emerald-300/30 shrink-0">
+        <div className="inline-flex items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-theme-400 to-theme-600 shadow-[0_0_15px_rgba(16,185,129,0.2)] border border-theme-300/30 shrink-0">
           <Coins size={18} className="text-white drop-shadow-md" />
         </div>
         <div>
-          <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-emerald-50 to-emerald-200 bg-clip-text text-transparent tracking-tight leading-none mb-0.5">Poker Ledger</h1>
+          <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-theme-50 to-theme-200 bg-clip-text text-transparent tracking-tight leading-none mb-0.5">Poker Ledger</h1>
           <p className="text-slate-400 text-[9px] sm:text-xs font-medium">Set up your home game</p>
         </div>
       </div>
       
       <div className="space-y-3 glass-panel p-2.5 sm:p-6 rounded-[1rem] sm:rounded-[1.5rem]">
         <div className="flex items-center gap-3">
-          <label className="text-xs sm:text-sm font-semibold tracking-wider uppercase text-emerald-400/90 flex items-center gap-1.5 shrink-0">
+          <label className="text-xs sm:text-sm font-semibold tracking-wider uppercase text-theme-400/90 flex items-center gap-1.5 shrink-0">
             <Coins size={14}/> {CURRENCY} / Chip
           </label>
           <div className="relative group flex-1">
@@ -277,7 +319,7 @@ function SetupScreen({ onStart, savedNames }) {
               <button onClick={quickFill} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
                 <Sparkles size={12}/> Auto-fill
               </button>
-              <button onClick={addP} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors">
+              <button onClick={addP} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-theme-500/30 bg-theme-500/10 hover:bg-theme-500/20 text-theme-400 transition-colors">
                 <Plus size={12}/> Add player
               </button>
             </div>
@@ -291,7 +333,7 @@ function SetupScreen({ onStart, savedNames }) {
             {players.map((p,i)=>(
               <div key={p.id} className="rounded-xl p-2 sm:p-4 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
                 <div className="flex items-center gap-2 sm:gap-4 mb-2">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">
                     {i+1}
                   </div>
                   <div className="flex-1 relative min-w-0">
@@ -320,7 +362,7 @@ function SetupScreen({ onStart, savedNames }) {
         
         {error && <Err msg={error}/>}
         <div className="pt-2">
-          <Btn onClick={handleStart} full variant="primary" className="py-2.5 sm:py-4 shadow-emerald-500/30 text-sm sm:text-base shadow-[0_8px_30px_rgba(16,185,129,0.3)]"><Play size={16} fill="currentColor"/> Start Ledger</Btn>
+          <Btn onClick={handleStart} full variant="primary" className="py-2.5 sm:py-4 shadow-theme-500/30 text-sm sm:text-base shadow-[0_8px_30px_rgba(16,185,129,0.3)]"><Play size={16} fill="currentColor"/> Start Ledger</Btn>
         </div>
       </div>
     </div>
@@ -449,11 +491,11 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5 sm:mb-6">
         <div className="pr-12 sm:pr-0">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
-            <Coins size={24} className="text-emerald-400" />
+            <Coins size={24} className="text-theme-400" />
             Poker Ledger
           </h1>
           <p className="text-[10px] sm:text-xs text-slate-400 mt-1.5 font-medium flex items-center gap-1.5">
-            <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20">{game.players.length} active</span>
+            <span className="bg-theme-500/20 text-theme-400 px-1.5 py-0.5 rounded border border-theme-500/20">{game.players.length} active</span>
             <span>&middot;</span> 
             <span>{CURRENCY}{game.chipValue}/chip</span>
           </p>
@@ -478,18 +520,29 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
-        {game.players.map((p,i)=>(
-          <div key={p.id} className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 animate-slide-up glass-card group" style={{animationDelay:`${i*50}ms`}}>
-            {avatar(p.name, i, "w-10 h-10", "text-sm font-bold")}
+        {game.players.map((p,i)=>{
+          const handlers = useSwipeable({
+            onSwipedLeft: () => { setLp(p.id); open("leave"); haptic(); },
+            onSwipedRight: () => { setBuyPlayer(p.id); open("add"); haptic(); },
+            preventScrollOnSwipe: true,
+            delta: 50
+          });
+          return (
+          <div {...handlers} key={p.id} className="relative group isolate animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+            <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-500/20 rounded-xl sm:rounded-2xl opacity-0"></div>
+            <div className="absolute inset-y-0 right-0 w-1/2 bg-orange-500/20 rounded-xl sm:rounded-2xl opacity-0"></div>
+            <div className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 transition-transform active:scale-[0.98] w-full">
+              {avatar(p.name, i, "w-10 h-10", "text-sm font-bold")}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
             </div>
             <p className="text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20" key={p.cashInvested}>
-              {CURRENCY}{p.cashInvested.toLocaleString()}
+              <AnimatedNumber value={p.cashInvested} prefix={CURRENCY} />
             </p>
+            </div>
           </div>
-        ))}
+        )})}
       </div>
 
       <div className="space-y-4 max-w-2xl">
@@ -503,7 +556,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
               {lpData.map((p,i)=>(
                 <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-xl px-4 py-3 text-sm bg-slate-900/50 border border-white/5">
                   <span className="font-semibold text-slate-200">{p.name}</span><div className="flex-1 border-b border-dashed border-white/10 mx-2"/>
-                  <span className={`font-mono font-bold ${p.net>=0?'text-emerald-400 bg-emerald-400/10':'text-rose-400 bg-rose-400/10'} px-2.5 py-1 rounded-md`}>
+                  <span className={`font-mono font-bold ${p.net>=0?'text-theme-400 bg-theme-400/10':'text-rose-400 bg-rose-400/10'} px-2.5 py-1 rounded-md`}>
                     {p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}
                   </span>
                   {p.settledWith&&<span className="text-xs text-slate-500 font-medium">with {p.settledWith}</span>}
@@ -525,13 +578,13 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
                   <div key={i} className="text-xs sm:text-sm px-4 py-3 rounded-xl bg-slate-900/50 border border-white/5 text-slate-400 flex items-start gap-3">
                     <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-slate-600"/>
                     <div>
-                      {t.type==="initial"&&<><span className="font-semibold text-emerald-400">{t.player}</span> bought in: <span className="font-mono">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
+                      {t.type==="initial"&&<><span className="font-semibold text-theme-400">{t.player}</span> bought in: <span className="font-mono">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
                       {t.type==="bank-buy-in"&&<><span className="font-semibold text-blue-400">{t.player}</span> bank buy-in: <span className="font-mono">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
                       {t.type==="transfer"&&<><span className="font-semibold text-orange-400">{t.seller}</span> sold <span className="font-mono text-slate-300">{round2(t.chips)}</span> chips to <span className="font-semibold text-purple-400">{t.buyer}</span> ({CURRENCY}{round2(t.money)})</>}
-                      {t.type==="add-transfer"&&<><span className="font-semibold text-emerald-400">{t.player}</span> joined via <span className="font-semibold text-orange-400">{t.from}</span>: <span className="font-mono px-1 bg-slate-800 rounded">{round2(t.chips)} chips</span> ({CURRENCY}{round2(t.money)})</>}
+                      {t.type==="add-transfer"&&<><span className="font-semibold text-theme-400">{t.player}</span> joined via <span className="font-semibold text-orange-400">{t.from}</span>: <span className="font-mono px-1 bg-slate-800 rounded">{round2(t.chips)} chips</span> ({CURRENCY}{round2(t.money)})</>}
                       {t.type==="leave-bank-return"&&<><span className="font-semibold text-orange-400">{t.player}</span> returned <span className="font-mono text-slate-300">{round2(t.chips)}</span> chips to bank</>}
                       {t.type==="leave-transfer"&&<><span className="font-semibold text-orange-400">{t.player}</span> gave <span className="font-mono text-slate-300">{round2(t.chips)}</span> chips to <span className="font-semibold text-blue-400">{t.to}</span></>}
-                      {t.type==="leave-settle"&&<><span className="font-semibold text-rose-400">{t.from}</span> pays <span className="font-semibold text-emerald-400">{t.to}</span> <span className="font-mono font-bold text-amber-400">{CURRENCY}{round2(t.amount)}</span></>}
+                      {t.type==="leave-settle"&&<><span className="font-semibold text-rose-400">{t.from}</span> pays <span className="font-semibold text-theme-400">{t.to}</span> <span className="font-mono font-bold text-amber-400">{CURRENCY}{round2(t.amount)}</span></>}
                     </div>
                   </div>
                 ))}
@@ -543,14 +596,14 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
 
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 sm:pb-8 px-4">
         <div className="flex gap-2 sm:gap-4 max-w-3xl mx-auto">
-          <Btn onClick={()=>open("buy")} variant="primary" full className="shadow-emerald-500/20 whitespace-nowrap px-2 sm:px-5"><Landmark size={18} className="shrink-0"/> <span className="hidden sm:inline">Bank</span> Buy-in</Btn>
+          <Btn onClick={()=>open("buy")} variant="primary" full className="shadow-theme-500/20 whitespace-nowrap px-2 sm:px-5"><Landmark size={18} className="shrink-0"/> <span className="hidden sm:inline">Bank</span> Buy-in</Btn>
           <Btn onClick={()=>open("transfer")} variant="secondary" full className="border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)] whitespace-nowrap px-2 sm:px-5"><ArrowRightLeft size={18} className="shrink-0"/> Transfer</Btn>
           <Btn onClick={onSettle} variant="amber" full className="shadow-amber-500/20 whitespace-nowrap px-2 sm:px-5"><Calculator size={18} className="shrink-0"/> Settle <span className="hidden sm:inline">Up</span></Btn>
         </div>
       </div>
 
       {/* Modals remain mostly identical in layout but updated to Tailwind */}
-      <Modal open={modal==="buy"} onClose={reset} title="Bank Buy-in" icon={<div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><Landmark size={20}/></div>}>
+      <Modal open={modal==="buy"} onClose={reset} title="Bank Buy-in" icon={<div className="p-2 bg-theme-500/20 rounded-lg text-theme-400"><Landmark size={20}/></div>}>
         <div className="space-y-6">
           <PSelect players={game.players} value={buyPlayer} onChange={setBuyPlayer} label="Player"/>
           <TwoWayInput chipValue={game.chipValue} chips={buyAmt.chips} money={buyAmt.money} onChange={setBuyAmt}/>
@@ -584,7 +637,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
           </div>
           <div>
             <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-slate-400">Getting chips from</label>
-            <Toggle value={newSrc} onChange={setNewSrc} options={[["bank","Bank",Building2,"emerald"],["player","Player",Users,"purple"]]}/>
+            <Toggle value={newSrc} onChange={setNewSrc} options={[["bank","Bank",Building2,"theme"],["player","Player",Users,"purple"]]}/>
           </div>
           {newSrc==="player"&&<PSelect players={game.players} value={newSrcPlayer} onChange={setNewSrcPlayer} label="Selling player"/>}
           <TwoWayInput chipValue={game.chipValue} chips={newAmt.chips} money={newAmt.money} onChange={setNewAmt} chipLabel="Buy-in chips" moneyLabel={`Buy-in (${CURRENCY})`}/>
@@ -604,7 +657,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
             </div>
             <div>
               <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-slate-400">What happens to their chips?</label>
-              <Toggle value={lDest} onChange={setLDest} options={[["bank","Return to Bank",Building2,"emerald"],["player","Give to Player",Users,"purple"]]}/>
+              <Toggle value={lDest} onChange={setLDest} options={[["bank","Return to Bank",Building2,"theme"],["player","Give to Player",Users,"purple"]]}/>
             </div>
             {lDest==="player"&&lp&&<PSelect players={game.players} value={lDestP} onChange={setLDestP} exclude={lp} label="Who gets the chips?"/>}
             <Err msg={err}/>
@@ -622,7 +675,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
                 <div className="flex justify-between items-center"><span>Cash invested</span><span className="font-mono text-slate-200">{CURRENCY}{lCalc.invested.toLocaleString()}</span></div>
                 <div className="flex justify-between pt-4 mt-4 border-t border-white/10">
                   <span className="font-bold text-slate-200">Net balance</span>
-                  <span className={`font-mono text-base font-bold bg-slate-950/50 px-3 py-1 rounded-lg border ${lCalc.net>0?'text-emerald-400 border-emerald-500/20':lCalc.net<0?'text-rose-400 border-rose-500/20':'text-slate-400 border-white/10'}`}>
+                  <span className={`font-mono text-base font-bold bg-slate-950/50 px-3 py-1 rounded-lg border ${lCalc.net>0?'text-theme-400 border-theme-500/20':lCalc.net<0?'text-rose-400 border-rose-500/20':'text-slate-400 border-white/10'}`}>
                     {lCalc.net>=0?"+":""}{CURRENCY}{round2(lCalc.net).toLocaleString()}
                   </span>
                 </div>
@@ -630,14 +683,14 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
             </div>
             {Math.abs(lCalc.net)>=0.5?(
               <>
-                <div className={`rounded-xl px-5 py-4 text-sm font-medium border shadow-inner ${lCalc.net>0?'bg-emerald-500/10 border-emerald-500/20 text-emerald-300':'bg-rose-500/10 border-rose-500/20 text-rose-300'}`}>
+                <div className={`rounded-xl px-5 py-4 text-sm font-medium border shadow-inner ${lCalc.net>0?'bg-theme-500/10 border-theme-500/20 text-theme-300':'bg-rose-500/10 border-rose-500/20 text-rose-300'}`}>
                   {lCalc.net>0?`${lCalc.name} is owed ${CURRENCY}${round2(lCalc.net).toLocaleString()}. Who pays?`:`${lCalc.name} owes ${CURRENCY}${round2(Math.abs(lCalc.net)).toLocaleString()}. Who gets paid?`}
                 </div>
                 <PSelect players={game.players} value={lSetP} onChange={setLSetP} exclude={lp} label={lCalc.net>0?"Who pays them?":"Who do they pay?"}/>
               </>
             ):(
-              <div className="rounded-xl px-5 py-4 text-sm font-medium flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 shadow-[inset_0_0_20px_rgba(16,185,129,0.1)]">
-                <div className="bg-emerald-500/20 p-1.5 rounded-full"><Check size={16}/></div> {lCalc.name} is exactly even.
+              <div className="rounded-xl px-5 py-4 text-sm font-medium flex items-center gap-3 bg-theme-500/10 border border-theme-500/30 text-theme-300 shadow-[inset_0_0_20px_rgba(16,185,129,0.1)]">
+                <div className="bg-theme-500/20 p-1.5 rounded-full"><Check size={16}/></div> {lCalc.name} is exactly even.
               </div>
             )}
             <Err msg={err}/>
@@ -665,9 +718,35 @@ function SettleScreen({ game, onBack, onReset }) {
     setWarning("");
     if(Math.abs(tf-tb)>0.5) setWarning(`Chip mismatch! Final (${round2(tf)}) ≠ bank (${round2(tb)}). Diff: ${round2(Math.abs(tf-tb))}`);
     const bal = game.players.map(p=>{const f=parseFloat(fc[p.id])||0;return{name:p.name,balance:round2(f*game.chipValue-p.cashInvested),finalChips:f,invested:p.cashInvested};});
-    setResult({balances:bal,settlements:computeSettlements(bal)});
+    const winnerName = bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0])?.balance > 0 ? bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0]).name : null;
+    setResult({balances:bal,settlements:computeSettlements(bal), winner: winnerName});
   };
   const lpData=game.leftPlayers||[];
+
+  const receiptRef = useRef(null);
+  const shareReceipt = async () => {
+    if (!receiptRef.current) return;
+    try {
+      const dataUrl = await htmlToImage.toPng(receiptRef.current, { backgroundColor: '#020617', style: { padding: '20px' } });
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], 'poker-ledger-receipt.png', { type: blob.type });
+      
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Poker Ledger Settlement',
+          text: 'Here is our final poker settlement!',
+          files: [file],
+        });
+      } else {
+        const link = document.createElement('a');
+        link.download = 'poker-ledger-receipt.png';
+        link.href = dataUrl;
+        link.click();
+      }
+    } catch (e) {
+      console.error('Failed to generate receipt', e);
+    }
+  };
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
@@ -676,7 +755,7 @@ function SettleScreen({ game, onBack, onReset }) {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Settle Up</h1>
           <p className="text-sm font-medium mt-1 text-slate-400">
-            Chips to account for: <span className={`font-mono ${remaining === 0 ? 'text-emerald-400' : remaining < 0 ? 'text-rose-400' : 'text-amber-400'}`}>{round2(remaining)}</span> <span className="text-slate-500 text-xs ml-1">(of {round2(tb)})</span>
+            Chips to account for: <span className={`font-mono ${remaining === 0 ? 'text-theme-400' : remaining < 0 ? 'text-rose-400' : 'text-amber-400'}`}>{round2(remaining)}</span> <span className="text-slate-500 text-xs ml-1">(of {round2(tb)})</span>
           </p>
         </div>
       </div>
@@ -707,14 +786,15 @@ function SettleScreen({ game, onBack, onReset }) {
         </div>
       ):(
         <div className="space-y-8 animate-slide-up">
-          <div className="glass-panel p-5 sm:p-8 rounded-[2rem]">
+          <div ref={receiptRef} className="glass-panel p-5 sm:p-8 rounded-[2rem]">
             <h2 className="text-sm font-semibold mb-5 tracking-wider uppercase text-slate-400">Player balances</h2>
             <div className="space-y-3">{result.balances.map((b,i)=>(
-              <div key={b.name} className={`flex items-center gap-4 rounded-[1.5rem] px-5 py-4 animate-slide-up border ${b.balance>0?'bg-emerald-500/5 border-emerald-500/20':b.balance<0?'bg-rose-500/5 border-rose-500/20':'bg-white/5 border-white/10'}`} style={{animationDelay:`${i*60}ms`}}>
+              <div key={b.name} className={`flex items-center gap-4 rounded-[1.5rem] px-5 py-4 animate-slide-up border relative overflow-hidden ${b.name===result.winner?'bg-amber-500/10 border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/30':b.balance>0?'bg-theme-500/5 border-theme-500/20':b.balance<0?'bg-rose-500/5 border-rose-500/20':'bg-white/5 border-white/10'}`} style={{animationDelay:`${i*60}ms`}}>
+                {b.name===result.winner && <div className="absolute top-0 right-0 p-1.5 bg-amber-500/20 text-amber-400 rounded-bl-[0.75rem] backdrop-blur-md border-b border-l border-amber-500/30"><Crown size={14} /></div>}
                 <span className="text-base sm:text-lg font-bold flex-1 text-slate-100 truncate">{b.name}</span>
                 <div className="text-right">
                   <p className="text-xs font-medium text-slate-400"><span className="font-mono">{b.finalChips}</span> chips &middot; Inv. {CURRENCY}{b.invested.toLocaleString()}</p>
-                  <p className={`text-lg font-bold mt-1 font-mono ${b.balance>0?'text-emerald-400':b.balance<0?'text-rose-400':'text-slate-400'}`}>
+                  <p className={`text-lg font-bold mt-1 font-mono ${b.balance>0?'text-theme-400':b.balance<0?'text-rose-400':'text-slate-400'}`}>
                     {b.balance>=0?"+":""}{CURRENCY}{round2(b.balance).toLocaleString()}
                   </p>
                 </div>
@@ -730,7 +810,7 @@ function SettleScreen({ game, onBack, onReset }) {
               <div className="space-y-2">{lpData.map((p,i)=>(
                 <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-xl px-5 py-3.5 text-sm bg-slate-900/60 border border-white/5 text-slate-300">
                   <span className="font-semibold text-slate-100">{p.name}</span><div className="flex-1 border-b border-dashed border-white/10 mx-2"/>
-                  <span className={`font-mono font-bold ${p.net>=0?'text-emerald-400':'text-rose-400'}`}>{p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}</span>
+                  <span className={`font-mono font-bold ${p.net>=0?'text-theme-400':'text-rose-400'}`}>{p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}</span>
                   {p.settledWith&&<span className="text-xs text-slate-500">w/ {p.settledWith}</span>}
                 </div>
               ))}</div>
@@ -741,7 +821,7 @@ function SettleScreen({ game, onBack, onReset }) {
             <h2 className="text-base font-bold mb-6 flex items-center gap-3 text-indigo-200">
               <Sparkles size={20} className="text-amber-400"/> Settlements ({result.settlements.length} transaction{result.settlements.length!==1?"s":""})
             </h2>
-            {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-emerald-400">Everyone is even! 🎉</p></div>:(
+            {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>:(
               <div className="space-y-3">{result.settlements.map((s,i)=>(
                 <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-2xl px-5 py-4 animate-slide-up bg-slate-900/80 border border-indigo-500/30 shadow-lg" style={{animationDelay:`${i*80}ms`}}>
                   <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
@@ -753,16 +833,48 @@ function SettleScreen({ game, onBack, onReset }) {
                     <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
                     <div className="h-px flex-1 bg-indigo-500/30"/>
                   </div>
-                  <span className="text-sm sm:text-base font-bold shrink-0 text-emerald-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
+                  <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
                 </div>
               ))}</div>
             )}
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
-            <Btn onClick={()=>setResult(null)} variant="secondary" className="flex-1 py-4 text-base"><RotateCcw size={18}/> Re-enter</Btn>
-            <Btn onClick={onReset} variant="danger" className="flex-1 py-4 text-base"><Trash2 size={18}/> New Game</Btn>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-4">
+            <Btn onClick={()=>setResult(null)} variant="secondary" className="flex-1 py-3 text-sm sm:text-base"><RotateCcw size={18}/> Re-enter</Btn>
+            <Btn onClick={()=>{haptic(); shareReceipt();}} variant="primary" className="flex-1 py-3 text-sm sm:text-base"><Download size={18}/> Share Receipt</Btn>
+            <Btn onClick={onReset} variant="danger" className="flex-1 py-3 text-sm sm:text-base"><Trash2 size={18}/> New Game</Btn>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ThemeSwitcher() {
+  const THEMES = ["emerald", "gold", "sapphire", "amethyst"];
+  const themeColors = {emerald:"bg-[#10b981]", gold:"bg-[#f59e0b]", sapphire:"bg-[#3b82f6]", amethyst:"bg-[#a855f7]"};
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "emerald");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  // wait, where do I put it? absolute top-3 right-14 ?
+  return (
+    <div className="absolute top-3 right-16 sm:top-5 sm:right-20 z-50">
+      <button onClick={()=>{haptic(); setOpen(!open)}} className={`p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 hover:bg-white/10 transition-all shadow-lg backdrop-blur-md ${open?'bg-white/10 ring-2 ring-white/20':''}`}>
+        <Palette size={18} />
+      </button>
+      {open && (
+        <div className="absolute top-full right-0 mt-2 p-2 rounded-xl bg-slate-900/95 border border-white/10 shadow-2xl backdrop-blur-xl flex flex-col gap-1 min-w-[120px] animate-slide-up origin-top-right">
+          {THEMES.map(t => (
+            <button key={t} onClick={()=>{haptic(); setTheme(t); setOpen(false);}} className={`flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/10 transition-colors ${theme===t?'bg-white/5':''}`}>
+              <span className="text-xs font-semibold text-slate-200 capitalize">{t}</span>
+              <div className={`w-3 h-3 rounded-full ${themeColors[t]}`} />
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -794,7 +906,7 @@ export default function App() {
   const handleReset=async()=>{await store.delete(GAME_KEY);setGame(null);setPhase("setup");};
 
   if(phase==="loading") return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-emerald-500 z-50">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-theme-500 z-50">
       <Coins size={48} className="animate-bounce" />
       <div className="mt-4 text-slate-500 font-medium tracking-widest uppercase text-sm animate-pulse">Loading Ledger...</div>
     </div>
@@ -809,9 +921,12 @@ export default function App() {
       
       <div className="relative min-h-screen pt-2 sm:pt-0">
         {phase!=="loading"&&phase!=="setup"&&(
-          <button onClick={()=>setExitPrompt(true)} className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
-            <LogOut size={18} />
-          </button>
+          <>
+            <button onClick={()=>{haptic(); setExitPrompt(true);}} className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
+              <LogOut size={18} />
+            </button>
+            <ThemeSwitcher />
+          </>
         )}
         {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames}/>}
