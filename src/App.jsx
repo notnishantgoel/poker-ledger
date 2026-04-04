@@ -335,84 +335,109 @@ function SetupScreen({ onStart, savedNames }) {
   };
 
   return (
-    <div className="animate-fade-in w-full max-w-2xl mx-auto px-2 py-3 sm:py-8">
-      <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-6">
-        <div className="inline-flex items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-theme-400 to-theme-600 shadow-[0_0_15px_rgba(16,185,129,0.2)] border border-theme-300/30 shrink-0">
-          <Coins size={18} className="text-white drop-shadow-md" />
+    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-6 sm:py-12">
+      {/* ── Hero Section ── */}
+      <div className="text-center mb-8 sm:mb-12">
+        <div className="relative inline-flex items-center justify-center mb-5">
+          {/* Outer glow ring */}
+          <div className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-theme-500/20 blur-xl animate-pulse" />
+          {/* Icon container */}
+          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-theme-400 via-theme-500 to-theme-600 shadow-[0_0_40px_rgba(16,185,129,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center border border-theme-300/30 animate-hero-icon">
+            <Coins size={32} className="text-white drop-shadow-lg" />
+          </div>
         </div>
-        <div>
-          <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-theme-50 to-theme-200 bg-clip-text text-transparent tracking-tight leading-none mb-0.5">Poker Ledger</h1>
-          <p className="text-slate-400 text-[9px] sm:text-xs font-medium">Set up your home game</p>
-        </div>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">
+          <span className="bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">Poker</span>{' '}
+          <span className="bg-gradient-to-r from-theme-300 to-theme-500 bg-clip-text text-transparent">Ledger</span>
+        </h1>
+        <p className="text-slate-400 text-sm sm:text-base font-medium max-w-xs mx-auto leading-relaxed">
+          Track buy-ins, transfers & settlements for your home game
+        </p>
       </div>
-      
-      <div className="space-y-3 glass-panel p-2.5 sm:p-6 rounded-[1rem] sm:rounded-[1.5rem]">
-        <div className="flex items-center gap-3">
-          <label className="text-xs sm:text-sm font-semibold tracking-wider uppercase text-theme-400/90 flex items-center gap-1.5 shrink-0">
-            <Coins size={14}/> {CURRENCY} / Chip
-          </label>
-          <div className="relative group flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm pointer-events-none">{CURRENCY}</span>
-            <input type="number" value={chipValue} onChange={e=>setChipValue(e.target.value)} placeholder="5"
-              className="w-full rounded-xl pl-7 pr-3 py-2 text-sm sm:text-base glass-input text-amber-400 font-mono shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]" />
+
+      {/* ── Main Card ── */}
+      <div className="space-y-4 glass-panel p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] shadow-[0_0_60px_rgba(0,0,0,0.4)]">
+        {/* Chip Value */}
+        <div className="flex items-center gap-3 p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/5 to-transparent border border-amber-500/10">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center border border-amber-500/20 shrink-0">
+            <Coins size={18} className="text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <label className="text-[10px] sm:text-xs font-semibold tracking-wider uppercase text-amber-400/80 block mb-1">Chip Value</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm pointer-events-none">{CURRENCY}</span>
+              <input type="number" value={chipValue} onChange={e=>setChipValue(e.target.value)} placeholder="5"
+                className="w-full rounded-xl pl-7 pr-3 py-2 text-sm sm:text-base glass-input text-amber-400 font-mono" />
+            </div>
           </div>
         </div>
-        
-        <div className="pt-2 border-t border-white/5">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs sm:text-sm font-semibold text-slate-300 flex items-center gap-2">
-              <Users size={16}/> Players
-            </label>
-            <div className="flex gap-2">
-              <button onClick={quickFill} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
-                <Sparkles size={12}/> Auto-fill
-              </button>
-              <button onClick={addP} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-theme-500/30 bg-theme-500/10 hover:bg-theme-500/20 text-theme-400 transition-colors">
-                <Plus size={12}/> Add player
-              </button>
-            </div>
+
+        {/* Players Header */}
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-theme-400" />
+            <span className="text-sm sm:text-base font-bold text-slate-200">Players</span>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-theme-500/15 text-theme-400 border border-theme-500/20">{players.filter(p=>p.name.trim()).length}/{players.length}</span>
           </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-end gap-3 sm:gap-4 px-2 mb-1">
-              <div className="flex-1"><label className="text-[9px] sm:text-xs font-semibold tracking-wider uppercase text-slate-400 ml-10">Name</label></div>
-              <div className="flex-1"><label className="text-[9px] sm:text-xs font-semibold tracking-wider uppercase text-slate-400 ml-2">Buy-in (# Chip)</label></div>
-            </div>
-            {players.map((p,i)=>(
-              <div key={p.id} className="rounded-xl p-2 sm:p-4 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
-                <div className="flex items-center gap-2 sm:gap-4 mb-2">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">
-                    {i+1}
-                  </div>
-                  <div className="flex-1 relative min-w-0">
-                    <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
-                      onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
-                      className="w-full rounded-xl px-3 py-2 text-sm sm:text-base glass-input" />
-                    {sug.id===p.id&&sug.list.length>0&&(
-                      <div className="absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1">
-                        {sug.list.map(s=>(
-                          <button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2"
-                            onMouseDown={()=>{upd(p.id,"name",s);setSug({id:null,list:[]});}}>
-                            <Search size={14} className="text-slate-400 shrink-0"/> <span className="truncate">{s}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-1.5 sm:p-2 rounded-lg border border-rose-500/0 hover:border-rose-500/20 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 transition-all shrink-0"><Trash2 size={14}/></button>}
+          <div className="flex gap-2">
+            <button onClick={quickFill} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
+              <Sparkles size={12}/> Auto-fill
+            </button>
+            <button onClick={addP} className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full border border-theme-500/30 bg-theme-500/10 hover:bg-theme-500/20 text-theme-400 transition-colors">
+              <Plus size={12}/> Add
+            </button>
+          </div>
+        </div>
+
+        {/* Column Headers */}
+        <div className="flex items-end gap-3 sm:gap-4 px-2">
+          <div className="flex-1"><label className="text-[9px] sm:text-xs font-semibold tracking-wider uppercase text-slate-500 ml-10">Name</label></div>
+          <div className="flex-1"><label className="text-[9px] sm:text-xs font-semibold tracking-wider uppercase text-slate-500 ml-2">Buy-in (Chips)</label></div>
+        </div>
+
+        {/* Player Rows */}
+        <div className="space-y-2">
+          {players.map((p,i)=>(
+            <div key={p.id} className="rounded-xl p-2 sm:p-4 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
+              <div className="flex items-center gap-2 sm:gap-4 mb-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">
+                  {i+1}
                 </div>
-                <TwoWayInput chipValue={cv} chips={p.chips} money={p.money} chipLabel={null} moneyLabel={null}
-                  onChange={({chips,money})=>{upd(p.id,"chips",chips);upd(p.id,"money",money);}} />
+                <div className="flex-1 relative min-w-0">
+                  <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
+                    onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
+                    className="w-full rounded-xl px-3 py-2 text-sm sm:text-base glass-input" />
+                  {sug.id===p.id&&sug.list.length>0&&(
+                    <div className="absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1">
+                      {sug.list.map(s=>(
+                        <button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2"
+                          onMouseDown={()=>{upd(p.id,"name",s);setSug({id:null,list:[]});}}>
+                          <Search size={14} className="text-slate-400 shrink-0"/> <span className="truncate">{s}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-1.5 sm:p-2 rounded-lg border border-rose-500/0 hover:border-rose-500/20 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 transition-all shrink-0"><Trash2 size={14}/></button>}
               </div>
-            ))}
-          </div>
+              <TwoWayInput chipValue={cv} chips={p.chips} money={p.money} chipLabel={null} moneyLabel={null}
+                onChange={({chips,money})=>{upd(p.id,"chips",chips);upd(p.id,"money",money);}} />
+            </div>
+          ))}
         </div>
-        
+
         {error && <Err msg={error}/>}
-        <div className="pt-2">
-          <Btn onClick={handleStart} full variant="primary" className="py-2.5 sm:py-4 shadow-theme-500/30 text-sm sm:text-base shadow-[0_8px_30px_rgba(16,185,129,0.3)]"><Play size={16} fill="currentColor"/> Start Ledger</Btn>
+
+        {/* Start Button */}
+        <div className="pt-3">
+          <Btn onClick={handleStart} full variant="primary" className="py-3.5 sm:py-4 text-base sm:text-lg shadow-[0_8px_30px_rgba(16,185,129,0.3)] rounded-2xl">
+            <Play size={18} fill="currentColor"/> Deal Me In
+          </Btn>
         </div>
       </div>
+
+      {/* Footer tagline */}
+      <p className="text-center text-[10px] sm:text-xs text-slate-600 mt-6 font-medium tracking-wider uppercase">Built for the felt · No signup required</p>
     </div>
   );
 }
