@@ -206,7 +206,7 @@ function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
   const resetSwipe = () => {
     isDragging.current = false;
     if (cardRef.current) {
-      cardRef.current.style.transform = 'translateX(0px)';
+      cardRef.current.style.transform = 'translate3d(0px, 0px, 0px)';
       cardRef.current.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
     }
     if (leftBgRef.current) leftBgRef.current.style.opacity = '0';
@@ -221,7 +221,7 @@ function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
       const x = Math.max(-100, Math.min(100, e.deltaX));
       
       if (cardRef.current) {
-        cardRef.current.style.transform = `translateX(${x}px)`;
+        cardRef.current.style.transform = `translate3d(${x}px, 0px, 0px)`;
         cardRef.current.style.transition = 'none';
       }
       if (leftBgRef.current) leftBgRef.current.style.opacity = x > 20 ? '1' : '0';
@@ -429,6 +429,13 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
   const open = m => { reset(); setTimeout(()=>setModal(m),0); };
   const openBi = id => { reset(); setTimeout(()=>{setBiTarget(id); setModal("buyin");},0); };
 
+  useEffect(() => {
+    const handleAdd = () => open("add");
+    window.addEventListener("open-add-player", handleAdd);
+    return () => window.removeEventListener("open-add-player", handleAdd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const submitBuyIn = () => {
     setErr("");
     if(!biTarget) return setErr("Select player buying in");
@@ -552,10 +559,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames }) {
         </div>
       </div>
 
-      <div className="flex gap-2 sm:gap-3 mb-6 sm:mb-8 flex-wrap">
-        <button onClick={()=>open("add")} className="flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all shadow-[0_4px_14px_rgba(59,130,246,0.1)] hover:-translate-y-0.5">
-          <UserPlus size={16}/> Add Player
-        </button>
+      <div className="flex gap-2 sm:gap-3 mb-4 sm:mb-6">
+        {/* Actions moved to top corner */}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
@@ -912,11 +917,16 @@ export default function App() {
       
       <div className="relative min-h-screen pt-2 sm:pt-0">
         {phase!=="loading"&&phase!=="setup"&&(
-          <>
-            <button onClick={()=>{haptic(); setExitPrompt(true);}} className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
+          <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex gap-2">
+            {phase==="game" && (
+              <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 transition-all shadow-[0_4px_15px_rgba(59,130,246,0.2)] backdrop-blur-md">
+                <UserPlus size={18} />
+              </button>
+            )}
+            <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
               <LogOut size={18} />
             </button>
-          </>
+          </div>
         )}
         {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames}/>}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames}/>}
