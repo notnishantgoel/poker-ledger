@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { useSwipeable } from "react-swipeable";
 import SlotCounter from "react-slot-counter";
 import * as htmlToImage from "html-to-image";
@@ -184,7 +184,8 @@ function Toggle({ options, value, onChange }) {
 }
 
 function hue(i) { return (i * 67 + 120) % 360; }
-function avatar(name, i, size="w-10 h-10", textSize="text-sm font-bold") {
+
+const Avatar = memo(({ name, i, size="w-10 h-10", textSize="text-sm font-bold" }) => {
   return (
     <div className={`${size} rounded-full flex items-center justify-center ${textSize} shrink-0 shadow-lg`}
       style={{
@@ -195,9 +196,9 @@ function avatar(name, i, size="w-10 h-10", textSize="text-sm font-bold") {
       {name.charAt(0).toUpperCase()}
     </div>
   );
-}
+});
 
-function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
+const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
   const cardRef = useRef(null);
   const leftBgRef = useRef(null);
   const rightBgRef = useRef(null);
@@ -244,7 +245,7 @@ function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
   });
 
   return (
-    <div {...handlers} className="relative group isolate overflow-hidden rounded-xl sm:rounded-2xl animate-slide-up bg-slate-800/40" style={{animationDelay:`${i*50}ms`}}>
+    <div {...handlers} className="relative group isolate overflow-hidden rounded-xl sm:rounded-2xl animate-slide-up bg-slate-800/40" style={{animationDelay:`${i*50}ms`, touchAction: 'pan-y'}}>
       <div ref={leftBgRef} className="absolute inset-y-0 left-0 w-1/2 bg-blue-500/20 text-blue-400 flex items-center pl-4 sm:pl-5 font-bold transition-opacity duration-200" style={{opacity: 0}}>
         <UserPlus size={20} className="mr-2"/> Buy-in
       </div>
@@ -252,7 +253,7 @@ function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
         Cash out <LogOut size={20} className="ml-2"/>
       </div>
       <div ref={cardRef} className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 w-full cursor-pointer transition-transform duration-300">
-        {avatar(p.name, i, "w-10 h-10", "text-sm font-bold")}
+        <Avatar name={p.name} i={i} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
@@ -264,7 +265,7 @@ function SwipeableCard({ p, i, onSwipeLeft, onSwipeRight }) {
       </div>
     </div>
   );
-}
+});
 
 /* ─────────── SETUP ─────────── */
 function SetupScreen({ onStart, savedNames }) {

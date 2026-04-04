@@ -16,10 +16,7 @@
 .bg-glow-1, .bg-glow-2 {
   position: absolute;
   border-radius: 50%;
-  opacity: 0.35;
-  animation: float 20s infinite alternate ease-in-out;
-  will-change: transform;
-  transform: translateZ(0);
+  opacity: 0.3;
 }
 
 .bg-glow-1 {

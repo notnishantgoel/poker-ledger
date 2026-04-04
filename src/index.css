@@ -49,8 +49,6 @@
 
   .glass-card {
     @apply bg-slate-900/90 border border-white/[0.08] shadow-lg hover:bg-slate-800/90 transition-colors duration-300;
-    will-change: transform;
-    transform: translateZ(0);
   }
 
   /* Inputs */
