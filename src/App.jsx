@@ -501,6 +501,13 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [biMode, biSources, newName, newSrc, newSrcPlayer, newAmt, lFinalAmount, lDestSources, lSettlements, lSettleAtEnd]);
 
+  // Listen for navbar Add Player button
+  useEffect(() => {
+    const handler = () => { open("add"); };
+    window.addEventListener('open-add-player', handler);
+    return () => window.removeEventListener('open-add-player', handler);
+  }, []);
+
   const reset = () => {
     setModal(null); setErr("");
     setBiTarget(""); setBiMode("add"); setBiSources([{ id: Date.now(), type: "player", player: "", chips: 0, money: 0 }]);
