@@ -1532,7 +1532,7 @@ export default function App() {
     isRemoteUpdate.current = false;
   },[game,phase,sessionId]);
 
-  const handleStart=data=>{setGame(data);setPhase("game");};
+  const handleStart=data=>{setGame(data);setPhase("game");window.scrollTo({top:0,behavior:'smooth'});};
   const handleReset=async(completedResult = null)=>{
     if (completedResult) {
       const record = { id: Date.now(), gameData: { ...game }, result: completedResult };
