@@ -3,6 +3,6 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  base: '/poker-ledger/',
+  base: process.env.BUILD_TARGET === 'android' ? './' : '/poker-ledger/',
   plugins: [react(), tailwindcss()],
 })

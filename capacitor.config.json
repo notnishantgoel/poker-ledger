@@ -1,0 +1,12 @@
+{
+  "appId": "com.nishant.pokerledger",
+  "appName": "Poker Ledger",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#020617"
+  }
+}

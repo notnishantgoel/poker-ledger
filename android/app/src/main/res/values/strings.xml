@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Poker Ledger</string>
+    <string name="title_activity_main">Poker Ledger</string>
+    <string name="package_name">com.nishant.pokerledger</string>
+    <string name="custom_url_scheme">com.nishant.pokerledger</string>
+</resources>
