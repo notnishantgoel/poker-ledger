@@ -1467,6 +1467,7 @@ export default function App() {
   const [shareModal, setShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [revConfirm, setRevConfirm] = useState(null);
+  const [backToPlayersConfirm, setBackToPlayersConfirm] = useState(false);
   const unsubRef = useRef(null);
   const isRemoteUpdate = useRef(false);
 
@@ -1707,7 +1708,7 @@ export default function App() {
             )}
             {phase==="game" && (
               <>
-                <button onClick={()=>{haptic(); setSessionChipValue(game.chipValue); setPhase("players");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-slate-500/30 text-slate-400 hover:bg-slate-500/20 hover:text-slate-200 transition-all shadow-[0_4px_15px_rgba(0,0,0,0.2)] backdrop-blur-md" title="Back to players">
+                <button onClick={()=>{haptic(); setBackToPlayersConfirm(true);}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-slate-500/30 text-slate-400 hover:bg-slate-500/20 hover:text-slate-200 transition-all shadow-[0_4px_15px_rgba(0,0,0,0.2)] backdrop-blur-md" title="Back to players">
                   <RotateCcw size={18} />
                 </button>
                 {isFirebaseReady() && (
@@ -1743,6 +1744,15 @@ export default function App() {
           <div className="flex gap-3">
             <Btn onClick={()=>setExitPrompt(false)} variant="secondary" className="flex-1">Cancel</Btn>
             <Btn onClick={()=>{handleReset(typeof exitPrompt === 'object' ? exitPrompt : null);setExitPrompt(false);}} variant="danger" className="flex-1">End Game</Btn>
+          </div>
+        </Modal>
+
+        {/* Back to Players Confirmation */}
+        <Modal open={backToPlayersConfirm} onClose={()=>setBackToPlayersConfirm(false)} title="Go back to setup?" icon={<div className="p-2 bg-amber-500/20 rounded-lg text-amber-400"><RotateCcw size={20}/></div>}>
+          <p className="text-slate-300 text-sm leading-relaxed mb-6">This will take you back to the players setup screen. Your current game progress will be saved — you can return to it using "Deal Me In" again, but players added mid-game or transactions won't carry over.</p>
+          <div className="flex gap-3">
+            <Btn onClick={()=>setBackToPlayersConfirm(false)} variant="secondary" className="flex-1">Stay in Game</Btn>
+            <Btn onClick={()=>{setBackToPlayersConfirm(false); setSessionChipValue(game.chipValue); setPhase("players"); haptic();}} variant="amber" className="flex-1">Go Back</Btn>
           </div>
         </Modal>
 
