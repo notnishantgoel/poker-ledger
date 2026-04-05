@@ -302,6 +302,7 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi }) {
   const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0},{id:"4",name:"",chips:0,money:0}]);
   const [error, setError] = useState("");
   const [sug, setSug] = useState({id:null,list:[]});
+  const [exiting, setExiting] = useState(false);
   const nid = useRef(5);
 
   const addP = () => { setError(""); setPlayers(p=>[...p,{id:String(nid.current++),name:"",chips:0,money:0}]); };
@@ -349,7 +350,7 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi }) {
     if(new Set(names).size!==names.length) return setError("Duplicate names");
     if(valid.some(p=>p.chips<=0)) return setError("All players need a buy-in");
     
-    onStart({
+    const data = {
       chipValue:cv,
       players:valid.map(p=>({
         id:p.id,
@@ -360,11 +361,13 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi }) {
       totalBankChips:valid.reduce((s,p)=>s+p.chips,0),
       leftPlayers:[],
       transactions:valid.map(p=>({type:"initial",player:p.name.trim(),chips:p.chips,money:round2(p.chips*cv),time:Date.now()})),
-    });
+    };
+    setExiting(true);
+    setTimeout(() => onStart(data), 280);
   };
 
   return (
-    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-6 sm:py-12">
+    <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} w-full max-w-2xl mx-auto px-4 py-6 sm:py-12`}>
       {/* ── Hero Section ── */}
       <div className="text-center mb-6 sm:mb-10">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-1 text-slate-100 opacity-90">
@@ -704,7 +707,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   const lpData=game.leftPlayers||[];
 
   return (
-    <div className="animate-fade-in w-full max-w-3xl mx-auto px-4 py-4 sm:py-8 pb-32 font-sans">
+    <div className="animate-deal-in w-full max-w-3xl mx-auto px-4 py-4 sm:py-8 pb-32 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5 sm:mb-6">
         <div className="pr-12 sm:pr-0">
           <h1 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
