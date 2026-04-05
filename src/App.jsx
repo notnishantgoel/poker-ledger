@@ -1561,7 +1561,7 @@ export default function App() {
     }
     await store.delete(GAME_KEY);
     setGame(null);
-    setPhase("setup");
+    setPhase("session");
   };
 
   const handleReverse = (index) => {
@@ -1701,7 +1701,7 @@ export default function App() {
       <div className="relative min-h-screen pt-2 sm:pt-0">
         {phase!=="loading"&&(
           <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex gap-2">
-            {(phase==="session" || phase==="players") && (
+            {phase==="session" && (
               <button onClick={()=>{haptic(); setPhase("history");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-all shadow-[0_4px_15px_rgba(168,85,247,0.2)] backdrop-blur-md">
                 <History size={18} />
               </button>
@@ -1749,7 +1749,7 @@ export default function App() {
 
         {/* Back to Players Confirmation */}
         <Modal open={backToPlayersConfirm} onClose={()=>setBackToPlayersConfirm(false)} title="Go back to setup?" icon={<div className="p-2 bg-amber-500/20 rounded-lg text-amber-400"><RotateCcw size={20}/></div>}>
-          <p className="text-slate-300 text-sm leading-relaxed mb-6">This will take you back to the players setup screen. Your current game progress will be saved — you can return to it using "Deal Me In" again, but players added mid-game or transactions won't carry over.</p>
+          <p className="text-slate-300 text-sm leading-relaxed mb-6">This will reset your current game. All transactions, buy-ins and progress will be lost permanently.</p>
           <div className="flex gap-3">
             <Btn onClick={()=>setBackToPlayersConfirm(false)} variant="secondary" className="flex-1">Stay in Game</Btn>
             <Btn onClick={()=>{setBackToPlayersConfirm(false); setSessionChipValue(game.chipValue); setPhase("players"); haptic();}} variant="amber" className="flex-1">Go Back</Btn>
