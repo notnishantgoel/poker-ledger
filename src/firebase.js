@@ -125,9 +125,9 @@ export function isFirebaseReady() {
 }
 
 // ── Get the shareable URL for a session ──
+const PRODUCTION_URL = "https://notnishantgoel.github.io/poker-ledger/";
 export function getSessionUrl(sessionId) {
-  const base = window.location.origin + window.location.pathname;
-  return `${base}#/session/${sessionId}`;
+  return `${PRODUCTION_URL}#/session/${sessionId}`;
 }
 
 // ── Parse session ID from URL hash ──
