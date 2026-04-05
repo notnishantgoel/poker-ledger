@@ -6,7 +6,7 @@
 .animate-fade-out { animation: fadeOut 0.28s ease-in forwards; }
 .animate-slide-up { animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .animate-scale-in { animation: scaleIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-.animate-deal-in  { animation: dealIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-deal-in  { animation: dealIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 
 @keyframes fadeIn {
   from { opacity: 0; }
