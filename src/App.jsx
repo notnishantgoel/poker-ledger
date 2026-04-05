@@ -295,9 +295,68 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
   );
 });
 
-/* ─────────── SETUP ─────────── */
-function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi }) {
+/* ─────────── SESSION SCREEN (step 1) ─────────── */
+function SessionScreen({ onContinue }) {
   const [chipValue, setChipValue] = useState("");
+  const [error, setError] = useState("");
+  const [exiting, setExiting] = useState(false);
+
+  const handleContinue = () => {
+    setError("");
+    const cv = parseFloat(chipValue) || 0;
+    if (cv <= 0) return setError("Enter a valid chip value");
+    setExiting(true);
+    setTimeout(() => onContinue(cv), 280);
+  };
+
+  return (
+    <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} w-full max-w-md mx-auto px-4 py-16 sm:py-24 flex flex-col`}>
+      <div className="text-center mb-10">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-theme-500/20 border border-theme-500/30 mb-5">
+          <Coins size={30} className="text-theme-400" />
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-100 mb-2">
+          Poker <span className="text-theme-400">Ledger</span>
+        </h1>
+        <p className="text-slate-500 text-xs font-semibold tracking-[0.12em] uppercase">Home Game Tracker</p>
+      </div>
+
+      <div className="glass-panel p-6 sm:p-8 rounded-[2rem] space-y-6 shadow-[0_0_60px_rgba(0,0,0,0.4)]">
+        <div>
+          <h2 className="text-xl font-bold text-slate-100 mb-1">New Session</h2>
+          <p className="text-sm text-slate-400">What's the value of each chip?</p>
+        </div>
+
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10">
+          <label className="text-[10px] font-bold tracking-widest uppercase text-amber-400/80 block mb-2.5">Chip Value ({CURRENCY})</label>
+          <div className="relative">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-lg pointer-events-none">{CURRENCY}</span>
+            <input type="number" value={chipValue}
+              onChange={e => { setChipValue(e.target.value); setError(""); }}
+              onKeyDown={e => e.key === 'Enter' && handleContinue()}
+              placeholder="5" autoFocus
+              className="w-full rounded-xl pl-9 pr-4 py-3.5 text-xl glass-input text-amber-400 font-mono font-bold" />
+          </div>
+          <p className="text-[11px] text-slate-500 mt-2 italic">
+            {parseFloat(chipValue) > 0 ? `20 chips = ${CURRENCY}${round2(20 * parseFloat(chipValue))}` : `e.g. ${CURRENCY}5/chip → 20 chips = ${CURRENCY}100`}
+          </p>
+        </div>
+
+        {error && <Err msg={error} />}
+
+        <Btn onClick={handleContinue} full variant="primary" className="py-4 text-base">
+          Add Players <ArrowRight size={18} />
+        </Btn>
+      </div>
+
+      <p className="text-center text-[10px] sm:text-xs text-slate-600 mt-8 font-medium tracking-wider uppercase">Built for the felt · No signup required</p>
+    </div>
+  );
+}
+
+/* ─────────── PLAYERS SCREEN (step 2) ─────────── */
+function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdateUpi }) {
+  const cv = chipValue;
   const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0},{id:"4",name:"",chips:0,money:0}]);
   const [error, setError] = useState("");
   const [sug, setSug] = useState({id:null,list:[]});
@@ -305,32 +364,25 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi }) {
   const nid = useRef(5);
 
   const addP = () => { setError(""); setPlayers(p=>[...p,{id:String(nid.current++),name:"",chips:0,money:0}]); };
-
   const quickFill = () => {
     setError("");
-    const curV = parseFloat(chipValue) || 5;
-    if (!chipValue) setChipValue("5");
     setPlayers([
-      {id: "1", name: "Nishant", chips: 40, money: round2(40 * curV)},
-      {id: "2", name: "Agrim",   chips: 20, money: round2(20 * curV)},
-      {id: "3", name: "Nema",    chips: 20, money: round2(20 * curV)},
-      {id: "4", name: "Parth",   chips: 40, money: round2(40 * curV)},
-      {id: "5", name: "Monty",   chips: 40, money: round2(40 * curV)},
-      {id: "6", name: "Ritabrata", chips: 20, money: round2(20 * curV)}
+      {id:"1",name:"Nishant",chips:40,money:round2(40*cv)},
+      {id:"2",name:"Agrim",chips:20,money:round2(20*cv)},
+      {id:"3",name:"Nema",chips:20,money:round2(20*cv)},
+      {id:"4",name:"Parth",chips:40,money:round2(40*cv)},
+      {id:"5",name:"Monty",chips:40,money:round2(40*cv)},
+      {id:"6",name:"Ritabrata",chips:20,money:round2(20*cv)}
     ]);
     nid.current = 7;
   };
   const rmP = id => { setError(""); if(players.length>2) setPlayers(p=>p.filter(x=>x.id!==id)); };
-  const upd = (id, f, v) => { setError(""); setPlayers(p => p.map(x => {
-    if (x.id !== id) return x;
-    const nx = { ...x, [f]: v };
-    if (f === "name" && !x.name && v.trim() && nx.chips === 0) {
-      nx.chips = 20;
-      nx.money = round2(20 * (parseFloat(chipValue) || 5));
-    }
+  const upd = (id,f,v) => { setError(""); setPlayers(p=>p.map(x=>{
+    if(x.id!==id) return x;
+    const nx={...x,[f]:v};
+    if(f==="name"&&!x.name&&v.trim()&&nx.chips===0){nx.chips=20;nx.money=round2(20*cv);}
     return nx;
-  })); };
-
+  }));};
   const showSug = (id,name) => {
     if(!name||!savedNames.length){setSug({id:null,list:[]});return;}
     const used=players.map(p=>p.name.toLowerCase());
@@ -338,137 +390,93 @@ function SetupScreen({ onStart, savedNames, upiMap, onUpdateUpi }) {
     setSug(list.length?{id,list:list.slice(0,5)}:{id:null,list:[]});
   };
 
-  const cv = parseFloat(chipValue)||5;
-
   const handleStart = () => {
     setError("");
-    if(cv<=0) return setError("Chip value must be > 0");
     const valid=players.filter(p=>p.name.trim());
     if(valid.length<2) return setError("Need at least 2 players");
     const names=valid.map(p=>p.name.trim().toLowerCase());
     if(new Set(names).size!==names.length) return setError("Duplicate names");
     if(valid.some(p=>p.chips<=0)) return setError("All players need a buy-in");
-    
-    const data = {
+    const data={
       chipValue:cv,
-      players:valid.map(p=>({
-        id:p.id,
-        name:p.name.trim(),
-        cashInvested:round2(p.chips*cv),
-        upi: upiMap && upiMap[p.name.trim()] ? upiMap[p.name.trim()] : ""
-      })),
+      players:valid.map(p=>({id:p.id,name:p.name.trim(),cashInvested:round2(p.chips*cv),upi:upiMap&&upiMap[p.name.trim()]?upiMap[p.name.trim()]:""})),
       totalBankChips:valid.reduce((s,p)=>s+p.chips,0),
       leftPlayers:[],
       transactions:valid.map(p=>({type:"initial",player:p.name.trim(),chips:p.chips,money:round2(p.chips*cv),time:Date.now()})),
     };
     setExiting(true);
-    setTimeout(() => onStart(data), 280);
+    setTimeout(()=>onStart(data),280);
   };
 
   return (
-    <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} w-full max-w-2xl mx-auto px-4 py-6 sm:py-12`}>
-      {/* ── Hero Section ── */}
-      <div className="text-center mb-6 sm:mb-10">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-1 text-slate-100 opacity-90">
-          Poker <span className="text-theme-400">Ledger</span>
-        </h1>
-        <p className="text-slate-500 text-[10px] sm:text-xs font-semibold tracking-[0.1em] uppercase opacity-60">
-          Home Game Tracker
-        </p>
+    <div className={`${exiting?'animate-fade-out':'animate-fade-in'} w-full max-w-2xl mx-auto px-4 py-6 sm:py-10 pb-10`}>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={onBack} className="p-2.5 rounded-xl glass-panel border border-white/10 hover:border-white/20 text-slate-400 hover:text-white transition-all">
+          <RotateCcw size={18}/>
+        </button>
+        <div>
+          <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">Players & Buy-ins</h2>
+          <p className="text-xs text-slate-500 mt-0.5">{CURRENCY}{cv}/chip</p>
+        </div>
+        <div className="ml-auto flex gap-1.5">
+          <button onClick={quickFill} className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
+            <Sparkles size={13}/> Auto-fill
+          </button>
+          <button onClick={addP} className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-theme-500/30 bg-theme-500/10 hover:bg-theme-500/20 text-theme-400 transition-colors">
+            <Plus size={13}/> Add
+          </button>
+        </div>
       </div>
 
-      {/* ── Main Card ── */}
-      <div className="space-y-4 glass-panel p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] shadow-[0_0_60px_rgba(0,0,0,0.4)]">
-        {/* Chip Value */}
-        <div className="flex items-center gap-3 p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/5 to-transparent border border-amber-500/10">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center border border-amber-500/20 shrink-0">
-            <Coins size={18} className="text-amber-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <label className="text-[10px] sm:text-xs font-semibold tracking-wider uppercase text-amber-400/80 block mb-1">Chip Value</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm pointer-events-none">{CURRENCY}</span>
-              <input type="number" value={chipValue} onChange={e=>{setChipValue(e.target.value);setError("");}} placeholder="5"
-                className="w-full rounded-xl pl-7 pr-3 py-2 text-sm sm:text-base glass-input text-amber-400 font-mono" />
-            </div>
-          </div>
-        </div>
+      {/* Column Labels */}
+      <div className="flex items-end gap-3 sm:gap-4 px-2 mb-2">
+        <div className="flex-1"><label className="text-[9px] sm:text-xs font-semibold tracking-wider uppercase text-slate-500 ml-10">Name</label></div>
+        <div className="flex-1"><label className="text-[9px] sm:text-xs font-semibold tracking-wider uppercase text-slate-500 ml-2">Buy-in (Chips)</label></div>
+      </div>
 
-        {/* Players Header */}
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-2">
-            <Users size={16} className="text-theme-400" />
-            <span className="text-sm sm:text-base font-bold text-slate-200">Players</span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-theme-500/15 text-theme-400 border border-theme-500/20">{players.filter(p=>p.name.trim()).length}/{players.length}</span>
-          </div>
-          <div className="flex gap-1.5 sm:gap-2">
-            <button onClick={quickFill} className="flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
-              <Sparkles size={14}/> <span className="hidden sm:inline">Auto-fill</span>
-            </button>
-            <button onClick={addP} className="flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-theme-500/30 bg-theme-500/10 hover:bg-theme-500/20 text-theme-400 transition-colors">
-              <Plus size={14}/> <span className="hidden sm:inline">Add Player</span><span className="sm:hidden">Add</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Column Headers */}
-        <div className="flex items-end gap-3 sm:gap-4 px-2">
-          <div className="flex-1"><label className="text-[9px] sm:text-xs font-semibold tracking-wider uppercase text-slate-500 ml-10">Name</label></div>
-          <div className="flex-1"><label className="text-[9px] sm:text-xs font-semibold tracking-wider uppercase text-slate-500 ml-2">Buy-in (Chips)</label></div>
-        </div>
-
-        {/* Player Rows */}
-        <div className="space-y-2">
-          {players.map((p,i)=>(
-            <div key={p.id} className="rounded-xl p-2 sm:p-4 glass-card animate-slide-up" style={{animationDelay: `${i * 60}ms`}}>
-              <div className="flex items-start gap-2 sm:gap-4 mb-2">
-                <div className="mt-2 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">
-                  {i+1}
+      {/* Player Rows */}
+      <div className="space-y-2 mb-4">
+        {players.map((p,i)=>(
+          <div key={p.id} className="rounded-xl p-2 sm:p-4 glass-card animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+            <div className="flex items-start gap-2 sm:gap-4 mb-2">
+              <div className="mt-2 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">{i+1}</div>
+              <div className="flex-1 relative min-w-0 flex flex-col gap-2">
+                <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
+                  onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
+                  className="w-full rounded-xl px-3 py-2.5 sm:py-2 text-sm sm:text-base glass-input"/>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Smartphone size={12}/></span>
+                  <input value={p.name?upiMap[p.name]||"":""} onChange={e=>p.name&&onUpdateUpi(p.name,e.target.value)}
+                    placeholder="UPI ID or Num (optional)"
+                    className="w-full rounded-lg pl-8 pr-3 py-2 text-xs glass-input placeholder:text-slate-600 focus:bg-slate-900/60" disabled={!p.name}/>
                 </div>
-                <div className="flex-1 relative min-w-0 flex flex-col gap-2">
-                  <input value={p.name} onChange={e=>{upd(p.id,"name",e.target.value);showSug(p.id,e.target.value);}}
-                    onBlur={()=>setTimeout(()=>setSug({id:null,list:[]}),200)} placeholder={`Player ${i+1}`}
-                    className="w-full rounded-xl px-3 py-2.5 sm:py-2 text-sm sm:text-base glass-input" />
-                  
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Smartphone size={12}/></span>
-                    <input value={p.name ? upiMap[p.name] || "" : ""} onChange={e=>p.name && onUpdateUpi(p.name, e.target.value)} 
-                      placeholder="UPI ID or Num (optional)"
-                      className="w-full rounded-lg pl-8 pr-3 py-2 text-xs glass-input placeholder:text-slate-600 focus:bg-slate-900/60"
-                      disabled={!p.name} />
+                {sug.id===p.id&&sug.list.length>0&&(
+                  <div className="absolute left-0 right-0 top-[40px] mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1">
+                    {sug.list.map(s=>(
+                      <button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2"
+                        onMouseDown={()=>{upd(p.id,"name",s);setSug({id:null,list:[]});}}>
+                        <Search size={14} className="text-slate-400 shrink-0"/><span className="truncate">{s}</span>
+                      </button>
+                    ))}
                   </div>
-
-                  {sug.id===p.id&&sug.list.length>0&&(
-                    <div className="absolute left-0 right-0 top-[40px] mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1">
-                      {sug.list.map(s=>(
-                        <button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2"
-                          onMouseDown={()=>{upd(p.id,"name",s);setSug({id:null,list:[]});}}>
-                          <Search size={14} className="text-slate-400 shrink-0"/> <span className="truncate">{s}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-1.5 sm:p-2 rounded-lg border border-rose-500/0 hover:border-rose-500/20 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 transition-all shrink-0"><Trash2 size={14}/></button>}
+                )}
               </div>
-              <TwoWayInput chipValue={cv} chips={p.chips} money={p.money} chipLabel={null} moneyLabel={null}
-                onChange={({chips,money})=>{upd(p.id,"chips",chips);upd(p.id,"money",money);}} />
+              {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-1.5 sm:p-2 rounded-lg border border-rose-500/0 hover:border-rose-500/20 hover:bg-rose-500/10 text-rose-400/80 hover:text-rose-400 transition-all shrink-0"><Trash2 size={14}/></button>}
             </div>
-          ))}
-        </div>
-
-        {error && <Err msg={error}/>}
-
-        {/* Start Button */}
-        <div className="pt-3">
-          <Btn onClick={handleStart} full variant="primary" className="py-3.5 sm:py-4 text-base sm:text-lg shadow-[0_8px_30px_rgba(16,185,129,0.3)] rounded-2xl">
-            <Play size={18} fill="currentColor"/> Deal Me In
-          </Btn>
-        </div>
+            <TwoWayInput chipValue={cv} chips={p.chips} money={p.money} chipLabel={null} moneyLabel={null}
+              onChange={({chips,money})=>{upd(p.id,"chips",chips);upd(p.id,"money",money);}}/>
+          </div>
+        ))}
       </div>
 
-      {/* Footer tagline */}
-      <p className="text-center text-[10px] sm:text-xs text-slate-600 mt-6 font-medium tracking-wider uppercase">Built for the felt · No signup required</p>
+      {error && <Err msg={error}/>}
+
+      <div className="pt-2">
+        <Btn onClick={handleStart} full variant="primary" className="py-3.5 sm:py-4 text-base sm:text-lg shadow-[0_8px_30px_rgba(16,185,129,0.3)] rounded-2xl">
+          <Play size={18} fill="currentColor"/> Deal Me In
+        </Btn>
+      </div>
     </div>
   );
 }
@@ -1454,6 +1462,7 @@ function HistoryScreen({ history, onBack }) {
 export default function App() {
   const [game,setGame]=useState(null);
   const [phase,setPhase]=useState("loading");
+  const [sessionChipValue,setSessionChipValue]=useState(5);
   const [savedNames,setSavedNames]=useState([]);
   const [exitPrompt, setExitPrompt]=useState(false);
   const [upiMap, setUpiMap] = useState({});
@@ -1496,7 +1505,7 @@ export default function App() {
     setSavedNames(n||[]);
     setUpiMap(u||{});
     setHistory(h||[]);
-    if(g&&g.phase){setGame(g);setPhase(g.phase);} else setPhase("setup");
+    if(g&&g.phase){setGame(g);setPhase(g.phase==="setup"?"session":g.phase);} else setPhase("session");
   })();},[]);
 
   // ── Listen for real-time changes when in a session ──
@@ -1699,7 +1708,7 @@ export default function App() {
       <div className="relative min-h-screen pt-2 sm:pt-0">
         {phase!=="loading"&&(
           <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex gap-2">
-            {phase==="setup" && (
+            {(phase==="session" || phase==="players") && (
               <button onClick={()=>{haptic(); setPhase("history");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-all shadow-[0_4px_15px_rgba(168,85,247,0.2)] backdrop-blur-md">
                 <History size={18} />
               </button>
@@ -1727,8 +1736,9 @@ export default function App() {
             )}
           </div>
         )}
-        {phase==="setup"&&<SetupScreen onStart={handleStart} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
-        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase("setup")} />}
+        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} />}
+        {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>setPhase("session")} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
+        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase("session")} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
         {phase==="settle"&&game&&<SettleScreen game={game} upiMap={upiMap} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))}/>}
 
