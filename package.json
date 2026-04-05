@@ -20,7 +20,6 @@
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-slot-counter": "^3.3.2",
     "react-swipeable": "^7.0.2",
     "tailwindcss": "^4.2.2"
   },

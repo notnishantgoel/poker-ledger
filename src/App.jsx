@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useSwipeable } from "react-swipeable";
-import SlotCounter from "react-slot-counter";
 import * as htmlToImage from "html-to-image";
 import {
   Plus, Trash2, ArrowRightLeft, Landmark, Calculator, X,
@@ -269,7 +268,7 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
         <div className="flex items-center gap-3">
           <div className="flex text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20">
             <span className="mr-0.5">{CURRENCY}</span>
-            <SlotCounter value={p.cashInvested.toLocaleString()} startValue={p.cashInvested.toLocaleString()} charClassName="text-amber-400 font-mono text-base font-bold" debounceDelay={1} animateUnchanged={false} />
+            {p.cashInvested.toLocaleString()}
           </div>
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 transition-colors">
@@ -732,9 +731,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
         <div className="text-right px-4 py-3 rounded-2xl glass-panel relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
           <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500/80 mb-0.5">Total Pot</p>
-          <div className="flex text-2xl font-bold text-amber-400 font-mono tracking-tight drop-shadow-md">
-            <span className="mr-0.5">{CURRENCY}</span>
-            <SlotCounter value={total.toLocaleString()} startValue={total.toLocaleString()} charClassName="text-amber-400 font-mono text-2xl font-bold" animateUnchanged={false} />
+          <div className="text-2xl font-bold text-amber-400 font-mono tracking-tight drop-shadow-md">
+            {CURRENCY}{total.toLocaleString()}
           </div>
         </div>
       </div>
