@@ -799,7 +799,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                         <div key={`s-${gi}`} className="group/txn text-xs sm:text-sm px-4 py-3 rounded-xl bg-slate-900/50 border border-white/5 text-slate-400 flex items-center justify-between gap-3">
                           <div className="flex items-start gap-3 min-w-0">
                             <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-slate-600"/>
-                            <div className="min-w-0 truncate">
+                            <div className="min-w-0 leading-relaxed">
                               {t.type==="initial"&&<><span className="font-semibold text-theme-400">{t.player}</span> initial: <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
                               {t.type==="bank-buy-in"&&<><span className="font-semibold text-blue-400">{t.player}</span> buy-in: <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
                               {t.type==="bank-return"&&<><span className="font-semibold text-amber-400">{t.player}</span> returned: <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
