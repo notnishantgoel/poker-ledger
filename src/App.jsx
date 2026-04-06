@@ -490,10 +490,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   const [biSources, setBiSources] = useState([]);
   const [returnTarget, setReturnTarget] = useState("");
   const [returnAmt, setReturnAmt] = useState({chips:0, money:0});
-  const [newName,setNewName]=useState(""); 
-  const [newSrc,setNewSrc]=useState("player");
-  const [newSrcPlayer,setNewSrcPlayer]=useState(""); 
-  const [newAmt,setNewAmt]=useState({chips:0,money:0}); 
+  const [newName,setNewName]=useState("");
+  const [addSources,setAddSources]=useState([]);
   const [nameSug,setNameSug]=useState([]);
   const [lp,setLp]=useState("");
   const [lFinalAmount, setLFinalAmount] = useState({chips:0, money:0});
@@ -509,7 +507,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   // Auto-clear errors when user changes any modal input
   useEffect(() => { if (err) setErr(""); },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [biSources, newName, newSrc, newSrcPlayer, newAmt, lFinalAmount, lDestSources, lSettlements, lSettleAtEnd]);
+    [biSources, addSources, newName, lFinalAmount, lDestSources, lSettlements, lSettleAtEnd]);
 
 
   // Listen for navbar Add Player button
@@ -523,7 +521,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     setModal(null); setErr("");
     setBiTarget(""); setBiSources([{ id: "bank", type: "bank", player: "", chips: 0, money: 0 }]);
     setReturnTarget(""); setReturnAmt({chips:0, money:0});
-    setNewName(""); setNewSrc("player"); setNewSrcPlayer(""); setNewAmt({chips:0,money:0}); setNameSug([]);
+    setNewName(""); setAddSources([]); setNameSug([]);
     setLp(""); setLFinalAmount({chips:0,money:0}); setLDestSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]); setLStep(1); setLCalc(null); setLSetP(""); setLSettlements([{ id: Date.now(), player: "", amount: 0 }]); setLSettleAtEnd(false);
   };
   const open = m => { reset(); setModal(m); };
@@ -609,18 +607,22 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     const name=newName.trim();
     if(!name) return setErr("Enter name");
     if(game.players.some(p=>p.name.toLowerCase()===name.toLowerCase())) return setErr("Already in game");
-    if(newAmt.chips<=0) return setErr("Enter buy-in");
-    if(newSrc==="player"&&!newSrcPlayer) return setErr("Select source player");
-    const id=pid(); const txns=[]; let up=[...game.players]; let ub=game.totalBankChips;
-    if(newSrc==="bank") {
-      up.push({id,name,cashInvested:newAmt.money}); ub+=newAmt.chips;
-      txns.push({type:"initial",player:name,chips:newAmt.chips,money:newAmt.money,time:Date.now()});
-    } else {
-      const src=game.players.find(p=>p.id===newSrcPlayer);
-      up=up.map(p=>p.id===newSrcPlayer?{...p,cashInvested:round2(p.cashInvested-newAmt.money)}:p);
-      up.push({id,name,cashInvested:newAmt.money});
-      txns.push({type:"add-transfer",player:name,from:src.name,chips:newAmt.chips,money:newAmt.money,time:Date.now()});
-    }
+    const active=addSources.filter(s=>s.chips>0);
+    if(active.length===0) return setErr("Enter at least one buy-in amount");
+    const totalMoney=round2(active.reduce((s,x)=>s+x.money,0));
+    const newId=pid(); let up=[...game.players]; let ub=game.totalBankChips; const txns=[];
+    const gid=Date.now();
+    up.push({id:newId,name,cashInvested:totalMoney});
+    active.forEach(s=>{
+      if(s.type==="bank"){
+        ub=round2(ub+s.chips);
+        txns.push({type:"initial",player:name,chips:s.chips,money:s.money,time:Date.now(),groupId:active.length>1?gid:null});
+      } else {
+        const src=game.players.find(p=>p.id===s.player);
+        up=up.map(p=>p.id===s.player?{...p,cashInvested:round2(p.cashInvested-s.money)}:p);
+        txns.push({type:"add-transfer",player:name,from:src.name,chips:s.chips,money:s.money,time:Date.now(),groupId:active.length>1?gid:null});
+      }
+    });
     setGame(g=>({...g,players:up,totalBankChips:ub,transactions:[...g.transactions,...txns]})); reset();
   };
 
@@ -971,27 +973,69 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
       </Modal>
 
       <Modal open={modal==="add"} onClose={reset} title="Add Player" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><UserPlus size={20}/></div>}>
-        <div className="space-y-6">
-          <div className="relative">
-            <label className="text-xs font-semibold mb-2.5 block tracking-wider uppercase text-slate-400">Player name</label>
-            <input value={newName} onChange={e=>{setNewName(e.target.value);showNS(e.target.value);}} onBlur={()=>setTimeout(()=>setNameSug([]),200)}
-              placeholder="Name" className="w-full rounded-xl px-4 py-3.5 text-base glass-input"/>
-            {nameSug.length>0&&(
-              <div className="absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1 shadow-2xl">
-                {nameSug.map(s=><button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors"
-                  onMouseDown={()=>{setNewName(s);setNameSug([]);}}>{s}</button>)}
+        {(()=>{
+          const totalChips=addSources.reduce((s,x)=>s+(x.chips||0),0);
+          const totalMoney=round2(totalChips*game.chipValue);
+          const updSrc=(id,v)=>setAddSources(prev=>prev.map(x=>x.id===id?{...x,...v}:x));
+          // Populate sources when name is filled and sources are empty
+          const ensureSources=()=>{
+            if(addSources.length===0){
+              setAddSources([
+                {id:"bank",type:"bank",player:"",chips:0,money:0},
+                ...game.players.map(p=>({id:p.id,type:"player",player:p.id,chips:0,money:0}))
+              ]);
+            }
+          };
+          return (
+            <div className="space-y-3">
+              {/* Name input */}
+              <div className="relative">
+                <input value={newName}
+                  onChange={e=>{setNewName(e.target.value);showNS(e.target.value);ensureSources();}}
+                  onFocus={ensureSources}
+                  onBlur={()=>setTimeout(()=>setNameSug([]),200)}
+                  placeholder="Player name" className="w-full rounded-xl px-4 py-3 text-base glass-input"/>
+                {nameSug.length>0&&(
+                  <div className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-20 glass-panel border-white/20 p-1 shadow-2xl">
+                    {nameSug.map(s=><button key={s} className="w-full text-left px-4 py-2.5 text-sm text-slate-200 rounded-lg hover:bg-white/10 transition-colors"
+                      onMouseDown={()=>{setNewName(s);setNameSug([]);ensureSources();}}>{s}</button>)}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div>
-            <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-slate-400">Getting chips from</label>
-            <Toggle value={newSrc} onChange={setNewSrc} options={[["bank","Bank",Building2,"theme"],["player","Player",Users,"purple"]]}/>
-          </div>
-          {newSrc==="player"&&<PSelect players={game.players} value={newSrcPlayer} onChange={setNewSrcPlayer} label="Selling player"/>}
-          <TwoWayInput chipValue={game.chipValue} chips={newAmt.chips} money={newAmt.money} onChange={setNewAmt} chipLabel="Buy-in chips" moneyLabel={`Buy-in (${CURRENCY})`}/>
-          <Err msg={err}/>
-          <Btn onClick={submitAdd} full variant="blue" className="mt-2"><UserPlus size={18}/> Add to Game</Btn>
-        </div>
+
+              {/* Live total */}
+              {totalChips>0&&(
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <span className="text-xs font-bold uppercase tracking-widest text-blue-400">Total</span>
+                  <span className="font-mono font-bold text-sm text-blue-400">{totalChips} chips <span className="text-slate-400 font-normal text-xs">({CURRENCY}{totalMoney.toLocaleString()})</span></span>
+                </div>
+              )}
+
+              {/* Source rows */}
+              {addSources.length>0&&(
+                <div className="space-y-1.5">
+                  {addSources.map(s=>{
+                    const label=s.type==="bank"?"Bank":game.players.find(p=>p.id===s.player)?.name;
+                    const isBank=s.type==="bank";
+                    return (
+                      <div key={s.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-white/15 transition-colors">
+                        <div className="flex items-center gap-1.5 w-20 shrink-0 min-w-0">
+                          {isBank?<Building2 size={13} className="text-theme-400 shrink-0"/>:<Users size={13} className="text-purple-400 shrink-0"/>}
+                          <span className={`font-semibold text-xs truncate ${s.chips>0?"text-slate-100":"text-slate-400"}`}>{label}</span>
+                        </div>
+                        <TwoWayInput chipValue={game.chipValue} chips={s.chips} money={s.money}
+                          onChange={v=>updSrc(s.id,v)} chipLabel={null} moneyLabel={null} noStepper/>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <Err msg={err}/>
+              <Btn onClick={submitAdd} full variant="blue"><UserPlus size={18}/> Add to Game</Btn>
+            </div>
+          );
+        })()}
       </Modal>
 
       <Modal open={modal==="leave"} onClose={reset} title={<>Cash Out / Exit <span className="mx-2 text-white/30">&middot;</span> {game.players.find(p=>p.id===lp)?.name}</>} icon={<div className="p-2 bg-orange-500/20 rounded-lg text-orange-400"><LogOut size={20}/></div>}>
