@@ -109,7 +109,7 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel,
         <div className="relative group flex items-center">
           {!noStepper && <button onClick={()=>{haptic(); adjustC(-10)}} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>}
           <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0"
-            className={`w-full rounded-xl ${noStepper ? "px-3" : "px-7"} text-center py-2 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-theme-500/20 focus:border-theme-500/50" : ""}`} />
+            className={`w-full rounded-xl ${noStepper ? "px-3 py-1.5" : "px-7 py-2"} text-center text-sm glass-input font-mono ${focus === "c" ? "focus:ring-theme-500/20 focus:border-theme-500/50" : ""}`} />
           {!noStepper && <button onClick={()=>{if(atMax) return; haptic(); adjustC(10);}} disabled={atMax}
             className={`absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md transition-colors font-bold ${atMax ? "text-slate-700 cursor-not-allowed" : "hover:bg-white/10 text-slate-400 hover:text-slate-200"}`}>+</button>}
         </div>
@@ -119,8 +119,8 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel,
         {moneyLabel !== null && <label className="text-[10px] sm:text-xs font-semibold mb-1.5 block tracking-wider uppercase text-slate-400 truncate">{moneyLabel || `Money (${CURRENCY})`}</label>}
         <div className="relative group">
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm pointer-events-none">{CURRENCY}</span>
-          <input type="number" value={mStr} onChange={onM} onFocus={()=>setFocus("m")} onBlur={()=>setFocus(null)} placeholder="0" 
-            className={`w-full rounded-xl pl-6 pr-3 py-2 text-sm glass-input font-mono text-amber-400 ${focus === "m" ? "focus:ring-amber-500/20 focus:border-amber-500/50" : ""}`} />
+          <input type="number" value={mStr} onChange={onM} onFocus={()=>setFocus("m")} onBlur={()=>setFocus(null)} placeholder="0"
+            className={`w-full rounded-xl pl-6 pr-3 ${noStepper ? "py-1.5" : "py-2"} text-sm glass-input font-mono text-amber-400 ${focus === "m" ? "focus:ring-amber-500/20 focus:border-amber-500/50" : ""}`} />
         </div>
       </div>
     </div>
@@ -526,7 +526,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     setNewName(""); setNewSrc("player"); setNewSrcPlayer(""); setNewAmt({chips:0,money:0}); setNameSug([]);
     setLp(""); setLFinalAmount({chips:0,money:0}); setLDestSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]); setLStep(1); setLCalc(null); setLSetP(""); setLSettlements([{ id: Date.now(), player: "", amount: 0 }]); setLSettleAtEnd(false);
   };
-  const open = m => { reset(); setTimeout(()=>setModal(m),0); };
+  const open = m => { reset(); setModal(m); };
   const openBi = useCallback((id) => {
     setErr("");
     setBiTarget(id);
@@ -934,26 +934,26 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
           const totalMoney = round2(totalChips * game.chipValue);
           const updSrc = (id, v) => setBiSources(prev => prev.map(x => x.id === id ? { ...x, ...v } : x));
           return (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Live total */}
               {totalChips > 0 && (
-                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-theme-500/10 border border-theme-500/20">
-                  <span className="text-xs font-bold uppercase tracking-widest text-theme-400">Total Buy-in</span>
-                  <span className="font-mono font-bold text-theme-400">{totalChips} chips <span className="text-slate-400 font-normal text-xs">({CURRENCY}{totalMoney.toLocaleString()})</span></span>
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-theme-500/10 border border-theme-500/20">
+                  <span className="text-xs font-bold uppercase tracking-widest text-theme-400">Total</span>
+                  <span className="font-mono font-bold text-sm text-theme-400">{totalChips} chips <span className="text-slate-400 font-normal text-xs">({CURRENCY}{totalMoney.toLocaleString()})</span></span>
                 </div>
               )}
 
-              {/* Source rows */}
-              <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1 no-scrollbar">
+              {/* Source rows — no scroll, compact rows */}
+              <div className="space-y-1.5">
                 {biSources.map(s => {
                   const label = s.type === "bank" ? "Bank" : game.players.find(p => p.id === s.player)?.name;
                   const isBank = s.type === "bank";
                   return (
-                    <div key={s.id} className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-white/15 transition-colors">
-                      <div className="flex items-center gap-2 w-24 shrink-0 min-w-0">
+                    <div key={s.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-white/15 transition-colors">
+                      <div className="flex items-center gap-1.5 w-20 shrink-0 min-w-0">
                         {isBank
-                          ? <Building2 size={14} className="text-theme-400 shrink-0"/>
-                          : <Users size={14} className="text-purple-400 shrink-0"/>}
+                          ? <Building2 size={13} className="text-theme-400 shrink-0"/>
+                          : <Users size={13} className="text-purple-400 shrink-0"/>}
                         <span className={`font-semibold text-xs truncate ${s.chips > 0 ? "text-slate-100" : "text-slate-400"}`}>{label}</span>
                       </div>
                       <TwoWayInput chipValue={game.chipValue} chips={s.chips} money={s.money}
@@ -964,7 +964,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
               </div>
 
               <Err msg={err}/>
-              <Btn onClick={submitBuyIn} full variant="primary" className="mt-2"><Check size={18}/> Confirm Buy-in</Btn>
+              <Btn onClick={submitBuyIn} full variant="primary"><Check size={18}/> Confirm Buy-in</Btn>
             </div>
           );
         })()}
