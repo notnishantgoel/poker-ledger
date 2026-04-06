@@ -220,12 +220,66 @@ const Avatar = memo(({ name, i, size="w-10 h-10", textSize="text-sm font-bold" }
   );
 });
 
-const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle, onReturn }) => {
+function SettlePlayerRow({ p, i, chipValue, fcVal, remaining, onChange }) {
+  const chips = parseFloat(fcVal) || 0;
+  const money = round2(chips * chipValue);
+  const liveNet = round2(money - p.cashInvested);
+  const maxChips = round2(chips + remaining);
+
+  const [netStr, setNetStr] = useState("");
+  const [netFocus, setNetFocus] = useState(false);
+
+  useEffect(() => {
+    if (!netFocus) setNetStr(liveNet !== 0 ? String(liveNet) : "");
+  }, [liveNet, netFocus]);
+
+  const handleNetChange = e => {
+    const v = e.target.value; setNetStr(v);
+    const netVal = parseFloat(v) || 0;
+    const newChips = chipValue > 0 ? round2((p.cashInvested + netVal) / chipValue) : 0;
+    onChange(Math.max(0, newChips));
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-[1.5rem] px-4 sm:px-6 py-4 sm:py-5 glass-card animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+      <div className="flex items-center gap-3 sm:gap-4">
+        <Avatar name={p.name} i={i} size="w-9 h-9 sm:w-12 sm:h-12" textSize="text-sm sm:text-base font-bold" />
+        <div className="flex-1 min-w-0">
+          <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
+          <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Invested <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
+        </div>
+        {chips > 0 && (
+          <div className={`text-base font-bold font-mono px-3 py-1.5 rounded-xl border ${liveNet > 0 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : liveNet < 0 ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' : 'text-slate-400 bg-white/5 border-white/10'}`}>
+            {liveNet >= 0 ? "+" : ""}{CURRENCY}{Math.abs(liveNet).toLocaleString()}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <TwoWayInput chipValue={chipValue} chips={chips} money={money}
+            onChange={v => onChange(v.chips)} chipLabel={null} moneyLabel={null}
+            maxChips={maxChips} />
+        </div>
+        <div className="flex flex-col items-center gap-0.5 shrink-0">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600">P&L</span>
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs pointer-events-none">{CURRENCY}</span>
+            <input type="number" value={netStr} onChange={handleNetChange}
+              onFocus={() => setNetFocus(true)} onBlur={() => setNetFocus(false)}
+              placeholder="0"
+              className={`w-24 rounded-xl pl-6 pr-2 py-2 text-sm glass-input font-mono ${liveNet > 0 ? 'text-emerald-400' : liveNet < 0 ? 'text-rose-400' : 'text-slate-400'}`} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
   const cardRef = useRef(null);
   const leftBgRef = useRef(null);
   const rightBgRef = useRef(null);
   const isDragging = useRef(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const resetSwipe = () => {
     isDragging.current = false;
@@ -271,35 +325,11 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle, onRetur
           <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20">
+        <div className="flex text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20">
             <span className="mr-0.5">{CURRENCY}</span>
             {p.cashInvested.toLocaleString()}
           </div>
-          <div className="relative">
-            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 transition-colors">
-              <MoreVertical size={18}/>
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 rounded-xl overflow-hidden z-50 glass-panel border-white/10 shadow-2xl animate-fade-in p-1">
-                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeRight(p.id); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-white/10 rounded-lg transition-colors">
-                  <ArrowRightLeft size={14} className="text-theme-400"/> Buy-in / Transfer
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onReturn(p.id); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-amber-500/10 hover:text-amber-400 rounded-lg transition-colors">
-                  <Building2 size={14} className="text-amber-400"/> Return chips to bank
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeLeft(p.id); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-rose-500/10 hover:text-rose-400 rounded-lg transition-colors">
-                  <LogOut size={14} className="text-rose-400"/> Cash out / Exit
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSettle(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-amber-500/10 hover:text-amber-400 rounded-lg transition-colors">
-                  <Calculator size={14} className="text-amber-400"/> Global Settle Up
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
-      {menuOpen && <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />}
     </div>
   );
 });
@@ -581,10 +611,6 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     setModal("leave");
   }, []);
 
-  const openReturn = useCallback((id) => {
-    setErr(""); setReturnTarget(id); setReturnAmt({chips:0, money:0}); setModal("return");
-  }, []);
-
   const submitReturn = () => {
     setErr("");
     if (returnAmt.chips <= 0) return setErr("Enter chips to return");
@@ -600,7 +626,6 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 
   const handleSwipeRight = useCallback((id) => { openBi(id); haptic(); }, [openBi]);
   const handleSwipeLeft  = useCallback((id) => { setErr(""); setReturnTarget(id); setModal("leftaction"); haptic(); }, []);
-  const handleSettle     = useCallback(() => { onSettle(); haptic(); }, [onSettle]);
 
   const submitAdd = () => {
     setErr("");
@@ -777,7 +802,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
         {game.players.map((p,i)=>(
-          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={handleSwipeLeft} onSwipeRight={handleSwipeRight} onSettle={handleSettle} onReturn={openReturn} />
+          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={handleSwipeLeft} onSwipeRight={handleSwipeRight} />
         ))}
       </div>
 
@@ -1329,28 +1354,15 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
 
       {!result?(
         <div className="space-y-8 glass-panel p-5 sm:p-8 rounded-[2rem]">
-          <p className="text-sm sm:text-base font-semibold text-slate-300">Enter each player's final chip count:</p>
+          <p className="text-sm sm:text-base font-semibold text-slate-300">Enter each player's final chip count or P&amp;L:</p>
           <div className="space-y-4">
-          {game.players.map((p,i)=>{
-            const currentChips = parseFloat(fc[p.id]) || 0;
-            const maxForPlayer = round2(currentChips + remaining);
-            return (
-            <div key={p.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5 rounded-[1.5rem] px-4 sm:px-6 py-4 sm:py-5 glass-card animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
-              <div className="flex items-center gap-3 sm:gap-4 sm:flex-1 sm:min-w-0">
-                <Avatar name={p.name} i={i} size="w-9 h-9 sm:w-12 sm:h-12" textSize="text-sm sm:text-base font-bold" />
-                <div className="min-w-0">
-                  <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
-                  <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Inv: <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
-                </div>
-              </div>
-              <div className="sm:w-64">
-                <TwoWayInput chipValue={game.chipValue} chips={currentChips} money={round2(currentChips*game.chipValue)}
-                  onChange={(v) => handleFcChange(p.id, v.chips)} chipLabel={null} moneyLabel={null}
-                  maxChips={maxForPlayer} />
-              </div>
-            </div>
-            );
-          })}
+            {game.players.map((p,i) => (
+              <SettlePlayerRow key={p.id} p={p} i={i}
+                chipValue={game.chipValue}
+                fcVal={fc[p.id]}
+                remaining={remaining}
+                onChange={v => handleFcChange(p.id, v)} />
+            ))}
           </div>
           {warning&&<div className="flex items-start gap-3 px-5 py-4 rounded-xl text-sm font-medium animate-fade-in bg-amber-500/10 border border-amber-500/20 text-amber-300"><AlertTriangle size={18} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
 
