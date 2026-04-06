@@ -66,7 +66,7 @@ function computeSettlements(netBalances) {
   return out;
 }
 
-function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel, maxChips }) {
+function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel, maxChips, noStepper }) {
   const [focus, setFocus] = useState(null);
   const [cStr, setCStr] = useState(chips > 0 ? String(chips) : "");
   const [mStr, setMStr] = useState(money > 0 ? String(money) : "");
@@ -107,11 +107,11 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel,
       <div className="flex-1 min-w-0">
         {chipLabel !== null && <label className="text-[10px] sm:text-xs font-semibold mb-1.5 block tracking-wider uppercase text-slate-400">{chipLabel || "Chips"}</label>}
         <div className="relative group flex items-center">
-          <button onClick={()=>{haptic(); adjustC(-10)}} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>
+          {!noStepper && <button onClick={()=>{haptic(); adjustC(-10)}} className="absolute left-1 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors font-bold">-</button>}
           <input type="number" value={cStr} onChange={onC} onFocus={()=>setFocus("c")} onBlur={()=>setFocus(null)} placeholder="0"
-            className={`w-full rounded-xl px-7 text-center py-2 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-theme-500/20 focus:border-theme-500/50" : ""}`} />
-          <button onClick={()=>{if(atMax) return; haptic(); adjustC(10);}} disabled={atMax}
-            className={`absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md transition-colors font-bold ${atMax ? "text-slate-700 cursor-not-allowed" : "hover:bg-white/10 text-slate-400 hover:text-slate-200"}`}>+</button>
+            className={`w-full rounded-xl ${noStepper ? "px-3" : "px-7"} text-center py-2 text-sm glass-input font-mono ${focus === "c" ? "focus:ring-theme-500/20 focus:border-theme-500/50" : ""}`} />
+          {!noStepper && <button onClick={()=>{if(atMax) return; haptic(); adjustC(10);}} disabled={atMax}
+            className={`absolute right-1 z-10 w-7 h-7 flex items-center justify-center rounded-md transition-colors font-bold ${atMax ? "text-slate-700 cursor-not-allowed" : "hover:bg-white/10 text-slate-400 hover:text-slate-200"}`}>+</button>}
         </div>
       </div>
       <div className="pb-2 text-slate-500 font-medium shrink-0">=</div>
@@ -934,7 +934,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                         <span className={`font-semibold text-xs truncate ${s.chips > 0 ? "text-slate-100" : "text-slate-400"}`}>{label}</span>
                       </div>
                       <TwoWayInput chipValue={game.chipValue} chips={s.chips} money={s.money}
-                        onChange={v => updSrc(s.id, v)} chipLabel={null} moneyLabel={null}/>
+                        onChange={v => updSrc(s.id, v)} chipLabel={null} moneyLabel={null} noStepper/>
                     </div>
                   );
                 })}
