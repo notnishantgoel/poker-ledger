@@ -1391,60 +1391,138 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
 
 /* ─────────── HISTORY ─────────── */
 function HistoryScreen({ history, onBack }) {
+  const [tab, setTab] = useState("history"); // "history" | "leaderboard"
+
+  // Aggregate leaderboard data from history
+  const leaderboard = (() => {
+    const map = {};
+    for (const h of history) {
+      const balances = h.result?.balances || [];
+      for (const b of balances) {
+        if (!b.name) continue;
+        if (!map[b.name]) map[b.name] = { name: b.name, net: 0, games: 0, wins: 0, bestWin: 0, worstLoss: 0 };
+        const net = round2(b.balance ?? 0);
+        map[b.name].net = round2(map[b.name].net + net);
+        map[b.name].games += 1;
+        if (h.result?.winner === b.name) map[b.name].wins += 1;
+        if (net > map[b.name].bestWin) map[b.name].bestWin = net;
+        if (net < map[b.name].worstLoss) map[b.name].worstLoss = net;
+      }
+    }
+    return Object.values(map).sort((a, b) => b.net - a.net);
+  })();
+
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
-      <div className="flex items-center gap-4 sm:gap-5 mb-10">
+      <div className="flex items-center gap-4 sm:gap-5 mb-8">
         <button onClick={onBack} className="p-3 sm:p-3.5 rounded-xl transition-all border border-white/10 hover:border-white/20 hover:bg-white/5 text-slate-300 hover:text-white glass-panel"><RotateCcw size={20}/></button>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Game History</h1>
-          <p className="text-sm font-medium mt-1 text-slate-400">Past sessions and settlements</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">{tab === "leaderboard" ? "Leaderboard" : "Game History"}</h1>
+          <p className="text-sm font-medium mt-1 text-slate-400">{tab === "leaderboard" ? "All-time stats across sessions" : "Past sessions and settlements"}</p>
         </div>
       </div>
-      
-      {history.length === 0 ? (
-        <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
-          <Clock size={40} className="mx-auto text-slate-600 mb-4" />
-          <p className="text-base font-medium text-slate-400">No game history yet.</p>
-          <p className="text-sm text-slate-500 mt-2">Completed games will appear here.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {history.map((h, i) => {
-            const date = new Date(h.id).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-            return (
-              <div key={h.id} className="glass-panel p-5 rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
-                <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
-                  <div className="flex items-center gap-2 text-slate-300 font-semibold text-sm">
-                    <Clock size={16} className="text-purple-400" /> {date}
-                  </div>
-                  {h.result?.winner && (
-                    <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                      <Crown size={12}/> {h.result.winner}
+
+      {/* Tab Toggle */}
+      <div className="flex gap-1 p-1 glass-panel rounded-xl mb-6">
+        <button
+          onClick={() => setTab("history")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "history" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+        >
+          <Clock size={15}/> History
+        </button>
+        <button
+          onClick={() => setTab("leaderboard")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "leaderboard" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+        >
+          <Crown size={15}/> Leaderboard
+        </button>
+      </div>
+
+      {tab === "history" ? (
+        history.length === 0 ? (
+          <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
+            <Clock size={40} className="mx-auto text-slate-600 mb-4" />
+            <p className="text-base font-medium text-slate-400">No game history yet.</p>
+            <p className="text-sm text-slate-500 mt-2">Completed games will appear here.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {history.map((h, i) => {
+              const date = new Date(h.id).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+              return (
+                <div key={h.id} className="glass-panel p-5 rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+                  <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+                    <div className="flex items-center gap-2 text-slate-300 font-semibold text-sm">
+                      <Clock size={16} className="text-purple-400" /> {date}
                     </div>
+                    {h.result?.winner && (
+                      <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                        <Crown size={12}/> {h.result.winner}
+                      </div>
+                    )}
+                  </div>
+                  {h.result?.settlements?.length > 0 ? (
+                    <div className="space-y-2">
+                      {h.result.settlements.map((s, j) => (
+                        <div key={j} className="flex justify-between items-center text-sm">
+                          <span className="text-rose-400 font-medium truncate max-w-[80px] sm:max-w-[120px]">{s.from}</span>
+                          <div className="flex items-center gap-2 flex-1 mx-2">
+                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-amber-400 font-mono text-xs font-bold">{CURRENCY}{s.amount.toLocaleString()}</span>
+                            <ArrowRight size={12} className="text-slate-500" />
+                            <div className="h-px flex-1 bg-white/5" />
+                          </div>
+                          <span className="text-theme-400 font-medium truncate max-w-[80px] sm:max-w-[120px] text-right">{s.to}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
                   )}
                 </div>
-                {h.result?.settlements?.length > 0 ? (
-                  <div className="space-y-2">
-                    {h.result.settlements.map((s, j) => (
-                      <div key={j} className="flex justify-between items-center text-sm">
-                        <span className="text-rose-400 font-medium truncate max-w-[80px] sm:max-w-[120px]">{s.from}</span>
-                        <div className="flex items-center gap-2 flex-1 mx-2">
-                          <div className="h-px flex-1 bg-white/5" />
-                          <span className="text-amber-400 font-mono text-xs font-bold">{CURRENCY}{s.amount.toLocaleString()}</span>
-                          <ArrowRight size={12} className="text-slate-500" />
-                          <div className="h-px flex-1 bg-white/5" />
-                        </div>
-                        <span className="text-theme-400 font-medium truncate max-w-[80px] sm:max-w-[120px] text-right">{s.to}</span>
-                      </div>
-                    ))}
+              );
+            })}
+          </div>
+        )
+      ) : (
+        leaderboard.length === 0 ? (
+          <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
+            <Crown size={40} className="mx-auto text-slate-600 mb-4" />
+            <p className="text-base font-medium text-slate-400">No data yet.</p>
+            <p className="text-sm text-slate-500 mt-2">Complete a game to see leaderboard stats.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {leaderboard.map((p, i) => {
+              const isTop = i === 0;
+              const winRate = p.games > 0 ? Math.round((p.wins / p.games) * 100) : 0;
+              const isUp = p.net > 0;
+              const isEven = p.net === 0;
+              return (
+                <div key={p.name} className={`glass-panel p-4 rounded-[1.5rem] animate-slide-up flex items-center gap-4 ${isTop ? "border border-amber-500/20" : ""}`} style={{animationDelay:`${i*40}ms`}}>
+                  {/* Rank */}
+                  <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
+                    {isTop ? <Crown size={16}/> : `#${i+1}`}
                   </div>
-                ) : (
-                  <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  {/* Name + stats */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · {p.wins} win{p.wins !== 1 ? "s" : ""} · {winRate}% win rate</p>
+                  </div>
+                  {/* Net P&L */}
+                  <div className="text-right flex-shrink-0">
+                    <p className={`font-mono font-bold text-base ${isUp ? "text-emerald-400" : isEven ? "text-slate-400" : "text-rose-400"}`}>
+                      {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span>
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
     </div>
   );
