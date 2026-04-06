@@ -226,6 +226,24 @@ function SettlePlayerRow({ p, i, chipValue, fcVal, remaining, onChange }) {
   const liveNet = round2(money - p.cashInvested);
   const maxChips = round2(chips + remaining);
 
+  const [netStr, setNetStr] = useState("");
+  const [netFocus, setNetFocus] = useState(false);
+
+  useEffect(() => {
+    if (!netFocus) setNetStr(liveNet !== 0 ? String(liveNet) : "");
+  }, [liveNet, netFocus]);
+
+  const handleNetChange = e => {
+    const v = e.target.value; setNetStr(v);
+    const netVal = parseFloat(v) || 0;
+    const newChips = chipValue > 0 ? round2((p.cashInvested + netVal) / chipValue) : 0;
+    onChange(Math.max(0, newChips));
+  };
+
+  const netColor = liveNet > 0 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+    : liveNet < 0 ? 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+    : 'text-slate-400 bg-white/5 border-white/10';
+
   return (
     <div className="flex flex-col gap-3 rounded-[1.5rem] px-4 sm:px-6 py-4 sm:py-5 glass-card animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
       <div className="flex items-center gap-3 sm:gap-4">
@@ -234,11 +252,18 @@ function SettlePlayerRow({ p, i, chipValue, fcVal, remaining, onChange }) {
           <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
           <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Invested <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
         </div>
-        {chips > 0 && (
-          <div className={`text-base font-bold font-mono px-3 py-1.5 rounded-xl border shrink-0 ${liveNet > 0 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : liveNet < 0 ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' : 'text-slate-400 bg-white/5 border-white/10'}`}>
-            {liveNet >= 0 ? "+" : ""}{CURRENCY}{Math.abs(liveNet).toLocaleString()}
-          </div>
-        )}
+        <div className={`flex items-center rounded-xl border shrink-0 overflow-hidden ${netColor}`}>
+          <span className="pl-2.5 font-mono text-sm font-bold pointer-events-none">{CURRENCY}</span>
+          <input
+            type="number"
+            value={netStr}
+            onChange={handleNetChange}
+            onFocus={() => setNetFocus(true)}
+            onBlur={() => setNetFocus(false)}
+            placeholder="0"
+            className={`w-20 pr-2.5 py-1.5 text-sm font-mono font-bold bg-transparent border-none outline-none text-right ${netColor.split(' ')[0]}`}
+          />
+        </div>
       </div>
       <TwoWayInput chipValue={chipValue} chips={chips} money={money}
         onChange={v => onChange(v.chips)} chipLabel={null} moneyLabel={null}
