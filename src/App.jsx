@@ -367,7 +367,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdat
       {id:"3",name:"Nema",chips:20,money:round2(20*cv)},
       {id:"4",name:"Parth",chips:40,money:round2(40*cv)},
       {id:"5",name:"Monty",chips:40,money:round2(40*cv)},
-      {id:"6",name:"Ritabrata",chips:20,money:round2(20*cv)}
+      {id:"6",name:"Ritabrata",chips:40,money:round2(40*cv)}
     ]);
     nid.current = 7;
   };
@@ -375,7 +375,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdat
   const upd = (id,f,v) => { setError(""); setPlayers(p=>p.map(x=>{
     if(x.id!==id) return x;
     const nx={...x,[f]:v};
-    if(f==="name"&&!x.name&&v.trim()&&nx.chips===0){nx.chips=20;nx.money=round2(20*cv);}
+    if(f==="name"&&!x.name&&v.trim()&&nx.chips===0){const dc=v.trim().toLowerCase()==="ritabrata"?40:20;nx.chips=dc;nx.money=round2(dc*cv);}
     return nx;
   }));};
   const showSug = (id,name) => {
