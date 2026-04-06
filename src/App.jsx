@@ -1789,17 +1789,50 @@ export default function App() {
         }
       }
 
+      // ── Add-player group reversal (initial or add-transfer with groupId) ──
+      const isAddType = t.type === "initial" || t.type === "add-transfer";
+      if (isAddType && t.groupId) {
+        // Find all transactions in this group
+        const groupTxns = txns.filter(x => x.groupId === t.groupId);
+        const playerName = t.player;
+        // Remove the added player entirely
+        players = players.filter(p => p.name !== playerName);
+        // Reverse each source transaction
+        groupTxns.forEach(x => {
+          if (x.type === "initial") bank = round2(bank - x.chips);
+          else if (x.type === "add-transfer") {
+            // Restore source player's cashInvested
+            players = players.map(p => p.name === x.from ? { ...p, cashInvested: round2(p.cashInvested + x.money) } : p);
+          }
+        });
+        txns = txns.filter(x => x.groupId !== t.groupId);
+        return { ...g, players, totalBankChips: bank, leftPlayers, transactions: txns };
+      }
+
       // ── Standard transaction reversal ──
-      if (t.type === "bank-buy-in" || t.type === "initial") {
+      if (t.type === "bank-buy-in") {
         players = players.map(p => p.name === t.player ? { ...p, cashInvested: round2(p.cashInvested - t.money) } : p);
+        bank = round2(bank - t.chips);
+      } else if (t.type === "initial") {
+        // Check if this is a join transaction (no earlier txns for this player)
+        const isJoin = !txns.slice(0, index).some(x => x.player === t.player || x.buyer === t.player);
+        if (isJoin) {
+          players = players.filter(p => p.name !== t.player);
+        } else {
+          players = players.map(p => p.name === t.player ? { ...p, cashInvested: round2(p.cashInvested - t.money) } : p);
+        }
         bank = round2(bank - t.chips);
       } else if (t.type === "bank-return") {
         players = players.map(p => p.name === t.player ? { ...p, cashInvested: round2(p.cashInvested + t.money) } : p);
         bank = round2(bank + t.chips);
-      } else if (t.type === "transfer" || t.type === "add-transfer") {
+      } else if (t.type === "add-transfer") {
+        // Single-source add — remove player and restore source
+        players = players.filter(p => p.name !== t.player);
+        players = players.map(p => p.name === t.from ? { ...p, cashInvested: round2(p.cashInvested + t.money) } : p);
+      } else if (t.type === "transfer") {
         players = players.map(p => {
-          if (p.name === (t.buyer || t.player)) return { ...p, cashInvested: round2(p.cashInvested - t.money) };
-          if (p.name === (t.seller || t.from)) return { ...p, cashInvested: round2(p.cashInvested + (t.type === "add-transfer" ? 0 : t.money)) };
+          if (p.name === t.buyer) return { ...p, cashInvested: round2(p.cashInvested - t.money) };
+          if (p.name === t.seller) return { ...p, cashInvested: round2(p.cashInvested + t.money) };
           return p;
         });
       }
