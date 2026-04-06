@@ -924,15 +924,14 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
               <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1 no-scrollbar">
                 {biSources.map(s => {
                   const label = s.type === "bank" ? "Bank" : game.players.find(p => p.id === s.player)?.name;
-                  const icon = s.type === "bank"
-                    ? <Building2 size={15} className="text-theme-400"/>
-                    : <div className="w-[15px] h-[15px] rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-[8px] font-bold text-purple-400">{label?.[0]}</div>;
+                  const isBank = s.type === "bank";
                   return (
-                    <div key={s.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-white/15 transition-colors">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {icon}
-                        <span className={`font-semibold text-sm truncate ${s.chips > 0 ? "text-slate-100" : "text-slate-400"}`}>{label}</span>
-                        {s.chips > 0 && <span className="text-xs text-slate-500 shrink-0">{CURRENCY}{round2(s.chips * game.chipValue).toLocaleString()}</span>}
+                    <div key={s.id} className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-white/15 transition-colors">
+                      <div className="flex items-center gap-2 w-24 shrink-0 min-w-0">
+                        {isBank
+                          ? <Building2 size={14} className="text-theme-400 shrink-0"/>
+                          : <Users size={14} className="text-purple-400 shrink-0"/>}
+                        <span className={`font-semibold text-xs truncate ${s.chips > 0 ? "text-slate-100" : "text-slate-400"}`}>{label}</span>
                       </div>
                       <TwoWayInput chipValue={game.chipValue} chips={s.chips} money={s.money}
                         onChange={v => updSrc(s.id, v)} chipLabel={null} moneyLabel={null}/>
