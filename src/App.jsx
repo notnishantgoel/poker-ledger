@@ -250,7 +250,7 @@ function SettlePlayerRow({ p, i, chipValue, fcVal, remaining, onChange }) {
         <Avatar name={p.name} i={i} size="w-9 h-9 sm:w-12 sm:h-12" textSize="text-sm sm:text-base font-bold" />
         <div className="flex-1 min-w-0">
           <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
-          <p className="text-xs font-medium mt-0.5 text-slate-400 uppercase tracking-wider">Invested <span className="font-mono ml-1">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
+          <p className="text-xs font-medium mt-0.5 text-slate-400"><span className="font-mono">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
         </div>
         <div className={`flex items-center rounded-xl border shrink-0 overflow-hidden ${netColor}`}>
           <span className="pl-2.5 font-mono text-sm font-bold pointer-events-none">{CURRENCY}</span>
