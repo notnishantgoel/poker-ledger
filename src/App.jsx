@@ -477,9 +477,8 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdat
 function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewerCount, onReverse }) {
   const [modal, setModal] = useState(null);
   const [err, setErr] = useState("");
-  const [biTarget, setBiTarget] = useState(""); 
-  const [biMode, setBiMode] = useState("add"); 
-  const [biSources, setBiSources] = useState([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]);
+  const [biTarget, setBiTarget] = useState("");
+  const [biSources, setBiSources] = useState([]);
   const [newName,setNewName]=useState(""); 
   const [newSrc,setNewSrc]=useState("player");
   const [newSrcPlayer,setNewSrcPlayer]=useState(""); 
@@ -499,7 +498,20 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   // Auto-clear errors when user changes any modal input
   useEffect(() => { if (err) setErr(""); },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [biMode, biSources, newName, newSrc, newSrcPlayer, newAmt, lFinalAmount, lDestSources, lSettlements, lSettleAtEnd]);
+    [biSources, newName, newSrc, newSrcPlayer, newAmt, lFinalAmount, lDestSources, lSettlements, lSettleAtEnd]);
+
+  // Pre-populate buy-in sources (bank + all other players) when modal opens
+  useEffect(() => {
+    if (modal === "buyin" && biTarget) {
+      setBiSources([
+        { id: "bank", type: "bank", player: "", chips: 0, money: 0 },
+        ...game.players
+          .filter(p => p.id !== biTarget)
+          .map(p => ({ id: p.id, type: "player", player: p.id, chips: 0, money: 0 }))
+      ]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal, biTarget]);
 
   // Listen for navbar Add Player button
   useEffect(() => {
@@ -510,27 +522,22 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 
   const reset = () => {
     setModal(null); setErr("");
-    setBiTarget(""); setBiMode("add"); setBiSources([{ id: Date.now(), type: "player", player: "", chips: 0, money: 0 }]);
+    setBiTarget(""); setBiSources([{ id: "bank", type: "bank", player: "", chips: 0, money: 0 }]);
     setNewName(""); setNewSrc("player"); setNewSrcPlayer(""); setNewAmt({chips:0,money:0}); setNameSug([]);
     setLp(""); setLFinalAmount({chips:0,money:0}); setLDestSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]); setLStep(1); setLCalc(null); setLSetP(""); setLSettlements([{ id: Date.now(), player: "", amount: 0 }]); setLSettleAtEnd(false);
   };
   const open = m => { reset(); setTimeout(()=>setModal(m),0); };
-  const openBi = useCallback((id, mode = "add") => {
+  const openBi = useCallback((id) => {
     setErr("");
     setBiTarget(id);
-    setBiMode(mode);
-    setBiSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]);
     setModal("buyin");
   }, []);
 
   const submitBuyIn = () => {
     setErr("");
     if (!biTarget) return setErr("Select player");
-    if (biSources.some(s => s.chips <= 0)) return setErr("All sources must have chips > 0");
-    if (biSources.some(s => s.type === "player" && !s.player)) return setErr("Select source player");
-    if (biSources.some(s => s.type === "player" && s.player === biTarget)) return setErr("Cannot buy from self");
-    const pSources = biSources.filter(s => s.type === "player").map(s => s.player);
-    if (new Set(pSources).size !== pSources.length) return setErr("Duplicate player sources");
+    const activeSources = biSources.filter(s => s.chips > 0);
+    if (activeSources.length === 0) return setErr("Enter at least one buy-in amount");
 
     const target = game.players.find(p => p.id === biTarget);
     setGame(g => {
@@ -538,24 +545,19 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
       let bank = g.totalBankChips;
       let txns = [...g.transactions];
       const gid = Date.now();
-      biSources.forEach(s => {
+      activeSources.forEach(s => {
         if (s.type === "bank") {
-          players = players.map(p => p.id === biTarget ? { ...p, cashInvested: round2(p.cashInvested + (biMode === "add" ? s.money : -s.money)) } : p);
-          bank = round2(bank + (biMode === "add" ? s.chips : -s.chips));
-          txns.push({ type: biMode === "add" ? "bank-buy-in" : "bank-return", player: target.name, chips: s.chips, money: s.money, time: Date.now(), groupId: biSources.length > 1 ? gid : null });
+          players = players.map(p => p.id === biTarget ? { ...p, cashInvested: round2(p.cashInvested + s.money) } : p);
+          bank = round2(bank + s.chips);
+          txns.push({ type: "bank-buy-in", player: target.name, chips: s.chips, money: s.money, time: Date.now(), groupId: activeSources.length > 1 ? gid : null });
         } else {
           const src = g.players.find(p => p.id === s.player);
           players = players.map(p => {
-            if (p.id === biTarget) return { ...p, cashInvested: round2(p.cashInvested + (biMode === "add" ? s.money : -s.money)) };
-            if (p.id === s.player) return { ...p, cashInvested: round2(p.cashInvested - (biMode === "add" ? s.money : -s.money)) };
+            if (p.id === biTarget) return { ...p, cashInvested: round2(p.cashInvested + s.money) };
+            if (p.id === s.player) return { ...p, cashInvested: round2(p.cashInvested - s.money) };
             return p;
           });
-          txns.push({ 
-            type: "transfer", 
-            seller: biMode === "add" ? src.name : target.name,
-            buyer: biMode === "add" ? target.name : src.name,
-            chips: s.chips, money: s.money, time: Date.now(), groupId: biSources.length > 1 ? gid : null
-          });
+          txns.push({ type: "transfer", seller: src.name, buyer: target.name, chips: s.chips, money: s.money, time: Date.now(), groupId: activeSources.length > 1 ? gid : null });
         }
       });
       return { ...g, players, totalBankChips: bank, transactions: txns };
@@ -903,45 +905,47 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
       </div>
 
       {/* Modals remain mostly identical in layout but updated to Tailwind */}
-      <Modal open={modal==="buyin"} onClose={reset} title={<>{biMode==="add"?"Buy-in":"Return chips"} <span className="mx-2 text-white/30">&middot;</span> {game.players.find(p=>p.id===biTarget)?.name}</>} icon={<div className="p-2 bg-theme-500/20 rounded-lg text-theme-400"><ArrowRightLeft size={20}/></div>}>
-        <div className="space-y-6">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-xs font-semibold mb-3 block tracking-wider uppercase text-slate-400">Action</label>
-              <Toggle value={biMode} onChange={setBiMode} options={[["add","Get Chips",Plus,"theme"],["return","Return",RotateCcw,"amber"]]}/>
-            </div>
-          </div>
-          
-          <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-2 no-scrollbar">
-            {biSources.map((s, idx) => (
-              <div key={s.id} className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-4 relative group/row">
-                {biSources.length > 1 && (
-                  <button onClick={() => setBiSources(prev => prev.filter(x => x.id !== s.id))} className="absolute top-2 right-2 p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all opacity-0 group-hover/row:opacity-100">
-                    <X size={14}/>
-                  </button>
-                )}
-                <div>
-                  <label className="text-[10px] font-bold mb-2 block tracking-widest uppercase text-slate-500">{biMode==="add"?"Source":"Return to"}</label>
-                  <Toggle value={s.type} onChange={v => setBiSources(prev => prev.map(x => x.id === s.id ? { ...x, type: v, player: v === "bank" ? "" : x.player } : x))} 
-                    options={[["bank","Bank",Building2,"theme"],["player","Player",Users,"purple"]]} />
+      <Modal open={modal==="buyin"} onClose={reset} title={<>Buy-in <span className="mx-2 text-white/30">&middot;</span> {game.players.find(p=>p.id===biTarget)?.name}</>} icon={<div className="p-2 bg-theme-500/20 rounded-lg text-theme-400"><ArrowRightLeft size={20}/></div>}>
+        {(() => {
+          const totalChips = biSources.reduce((s,x) => s + (x.chips||0), 0);
+          const totalMoney = round2(totalChips * game.chipValue);
+          const updSrc = (id, v) => setBiSources(prev => prev.map(x => x.id === id ? { ...x, ...v } : x));
+          return (
+            <div className="space-y-4">
+              {/* Live total */}
+              {totalChips > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-theme-500/10 border border-theme-500/20">
+                  <span className="text-xs font-bold uppercase tracking-widest text-theme-400">Total Buy-in</span>
+                  <span className="font-mono font-bold text-theme-400">{totalChips} chips <span className="text-slate-400 font-normal text-xs">({CURRENCY}{totalMoney.toLocaleString()})</span></span>
                 </div>
-                {s.type === "player" && (
-                  <PSelect players={game.players} value={s.player} onChange={v => setBiSources(prev => prev.map(x => x.id === s.id ? { ...x, player: v } : x))} exclude={biTarget} label={biMode==="add"?"Taking from":"Giving to"}/>
-                )}
-                <TwoWayInput chipValue={game.chipValue} chips={s.chips} money={s.money} onChange={v => setBiSources(prev => prev.map(x => x.id === s.id ? { ...x, ...v } : x))} 
-                  chipLabel={null} moneyLabel={null}/>
+              )}
+
+              {/* Source rows */}
+              <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1 no-scrollbar">
+                {biSources.map(s => {
+                  const label = s.type === "bank" ? "Bank" : game.players.find(p => p.id === s.player)?.name;
+                  const icon = s.type === "bank"
+                    ? <Building2 size={15} className="text-theme-400"/>
+                    : <div className="w-[15px] h-[15px] rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-[8px] font-bold text-purple-400">{label?.[0]}</div>;
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-white/15 transition-colors">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {icon}
+                        <span className={`font-semibold text-sm truncate ${s.chips > 0 ? "text-slate-100" : "text-slate-400"}`}>{label}</span>
+                        {s.chips > 0 && <span className="text-xs text-slate-500 shrink-0">{CURRENCY}{round2(s.chips * game.chipValue).toLocaleString()}</span>}
+                      </div>
+                      <TwoWayInput chipValue={game.chipValue} chips={s.chips} money={s.money}
+                        onChange={v => updSrc(s.id, v)} chipLabel={null} moneyLabel={null}/>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
 
-          <button onClick={() => setBiSources([...biSources, { id: Date.now(), type: "player", player: "", chips: 0, money: 0 }])}
-            className="w-full py-3 rounded-xl border border-dashed border-white/20 text-slate-400 hover:text-slate-200 hover:border-white/40 hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-sm font-medium">
-            <Plus size={16}/> Add another source
-          </button>
-
-          <Err msg={err}/>
-          <Btn onClick={submitBuyIn} full variant="primary" className="mt-2"><Check size={18}/> Confirm Transaction</Btn>
-        </div>
+              <Err msg={err}/>
+              <Btn onClick={submitBuyIn} full variant="primary" className="mt-2"><Check size={18}/> Confirm Buy-in</Btn>
+            </div>
+          );
+        })()}
       </Modal>
 
       <Modal open={modal==="add"} onClose={reset} title="Add Player" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><UserPlus size={20}/></div>}>
