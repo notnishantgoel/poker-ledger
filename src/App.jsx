@@ -128,6 +128,12 @@ function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel,
 }
 
 function Modal({ open, onClose, title, icon, children }) {
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 sm:px-4">
@@ -214,7 +220,7 @@ const Avatar = memo(({ name, i, size="w-10 h-10", textSize="text-sm font-bold" }
   );
 });
 
-const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
+const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle, onReturn }) => {
   const cardRef = useRef(null);
   const leftBgRef = useRef(null);
   const rightBgRef = useRef(null);
@@ -278,6 +284,9 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight, onSettle }) => {
               <div className="absolute right-0 top-full mt-2 w-48 rounded-xl overflow-hidden z-50 glass-panel border-white/10 shadow-2xl animate-fade-in p-1">
                 <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeRight(p.id); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-white/10 rounded-lg transition-colors">
                   <ArrowRightLeft size={14} className="text-theme-400"/> Buy-in / Transfer
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onReturn(p.id); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-amber-500/10 hover:text-amber-400 rounded-lg transition-colors">
+                  <Building2 size={14} className="text-amber-400"/> Return chips to bank
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwipeLeft(p.id); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-rose-500/10 hover:text-rose-400 rounded-lg transition-colors">
                   <LogOut size={14} className="text-rose-400"/> Cash out / Exit
@@ -479,6 +488,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   const [err, setErr] = useState("");
   const [biTarget, setBiTarget] = useState("");
   const [biSources, setBiSources] = useState([]);
+  const [returnTarget, setReturnTarget] = useState("");
+  const [returnAmt, setReturnAmt] = useState({chips:0, money:0});
   const [newName,setNewName]=useState(""); 
   const [newSrc,setNewSrc]=useState("player");
   const [newSrcPlayer,setNewSrcPlayer]=useState(""); 
@@ -511,6 +522,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   const reset = () => {
     setModal(null); setErr("");
     setBiTarget(""); setBiSources([{ id: "bank", type: "bank", player: "", chips: 0, money: 0 }]);
+    setReturnTarget(""); setReturnAmt({chips:0, money:0});
     setNewName(""); setNewSrc("player"); setNewSrcPlayer(""); setNewAmt({chips:0,money:0}); setNameSug([]);
     setLp(""); setLFinalAmount({chips:0,money:0}); setLDestSources([{ id: Date.now(), type: "bank", player: "", chips: 0, money: 0 }]); setLStep(1); setLCalc(null); setLSetP(""); setLSettlements([{ id: Date.now(), player: "", amount: 0 }]); setLSettleAtEnd(false);
   };
@@ -571,8 +583,25 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     setModal("leave");
   }, []);
 
-  const handleSwipeRight = useCallback((id) => { openBi(id, "add"); haptic(); }, [openBi]);
-  const handleSwipeLeft  = useCallback((id) => { openLeave(id); haptic(); }, [openLeave]);
+  const openReturn = useCallback((id) => {
+    setErr(""); setReturnTarget(id); setReturnAmt({chips:0, money:0}); setModal("return");
+  }, []);
+
+  const submitReturn = () => {
+    setErr("");
+    if (returnAmt.chips <= 0) return setErr("Enter chips to return");
+    const target = game.players.find(p => p.id === returnTarget);
+    setGame(g => ({
+      ...g,
+      players: g.players.map(p => p.id === returnTarget ? { ...p, cashInvested: round2(p.cashInvested - returnAmt.money) } : p),
+      totalBankChips: round2(g.totalBankChips - returnAmt.chips),
+      transactions: [...g.transactions, { type: "bank-return", player: target.name, chips: returnAmt.chips, money: returnAmt.money, time: Date.now() }]
+    }));
+    reset();
+  };
+
+  const handleSwipeRight = useCallback((id) => { openBi(id); haptic(); }, [openBi]);
+  const handleSwipeLeft  = useCallback((id) => { setErr(""); setReturnTarget(id); setModal("leftaction"); haptic(); }, []);
   const handleSettle     = useCallback(() => { onSettle(); haptic(); }, [onSettle]);
 
   const submitAdd = () => {
@@ -746,7 +775,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-5">
         {game.players.map((p,i)=>(
-          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={handleSwipeLeft} onSwipeRight={handleSwipeRight} onSettle={handleSettle} />
+          <SwipeableCard key={p.id} p={p} i={i} onSwipeLeft={handleSwipeLeft} onSwipeRight={handleSwipeRight} onSettle={handleSettle} onReturn={openReturn} />
         ))}
       </div>
 
@@ -1093,6 +1122,38 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Left-swipe action sheet */}
+      <Modal open={modal==="leftaction"} onClose={reset} title={<>{game.players.find(p=>p.id===returnTarget)?.name}</>} icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><LogOut size={20}/></div>}>
+        <div className="space-y-3">
+          <button onClick={()=>{ setModal("return"); }} className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-amber-500/10 hover:border-amber-500/20 transition-all text-left">
+            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400"><Building2 size={18}/></div>
+            <div>
+              <p className="font-semibold text-slate-100 text-sm">Return chips to bank</p>
+              <p className="text-xs text-slate-500 mt-0.5">Player gives back chips mid-game</p>
+            </div>
+          </button>
+          <button onClick={()=>{ openLeave(returnTarget); }} className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-rose-500/10 hover:border-rose-500/20 transition-all text-left">
+            <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400"><LogOut size={18}/></div>
+            <div>
+              <p className="font-semibold text-slate-100 text-sm">Cash out / Exit</p>
+              <p className="text-xs text-slate-500 mt-0.5">Player is done and leaving the game</p>
+            </div>
+          </button>
+        </div>
+      </Modal>
+
+      {/* Return chips to bank modal */}
+      <Modal open={modal==="return"} onClose={reset} title={<>Return to Bank <span className="mx-2 text-white/30">&middot;</span> {game.players.find(p=>p.id===returnTarget)?.name}</>} icon={<div className="p-2 bg-amber-500/20 rounded-lg text-amber-400"><Building2 size={20}/></div>}>
+        <div className="space-y-5">
+          <div className="px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/10 text-xs text-amber-400/80">
+            How many chips is <span className="font-bold text-amber-300">{game.players.find(p=>p.id===returnTarget)?.name}</span> returning to the bank?
+          </div>
+          <TwoWayInput chipValue={game.chipValue} chips={returnAmt.chips} money={returnAmt.money} onChange={setReturnAmt} chipLabel="Chips to return" moneyLabel={`Value (${CURRENCY})`} noStepper/>
+          <Err msg={err}/>
+          <Btn onClick={submitReturn} full variant="amber" className="mt-2"><Check size={18}/> Confirm Return</Btn>
+        </div>
       </Modal>
     </div>
   );
