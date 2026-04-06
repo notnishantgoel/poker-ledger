@@ -500,18 +500,6 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [biSources, newName, newSrc, newSrcPlayer, newAmt, lFinalAmount, lDestSources, lSettlements, lSettleAtEnd]);
 
-  // Pre-populate buy-in sources (bank + all other players) when modal opens
-  useEffect(() => {
-    if (modal === "buyin" && biTarget) {
-      setBiSources([
-        { id: "bank", type: "bank", player: "", chips: 0, money: 0 },
-        ...game.players
-          .filter(p => p.id !== biTarget)
-          .map(p => ({ id: p.id, type: "player", player: p.id, chips: 0, money: 0 }))
-      ]);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modal, biTarget]);
 
   // Listen for navbar Add Player button
   useEffect(() => {
@@ -530,8 +518,14 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   const openBi = useCallback((id) => {
     setErr("");
     setBiTarget(id);
+    setBiSources([
+      { id: "bank", type: "bank", player: "", chips: 0, money: 0 },
+      ...game.players
+        .filter(p => p.id !== id)
+        .map(p => ({ id: p.id, type: "player", player: p.id, chips: 0, money: 0 }))
+    ]);
     setModal("buyin");
-  }, []);
+  }, [game.players]);
 
   const submitBuyIn = () => {
     setErr("");
