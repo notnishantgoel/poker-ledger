@@ -1501,8 +1501,8 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
 
 
 /* ─────────── HISTORY ─────────── */
-function HistoryScreen({ history, onBack }) {
-  const [tab, setTab] = useState("history"); // "history" | "leaderboard"
+function HistoryScreen({ history, onBack, defaultTab = "history" }) {
+  const [tab, setTab] = useState(defaultTab);
 
   // Aggregate leaderboard data from history
   const leaderboard = (() => {
@@ -1648,6 +1648,7 @@ export default function App() {
   const [exitPrompt, setExitPrompt]=useState(false);
   const [upiMap, setUpiMap] = useState({});
   const [history, setHistory] = useState([]);
+  const [historyReturnPhase, setHistoryReturnPhase] = useState("session");
 
   // ── Session state ──
   const [sessionId, setSessionId] = useState(null);
@@ -1923,8 +1924,8 @@ export default function App() {
       <div className="relative min-h-screen pt-2 sm:pt-0">
         {phase!=="loading"&&(
           <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex gap-2">
-            {phase==="session" && (
-              <button onClick={()=>{haptic(); setPhase("history");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-all shadow-[0_4px_15px_rgba(168,85,247,0.2)] backdrop-blur-md">
+            {(phase==="session" || phase==="game") && (
+              <button onClick={()=>{haptic(); setHistoryReturnPhase(phase); setPhase("history");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-all shadow-[0_4px_15px_rgba(168,85,247,0.2)] backdrop-blur-md">
                 <History size={18} />
               </button>
             )}
@@ -1956,7 +1957,7 @@ export default function App() {
         )}
         {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
-        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase("session")} />}
+        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
         {phase==="settle"&&game&&<SettleScreen game={game} upiMap={upiMap} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))}/>}
 
