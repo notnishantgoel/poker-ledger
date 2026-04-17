@@ -4,10 +4,10 @@ import * as htmlToImage from "html-to-image";
 import {
   Plus, Trash2, ArrowRightLeft, Landmark, Calculator, X,
   Coins, AlertTriangle, Check, ChevronDown, Play,
-  RotateCcw, ArrowRight, Sparkles, Search, UserPlus, MoreVertical,
+  RotateCcw, ArrowRight, ArrowLeft, Sparkles, Search, UserPlus, MoreVertical,
   LogOut, Building2, Users, Palette, Crown, Download, Share2,
   Link2, Wifi, WifiOff, Copy, ExternalLink,
-  History, QrCode, Clock, ChevronRight, Smartphone, Home
+  History, QrCode, Clock, ChevronRight, Smartphone
 } from "lucide-react";
 import {
   createSession, joinSession, updateSessionGame,
@@ -475,10 +475,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdat
   return (
     <div className={`${exiting?'animate-fade-out':'animate-fade-in'} w-full max-w-2xl mx-auto px-4 py-6 sm:py-12`}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 sm:mb-8">
-        <button onClick={onBack} className="p-2.5 rounded-xl glass-panel border border-white/10 hover:border-white/20 text-slate-400 hover:text-white transition-all shrink-0">
-          <RotateCcw size={18}/>
-        </button>
+      <div className="flex items-center gap-3 mb-6 sm:mb-8 pl-12 sm:pl-14">
         <div className="flex-1 min-w-0">
           <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">Players & Buy-ins</h2>
           <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
@@ -1372,8 +1369,7 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
-      <div className="flex items-center gap-4 sm:gap-5 mb-10 pr-12 sm:pr-0">
-        <button onClick={onBack} className="p-3 sm:p-3.5 rounded-xl transition-all border border-white/10 hover:border-white/20 hover:bg-white/5 text-slate-300 hover:text-white glass-panel"><RotateCcw size={20}/></button>
+      <div className="flex items-center gap-4 sm:gap-5 mb-10 pl-12 sm:pl-14">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Settle Up</h1>
           <p className="text-sm font-medium mt-1 text-slate-400">
@@ -1558,8 +1554,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
-      <div className="flex items-center gap-4 sm:gap-5 mb-8">
-        <button onClick={onBack} className="p-3 sm:p-3.5 rounded-xl transition-all border border-white/10 hover:border-white/20 hover:bg-white/5 text-slate-300 hover:text-white glass-panel"><RotateCcw size={20}/></button>
+      <div className="flex items-center gap-4 sm:gap-5 mb-8 pl-12 sm:pl-14">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">{tab === "leaderboard" ? "Leaderboard" : "Game History"}</h1>
           <p className="text-sm font-medium mt-1 text-slate-400">{tab === "leaderboard" ? "All-time stats across sessions" : "Past sessions and settlements"}</p>
@@ -2005,8 +2000,14 @@ export default function App() {
       <div className="relative min-h-screen pt-2 sm:pt-0">
         {phase!=="loading"&&phase!=="session"&&(
           <div className="absolute top-3 left-3 sm:top-5 sm:left-5 z-50">
-            <button onClick={()=>{haptic(); setPhase("session");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all backdrop-blur-md">
-              <Home size={18}/>
+            <button onClick={()=>{haptic();
+              if (phase==="players") setPhase("session");
+              else if (phase==="game") setPhase("session");
+              else if (phase==="settle") setPhase("game");
+              else if (phase==="history") setPhase(historyReturnPhase||"session");
+              else setPhase("session");
+            }} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all backdrop-blur-md">
+              <ArrowLeft size={18}/>
             </button>
           </div>
         )}
