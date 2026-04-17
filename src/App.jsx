@@ -17,6 +17,7 @@ import {
 import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
+const GAMES_KEY = "poker-ledger-games";
 const NAMES_KEY = "poker-ledger-names";
 const HISTORY_KEY = "poker-ledger-history";
 const UPI_KEY = "poker-ledger-upi";
@@ -332,19 +333,21 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
 });
 
 /* ─────────── SESSION SCREEN (step 1) ─────────── */
-function SessionScreen({ onContinue }) {
+function SessionScreen({ onContinue, runningSessions = {}, onResume }) {
   const [chipValue, setChipValue] = useState("");
   const [exiting, setExiting] = useState(false);
 
   const handleContinue = () => {
-    const cv = parseFloat(chipValue) || 5; // default 5
+    const cv = parseFloat(chipValue) || 5;
     setExiting(true);
     setTimeout(() => onContinue(cv), 280);
   };
 
+  const sessions = Object.values(runningSessions).sort((a,b) => (b.startedAt||0) - (a.startedAt||0));
+
   return (
-    <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} w-full max-w-md mx-auto px-4 py-16 sm:py-24 flex flex-col`}>
-      <div className="text-center mb-10">
+    <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} w-full max-w-md mx-auto px-4 py-12 sm:py-20 flex flex-col`}>
+      <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-theme-500/20 border border-theme-500/30 mb-5">
           <Coins size={30} className="text-theme-400" />
         </div>
@@ -354,6 +357,36 @@ function SessionScreen({ onContinue }) {
         <p className="text-slate-500 text-xs font-semibold tracking-[0.12em] uppercase">Home Game Tracker</p>
       </div>
 
+      {/* Running sessions */}
+      {sessions.length > 0 && (
+        <div className="mb-6 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500 px-1">Active Sessions</p>
+          {sessions.map(g => {
+            const total = (g.players||[]).reduce((s,p)=>s+p.cashInvested,0);
+            const names = (g.players||[]).map(p=>p.name).join(", ");
+            const timeAgo = g.startedAt ? (() => {
+              const mins = Math.floor((Date.now() - g.startedAt) / 60000);
+              return mins < 60 ? `${mins}m ago` : `${Math.floor(mins/60)}h ago`;
+            })() : "";
+            return (
+              <button key={g.gameId} onClick={() => onResume(g.gameId)}
+                className="w-full glass-panel rounded-2xl p-4 text-left hover:border-theme-500/30 hover:bg-theme-500/5 transition-all border border-white/10 group">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-theme-400 animate-pulse shrink-0"/>
+                    <span className="text-xs font-semibold text-theme-400 uppercase tracking-wider">Live · {timeAgo}</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-amber-400">{CURRENCY}{total.toLocaleString()}</span>
+                </div>
+                <p className="text-sm font-semibold text-slate-200 truncate">{names || "No players"}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{(g.players||[]).length} players · {CURRENCY}{g.chipValue}/chip</p>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* New session */}
       <div className="glass-panel p-6 sm:p-8 rounded-[2rem] space-y-6 shadow-[0_0_60px_rgba(0,0,0,0.4)]">
         <div>
           <h2 className="text-xl font-bold text-slate-100 mb-1">New Session</h2>
@@ -365,7 +398,7 @@ function SessionScreen({ onContinue }) {
           <div className="relative">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-lg pointer-events-none">{CURRENCY}</span>
             <input type="number" value={chipValue}
-              onChange={e => { setChipValue(e.target.value); setError(""); }}
+              onChange={e => setChipValue(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleContinue()}
               placeholder="5" autoFocus
               className="w-full rounded-xl pl-9 pr-4 py-3.5 text-xl glass-input text-amber-400 font-mono font-bold" />
@@ -1649,6 +1682,8 @@ export default function App() {
   const [upiMap, setUpiMap] = useState({});
   const [history, setHistory] = useState([]);
   const [historyReturnPhase, setHistoryReturnPhase] = useState("session");
+  const [allGames, setAllGames] = useState({});
+  const [activeGameId, setActiveGameId] = useState(null);
 
   // ── Session state ──
   const [sessionId, setSessionId] = useState(null);
@@ -1683,12 +1718,24 @@ export default function App() {
     }
     
     // Fallback: load from localStorage
-    const g=await store.get(GAME_KEY); const n=await store.get(NAMES_KEY);
+    const n=await store.get(NAMES_KEY);
     const u=await store.get(UPI_KEY); const h=await store.get(HISTORY_KEY);
     setSavedNames(n||[]);
     setUpiMap(u||{});
     setHistory(h||[]);
-    if(g&&g.phase){setGame(g);setPhase(g.phase==="setup"?"session":g.phase);} else setPhase("session");
+
+    // Load all running sessions
+    let games = await store.get(GAMES_KEY) || {};
+    // Migrate old single-game format
+    const oldGame = await store.get(GAME_KEY);
+    if (oldGame && oldGame.phase && oldGame.phase !== "session" && !oldGame.gameId) {
+      const migId = String(oldGame.startedAt || Date.now());
+      games = { ...games, [migId]: { ...oldGame, gameId: migId } };
+      await store.set(GAMES_KEY, games);
+      await store.delete(GAME_KEY);
+    }
+    setAllGames(games);
+    setPhase("session");
   })();},[]);
 
   // ── Listen for real-time changes when in a session ──
@@ -1716,23 +1763,47 @@ export default function App() {
 
   // ── Persist game state (localStorage + Firebase) ──
   useEffect(()=>{
-    if (!game) return;
-    
-    // Always save to localStorage
-    store.set(GAME_KEY,{...game,phase});
+    if (!game || !activeGameId) return;
+
+    // Save to allGames
+    setAllGames(prev => {
+      const next = { ...prev, [activeGameId]: { ...game, phase, gameId: activeGameId } };
+      store.set(GAMES_KEY, next);
+      return next;
+    });
+
     const names=[...(game.players||[]),...(game.leftPlayers||[])].map(p=>p.name);
     setTimeout(()=>{
       setSavedNames(prev=>{const m=[...new Set([...prev,...names])];store.set(NAMES_KEY,m);return m;});
     }, 0);
-    
+
     // Write to Firebase if in a session and this is a LOCAL change
     if (sessionId && isFirebaseReady() && !isRemoteUpdate.current) {
       updateSessionGame(sessionId, {...game, phase}).catch(console.warn);
     }
     isRemoteUpdate.current = false;
-  },[game,phase,sessionId]);
+  },[game,phase,sessionId,activeGameId]);
 
-  const handleStart=data=>{window.scrollTo(0,0);setGame(data);setPhase("game");};
+  const handleStart=data=>{
+    const gameId = String(Date.now());
+    const newGame = { ...data, gameId, startedAt: Date.now() };
+    window.scrollTo(0,0);
+    setActiveGameId(gameId);
+    setGame(newGame);
+    setPhase("game");
+  };
+
+  const handleResume = (gameId) => {
+    const g = allGames[gameId];
+    if (!g) return;
+    window.scrollTo(0,0);
+    setActiveGameId(gameId);
+    setGame(g);
+    setSessionChipValue(g.chipValue || 5);
+    setPhase(g.phase && g.phase !== "session" ? g.phase : "game");
+    haptic();
+  };
+
   const handleReset=async(completedResult = null)=>{
     if (completedResult) {
       const record = { id: Date.now(), gameData: { ...game }, result: completedResult };
@@ -1749,7 +1820,17 @@ export default function App() {
       setIsHost(false);
       window.location.hash = '';
     }
-    await store.delete(GAME_KEY);
+
+    // Remove this session from allGames
+    if (activeGameId) {
+      setAllGames(prev => {
+        const next = { ...prev };
+        delete next[activeGameId];
+        store.set(GAMES_KEY, next);
+        return next;
+      });
+    }
+    setActiveGameId(null);
     setGame(null);
     setPhase("session");
   };
@@ -1955,7 +2036,7 @@ export default function App() {
             )}
           </div>
         )}
-        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} />}
+        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
