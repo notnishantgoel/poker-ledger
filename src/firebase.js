@@ -124,6 +124,29 @@ export function isFirebaseReady() {
   return isInitialized;
 }
 
+// ── Profile Sync ──
+function generateProfileId() {
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+  let id = "";
+  for (let i = 0; i < 8; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+export async function saveProfile(profileId, data) {
+  if (!isInitialized) throw new Error("Firebase not configured");
+  const profileRef = ref(db, `profiles/${profileId}`);
+  await set(profileRef, { ...data, updatedAt: Date.now() });
+}
+
+export async function loadProfile(profileId) {
+  if (!isInitialized) throw new Error("Firebase not configured");
+  const profileRef = ref(db, `profiles/${profileId.trim().toLowerCase()}`);
+  const snapshot = await get(profileRef);
+  return snapshot.exists() ? snapshot.val() : null;
+}
+
+export { generateProfileId };
+
 // ── Get the shareable URL for a session ──
 const PRODUCTION_URL = "https://notnishantgoel.github.io/poker-ledger/";
 export function getSessionUrl(sessionId) {

@@ -7,16 +7,19 @@ import {
   RotateCcw, ArrowRight, ArrowLeft, Sparkles, Search, UserPlus, MoreVertical,
   LogOut, Building2, Users, Palette, Crown, Download, Share2,
   Link2, Wifi, WifiOff, Copy, ExternalLink,
-  History, QrCode, Clock, ChevronRight, Smartphone
+  History, QrCode, Clock, ChevronRight, Smartphone,
+  CloudUpload, CloudDownload, RefreshCw, KeyRound
 } from "lucide-react";
 import {
   createSession, joinSession, updateSessionGame,
   listenToSession, deleteSession, isFirebaseReady,
-  getSessionUrl, getSessionIdFromUrl
+  getSessionUrl, getSessionIdFromUrl,
+  saveProfile, loadProfile, generateProfileId
 } from "./firebase.js";
 import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
+const PROFILE_KEY = "poker-ledger-profile";
 const GAMES_KEY = "poker-ledger-games";
 const NAMES_KEY = "poker-ledger-names";
 const HISTORY_KEY = "poker-ledger-history";
@@ -332,8 +335,88 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
   );
 });
 
+/* ─────────── SYNC MODAL ─────────── */
+function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
+  const [restoreCode, setRestoreCode] = useState("");
+  const [status, setStatus] = useState(null); // null | "backing-up" | "backed-up" | "restoring" | "restored" | "error"
+  const [shownId, setShownId] = useState(profileId);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => { if (open) { setStatus(null); setRestoreCode(""); setShownId(profileId); } }, [open, profileId]);
+
+  const doBackup = async () => {
+    setStatus("backing-up");
+    try {
+      const pid = await onBackup();
+      setShownId(pid);
+      setStatus("backed-up");
+    } catch { setStatus("error"); }
+  };
+
+  const doRestore = async () => {
+    if (!restoreCode.trim()) return;
+    setStatus("restoring");
+    try {
+      const ok = await onRestore(restoreCode.trim());
+      setStatus(ok ? "restored" : "error");
+      if (ok) setShownId(restoreCode.trim());
+    } catch { setStatus("error"); }
+  };
+
+  const copyCode = () => {
+    if (!shownId) return;
+    navigator.clipboard.writeText(shownId).catch(()=>{});
+    setCopied(true); setTimeout(()=>setCopied(false), 2000);
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Sync Data" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><RefreshCw size={20}/></div>}>
+      <div className="space-y-5">
+        <p className="text-slate-400 text-sm leading-relaxed">Back up your history, names, and settings to the cloud. Use your sync code to restore on any device.</p>
+
+        {/* Backup section */}
+        <div className="rounded-2xl bg-white/3 border border-white/8 p-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Your Sync Code</p>
+          {shownId ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 font-mono text-lg font-bold tracking-[0.2em] text-blue-300 bg-slate-950/60 border border-blue-500/20 rounded-xl px-4 py-2.5 text-center select-all">
+                {shownId}
+              </div>
+              <button onClick={copyCode} className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all shrink-0">
+                {copied ? <Check size={16}/> : <Copy size={16}/>}
+              </button>
+            </div>
+          ) : (
+            <p className="text-slate-500 text-sm italic">No sync code yet — create one by backing up.</p>
+          )}
+          <Btn onClick={doBackup} variant="primary" full disabled={status==="backing-up"}>
+            {status==="backing-up" ? <><RefreshCw size={16} className="animate-spin"/> Backing up…</> : status==="backed-up" ? <><Check size={16}/> Backed up!</> : <><CloudUpload size={16}/> {shownId ? "Backup Now" : "Create Sync Code"}</>}
+          </Btn>
+        </div>
+
+        {/* Restore section */}
+        <div className="rounded-2xl bg-white/3 border border-white/8 p-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Restore from Code</p>
+          <input
+            type="text" value={restoreCode} onChange={e=>setRestoreCode(e.target.value.toLowerCase())}
+            placeholder="Enter your sync code"
+            className="w-full rounded-xl px-4 py-3 glass-input font-mono text-center text-base tracking-widest text-slate-200 placeholder:text-slate-600 placeholder:tracking-normal"
+          />
+          {status==="error" && <p className="text-rose-400 text-xs">Code not found or error. Check and try again.</p>}
+          {status==="restored" && <p className="text-emerald-400 text-xs">Data restored successfully!</p>}
+          <Btn onClick={doRestore} variant="secondary" full disabled={!restoreCode.trim() || status==="restoring"}>
+            {status==="restoring" ? <><RefreshCw size={16} className="animate-spin"/> Restoring…</> : <><CloudDownload size={16}/> Restore Data</>}
+          </Btn>
+        </div>
+
+        <p className="text-center text-xs text-slate-600">Save your sync code somewhere safe — it's the only way to access your backup.</p>
+      </div>
+    </Modal>
+  );
+}
+
 /* ─────────── SESSION SCREEN (step 1) ─────────── */
-function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory }) {
+function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, onSync }) {
   const [chipValue, setChipValue] = useState("");
   const [exiting, setExiting] = useState(false);
 
@@ -347,11 +430,18 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory }
 
   return (
     <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} relative w-full max-w-md mx-auto px-4 py-12 sm:py-20 flex flex-col`}>
-      {onHistory && (
-        <button onClick={()=>{haptic(); onHistory();}} className="absolute top-2 right-0 p-3 rounded-xl text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-all">
-          <History size={24}/>
-        </button>
-      )}
+      <div className="absolute top-2 right-0 flex items-center gap-1">
+        {onSync && (
+          <button onClick={()=>{haptic(); onSync();}} className="p-3 rounded-xl text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all">
+            <RefreshCw size={22}/>
+          </button>
+        )}
+        {onHistory && (
+          <button onClick={()=>{haptic(); onHistory();}} className="p-3 rounded-xl text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-all">
+            <History size={22}/>
+          </button>
+        )}
+      </div>
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-theme-500/20 border border-theme-500/30 mb-5">
           <Coins size={30} className="text-theme-400" />
@@ -1684,6 +1774,8 @@ export default function App() {
   const [historyReturnPhase, setHistoryReturnPhase] = useState("session");
   const [allGames, setAllGames] = useState({});
   const [activeGameId, setActiveGameId] = useState(null);
+  const [profileId, setProfileId] = useState(null);
+  const [syncModal, setSyncModal] = useState(false);
 
   // ── Session state ──
   const [sessionId, setSessionId] = useState(null);
@@ -1720,9 +1812,11 @@ export default function App() {
     // Fallback: load from localStorage
     const n=await store.get(NAMES_KEY);
     const u=await store.get(UPI_KEY); const h=await store.get(HISTORY_KEY);
+    const pid=await store.get(PROFILE_KEY);
     setSavedNames(n||[]);
     setUpiMap(u||{});
     setHistory(h||[]);
+    if (pid) setProfileId(pid);
 
     // Load all running sessions
     let games = await store.get(GAMES_KEY) || {};
@@ -1993,6 +2087,35 @@ export default function App() {
     }
   };
 
+  // ── Profile sync ──
+  const handleBackup = async () => {
+    let pid = profileId;
+    if (!pid) {
+      pid = generateProfileId();
+      setProfileId(pid);
+      await store.set(PROFILE_KEY, pid);
+    }
+    await saveProfile(pid, {
+      history,
+      savedNames,
+      upiMap,
+      games: allGames,
+    });
+    return pid;
+  };
+
+  const handleRestore = async (code) => {
+    const data = await loadProfile(code);
+    if (!data) return false;
+    if (data.history) { setHistory(data.history); await store.set(HISTORY_KEY, data.history); }
+    if (data.savedNames) { setSavedNames(data.savedNames); await store.set(NAMES_KEY, data.savedNames); }
+    if (data.upiMap) { setUpiMap(data.upiMap); await store.set(UPI_KEY, data.upiMap); }
+    if (data.games) { setAllGames(data.games); await store.set(GAMES_KEY, data.games); }
+    setProfileId(code);
+    await store.set(PROFILE_KEY, code);
+    return true;
+  };
+
   if(phase==="loading") return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-theme-500 z-50">
       <Coins size={48} className="animate-bounce" />
@@ -2039,7 +2162,7 @@ export default function App() {
         </div>
       )}
       <div className="relative">
-        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} />}
+        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onSync={()=>setSyncModal(true)} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
@@ -2062,6 +2185,15 @@ export default function App() {
             <Btn onClick={()=>{setBackToPlayersConfirm(false); setSessionChipValue(game.chipValue); setPhase("players"); haptic();}} variant="amber" className="flex-1">Go Back</Btn>
           </div>
         </Modal>
+
+        {/* Sync Modal */}
+        <SyncModal
+          open={syncModal}
+          onClose={()=>setSyncModal(false)}
+          profileId={profileId}
+          onBackup={handleBackup}
+          onRestore={handleRestore}
+        />
 
         {/* Share Session Modal */}
         <Modal open={shareModal} onClose={()=>setShareModal(false)} title="Share Session" icon={<div className="p-2 bg-purple-500/20 rounded-lg text-purple-400"><Link2 size={20}/></div>}>
