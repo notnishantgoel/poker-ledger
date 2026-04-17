@@ -475,7 +475,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdat
   return (
     <div className={`${exiting?'animate-fade-out':'animate-fade-in'} w-full max-w-2xl mx-auto px-4 py-6 sm:py-12`}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 sm:mb-8 pl-12 sm:pl-14">
+      <div className="flex items-center gap-3 mb-6 sm:mb-8">
         <div className="flex-1 min-w-0">
           <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">Players & Buy-ins</h2>
           <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
@@ -794,7 +794,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   return (
     <div className="animate-deal-in w-full max-w-3xl mx-auto px-4 py-4 sm:py-8 pb-32 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5 sm:mb-6">
-        <div className="px-12 sm:px-0">
+        <div>
           <h1 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
             <Coins size={20} className="text-theme-400" />
             Poker Ledger
@@ -1369,7 +1369,7 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
-      <div className="flex items-center gap-4 sm:gap-5 mb-10 pl-12 sm:pl-14">
+      <div className="flex items-center gap-4 sm:gap-5 mb-10">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Settle Up</h1>
           <p className="text-sm font-medium mt-1 text-slate-400">
@@ -1554,7 +1554,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
-      <div className="flex items-center gap-4 sm:gap-5 mb-8 pl-12 sm:pl-14">
+      <div className="flex items-center gap-4 sm:gap-5 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">{tab === "leaderboard" ? "Leaderboard" : "Game History"}</h1>
           <p className="text-sm font-medium mt-1 text-slate-400">{tab === "leaderboard" ? "All-time stats across sessions" : "Past sessions and settlements"}</p>
@@ -1997,53 +1997,43 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 font-sans selection:bg-theme-500/30 selection:text-white">
-      <div className="relative min-h-screen pt-2 sm:pt-0">
-        {phase!=="loading"&&phase!=="session"&&(
-          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-50">
-            <button onClick={()=>{haptic();
-              if (phase==="players") setPhase("session");
-              else if (phase==="game") setPhase("session");
-              else if (phase==="settle") setPhase("game");
-              else if (phase==="history") setPhase(historyReturnPhase||"session");
-              else setPhase("session");
-            }} className="p-2 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all backdrop-blur-md">
-              <ArrowLeft size={16}/>
-            </button>
-          </div>
-        )}
-        {phase!=="loading"&&(
-          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-50 flex items-center gap-1.5">
-            {(phase==="session" || phase==="game") && (
-              <button onClick={()=>{haptic(); setHistoryReturnPhase(phase); setPhase("history");}} className="p-2 rounded-lg bg-slate-900/80 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-all backdrop-blur-md">
-                <History size={16} />
-              </button>
-            )}
+      {/* Sticky nav bar — only on non-session/loading screens */}
+      {phase!=="loading"&&phase!=="session"&&(
+        <div className="sticky top-0 z-50 flex items-center justify-between h-12 px-3 bg-slate-950/95 backdrop-blur-md border-b border-white/8">
+          <button onClick={()=>{haptic();
+            if (phase==="players") setPhase("session");
+            else if (phase==="game") setPhase("session");
+            else if (phase==="settle") setPhase("game");
+            else if (phase==="history") setPhase(historyReturnPhase||"session");
+            else setPhase("session");
+          }} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-all">
+            <ArrowLeft size={18}/>
+          </button>
+          <div className="flex items-center gap-1">
             {phase==="game" && (
               <>
-                <button onClick={()=>{haptic(); setBackToPlayersConfirm(true);}} className="p-2 rounded-lg bg-slate-900/80 border border-slate-500/30 text-slate-400 hover:bg-slate-500/20 hover:text-slate-200 transition-all backdrop-blur-md" title="Back to players">
+                <button onClick={()=>{haptic(); setBackToPlayersConfirm(true);}} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/8 transition-all" title="Back to setup">
                   <RotateCcw size={16} />
                 </button>
                 {isFirebaseReady() && (
-                  <button onClick={()=>{haptic(); handleShare();}} className={`p-2 rounded-lg bg-slate-900/80 border transition-all backdrop-blur-md ${
-                    sessionId
-                      ? 'border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300'
-                      : 'border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300'
-                  }`}>
+                  <button onClick={()=>{haptic(); handleShare();}} className={`p-1.5 rounded-lg transition-all hover:bg-white/8 ${sessionId ? 'text-blue-400' : 'text-slate-500 hover:text-purple-400'}`}>
                     {sessionId ? <Wifi size={16} /> : <Share2 size={16} />}
                   </button>
                 )}
-                <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-2 rounded-lg bg-slate-900/80 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 transition-all backdrop-blur-md">
+                <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-all">
                   <UserPlus size={16} />
                 </button>
               </>
             )}
             {(phase==="game" || phase==="settle") && (
-              <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-2 rounded-lg bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all backdrop-blur-md">
+              <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all">
                 <LogOut size={16} />
               </button>
             )}
           </div>
-        )}
+        </div>
+      )}
+      <div className="relative">
         {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} />}
