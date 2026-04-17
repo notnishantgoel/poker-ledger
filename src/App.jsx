@@ -2006,40 +2006,40 @@ export default function App() {
               else if (phase==="settle") setPhase("game");
               else if (phase==="history") setPhase(historyReturnPhase||"session");
               else setPhase("session");
-            }} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all backdrop-blur-md">
-              <ArrowLeft size={18}/>
+            }} className="p-1.5 sm:p-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all backdrop-blur-md">
+              <ArrowLeft size={16} className="sm:hidden"/><ArrowLeft size={18} className="hidden sm:block"/>
             </button>
           </div>
         )}
         {phase!=="loading"&&(
-          <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex gap-2">
+          <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex items-center gap-1 sm:gap-2">
             {(phase==="session" || phase==="game") && (
-              <button onClick={()=>{haptic(); setHistoryReturnPhase(phase); setPhase("history");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-all shadow-[0_4px_15px_rgba(168,85,247,0.2)] backdrop-blur-md">
-                <History size={18} />
+              <button onClick={()=>{haptic(); setHistoryReturnPhase(phase); setPhase("history");}} className="p-1.5 sm:p-2.5 rounded-xl bg-slate-900/80 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-all shadow-[0_4px_15px_rgba(168,85,247,0.2)] backdrop-blur-md">
+                <History size={16} className="sm:hidden"/><History size={18} className="hidden sm:block"/>
               </button>
             )}
             {phase==="game" && (
               <>
-                <button onClick={()=>{haptic(); setBackToPlayersConfirm(true);}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-slate-500/30 text-slate-400 hover:bg-slate-500/20 hover:text-slate-200 transition-all shadow-[0_4px_15px_rgba(0,0,0,0.2)] backdrop-blur-md" title="Back to players">
-                  <RotateCcw size={18} />
+                <button onClick={()=>{haptic(); setBackToPlayersConfirm(true);}} className="p-1.5 sm:p-2.5 rounded-xl bg-slate-900/80 border border-slate-500/30 text-slate-400 hover:bg-slate-500/20 hover:text-slate-200 transition-all shadow-[0_4px_15px_rgba(0,0,0,0.2)] backdrop-blur-md" title="Back to players">
+                  <RotateCcw size={16} className="sm:hidden"/><RotateCcw size={18} className="hidden sm:block"/>
                 </button>
                 {isFirebaseReady() && (
-                  <button onClick={()=>{haptic(); handleShare();}} className={`p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border transition-all backdrop-blur-md ${
+                  <button onClick={()=>{haptic(); handleShare();}} className={`p-1.5 sm:p-2.5 rounded-xl bg-slate-900/80 border transition-all backdrop-blur-md ${
                     sessionId
                       ? 'border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 shadow-[0_4px_15px_rgba(59,130,246,0.2)]'
                       : 'border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 shadow-[0_4px_15px_rgba(168,85,247,0.2)]'
                   }`}>
-                    {sessionId ? <Wifi size={18} /> : <Share2 size={18} />}
+                    {sessionId ? <><Wifi size={16} className="sm:hidden"/><Wifi size={18} className="hidden sm:block"/></> : <><Share2 size={16} className="sm:hidden"/><Share2 size={18} className="hidden sm:block"/></>}
                   </button>
                 )}
-                <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 transition-all shadow-[0_4px_15px_rgba(59,130,246,0.2)] backdrop-blur-md">
-                  <UserPlus size={18} />
+                <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-1.5 sm:p-2.5 rounded-xl bg-slate-900/80 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 transition-all shadow-[0_4px_15px_rgba(59,130,246,0.2)] backdrop-blur-md">
+                  <UserPlus size={16} className="sm:hidden"/><UserPlus size={18} className="hidden sm:block"/>
                 </button>
               </>
             )}
             {(phase==="game" || phase==="settle") && (
-              <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
-                <LogOut size={18} />
+              <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-1.5 sm:p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_4px_15px_rgba(244,63,94,0.2)] backdrop-blur-md">
+                <LogOut size={16} className="sm:hidden"/><LogOut size={18} className="hidden sm:block"/>
               </button>
             )}
           </div>
