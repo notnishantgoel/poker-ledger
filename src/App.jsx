@@ -7,7 +7,7 @@ import {
   RotateCcw, ArrowRight, Sparkles, Search, UserPlus, MoreVertical,
   LogOut, Building2, Users, Palette, Crown, Download, Share2,
   Link2, Wifi, WifiOff, Copy, ExternalLink,
-  History, QrCode, Clock, ChevronRight, Smartphone
+  History, QrCode, Clock, ChevronRight, Smartphone, Home
 } from "lucide-react";
 import {
   createSession, joinSession, updateSessionGame,
@@ -2003,6 +2003,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 font-sans selection:bg-theme-500/30 selection:text-white">
       <div className="relative min-h-screen pt-2 sm:pt-0">
+        {phase!=="loading"&&phase!=="session"&&(
+          <div className="absolute top-3 left-3 sm:top-5 sm:left-5 z-50">
+            <button onClick={()=>{haptic(); setPhase("session");}} className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all backdrop-blur-md">
+              <Home size={18}/>
+            </button>
+          </div>
+        )}
         {phase!=="loading"&&(
           <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 flex gap-2">
             {(phase==="session" || phase==="game") && (
