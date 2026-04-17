@@ -348,8 +348,8 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory }
   return (
     <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} relative w-full max-w-md mx-auto px-4 py-12 sm:py-20 flex flex-col`}>
       {onHistory && (
-        <button onClick={()=>{haptic(); onHistory();}} className="absolute top-3 right-0 p-1.5 rounded-lg text-slate-500 hover:text-purple-400 hover:bg-purple-500/10 transition-all">
-          <History size={20}/>
+        <button onClick={()=>{haptic(); onHistory();}} className="absolute top-2 right-0 p-3 rounded-xl text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-all">
+          <History size={24}/>
         </button>
       )}
       <div className="text-center mb-8">
