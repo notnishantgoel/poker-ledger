@@ -333,7 +333,7 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
 });
 
 /* ─────────── SESSION SCREEN (step 1) ─────────── */
-function SessionScreen({ onContinue, runningSessions = {}, onResume }) {
+function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory }) {
   const [chipValue, setChipValue] = useState("");
   const [exiting, setExiting] = useState(false);
 
@@ -346,7 +346,12 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume }) {
   const sessions = Object.values(runningSessions).sort((a,b) => (b.startedAt||0) - (a.startedAt||0));
 
   return (
-    <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} w-full max-w-md mx-auto px-4 py-12 sm:py-20 flex flex-col`}>
+    <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} relative w-full max-w-md mx-auto px-4 py-12 sm:py-20 flex flex-col`}>
+      {onHistory && (
+        <button onClick={()=>{haptic(); onHistory();}} className="absolute top-3 right-0 p-1.5 rounded-lg text-slate-500 hover:text-purple-400 hover:bg-purple-500/10 transition-all">
+          <History size={18}/>
+        </button>
+      )}
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-theme-500/20 border border-theme-500/30 mb-5">
           <Coins size={30} className="text-theme-400" />
@@ -2034,7 +2039,7 @@ export default function App() {
         </div>
       )}
       <div className="relative">
-        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} />}
+        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
