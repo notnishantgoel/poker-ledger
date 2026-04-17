@@ -405,7 +405,7 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory }
             <input type="number" value={chipValue}
               onChange={e => setChipValue(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleContinue()}
-              placeholder="5" autoFocus
+              placeholder="5"
               className="w-full rounded-xl pl-9 pr-4 py-3.5 text-xl glass-input text-amber-400 font-mono font-bold" />
           </div>
           <p className="text-[11px] text-slate-500 mt-2 italic">
@@ -2004,35 +2004,35 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 font-sans selection:bg-theme-500/30 selection:text-white">
       {/* Sticky nav bar — only on non-session/loading screens */}
       {phase!=="loading"&&phase!=="session"&&(
-        <div className="sticky top-0 z-50 flex items-center justify-between h-12 px-3 bg-slate-950/95 backdrop-blur-md border-b border-white/8">
+        <div className="sticky top-0 z-50 flex items-center justify-between h-14 px-4 bg-slate-950/95 backdrop-blur-md border-b border-white/8">
           <button onClick={()=>{haptic();
             if (phase==="players") setPhase("session");
             else if (phase==="game") setPhase("session");
             else if (phase==="settle") setPhase("game");
             else if (phase==="history") setPhase(historyReturnPhase||"session");
             else setPhase("session");
-          }} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-all">
-            <ArrowLeft size={18}/>
+          }} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-all">
+            <ArrowLeft size={22}/>
           </button>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {phase==="game" && (
               <>
-                <button onClick={()=>{haptic(); setBackToPlayersConfirm(true);}} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/8 transition-all" title="Back to setup">
-                  <RotateCcw size={16} />
+                <button onClick={()=>{haptic(); setBackToPlayersConfirm(true);}} className="p-2 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/8 transition-all" title="Back to setup">
+                  <RotateCcw size={20} />
                 </button>
                 {isFirebaseReady() && (
-                  <button onClick={()=>{haptic(); handleShare();}} className={`p-1.5 rounded-lg transition-all hover:bg-white/8 ${sessionId ? 'text-blue-400' : 'text-slate-500 hover:text-purple-400'}`}>
-                    {sessionId ? <Wifi size={16} /> : <Share2 size={16} />}
+                  <button onClick={()=>{haptic(); handleShare();}} className={`p-2 rounded-lg transition-all hover:bg-white/8 ${sessionId ? 'text-blue-400' : 'text-slate-500 hover:text-purple-400'}`}>
+                    {sessionId ? <Wifi size={20} /> : <Share2 size={20} />}
                   </button>
                 )}
-                <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-all">
-                  <UserPlus size={16} />
+                <button onClick={()=>{haptic(); window.dispatchEvent(new CustomEvent('open-add-player'));}} className="p-2 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-all">
+                  <UserPlus size={20} />
                 </button>
               </>
             )}
             {(phase==="game" || phase==="settle") && (
-              <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all">
-                <LogOut size={16} />
+              <button onClick={()=>{haptic(); setExitPrompt(true);}} className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all">
+                <LogOut size={20} />
               </button>
             )}
           </div>
