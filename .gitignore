@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 android/app/build
 .gradle
+
+# Keystore and signing credentials — never commit these
+keystore/
+*.jks
+*.keystore
