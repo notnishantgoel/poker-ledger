@@ -2020,11 +2020,21 @@ export default function App() {
   const handleReset=async(completedResult = null)=>{
     if (completedResult) {
       const record = { id: Date.now(), gameData: { ...game }, result: completedResult };
-      setHistory(prev => {
-        const next = [record, ...prev].slice(0, 50);
-        store.set(HISTORY_KEY, next);
-        return next;
-      });
+      const next = [record, ...history].slice(0, 50);
+      setHistory(next);
+      await store.set(HISTORY_KEY, next);
+      // Auto-push merged history to cloud if this device has a profile linked
+      if (profileId) {
+        (async () => {
+          try {
+            const cloud = await loadProfile(profileId);
+            const merged = mergeHistory(next, cloud?.history);
+            setHistory(merged);
+            await store.set(HISTORY_KEY, merged);
+            await saveProfile(profileId, { history: merged, savedNames, upiMap, games: allGames });
+          } catch {}
+        })();
+      }
     }
 
     if (sessionId) {
@@ -2207,6 +2217,16 @@ export default function App() {
   };
 
   // ── Profile sync ──
+  // Merge local + cloud history arrays by id, newest-first for storage
+  const mergeHistory = (local, cloudRaw) => {
+    const cloudArr = cloudRaw
+      ? (Array.isArray(cloudRaw) ? cloudRaw : Object.values(cloudRaw)).filter(Boolean)
+      : [];
+    const byId = {};
+    [...cloudArr, ...local].forEach(h => { if (h?.id) byId[h.id] = h; });
+    return Object.values(byId).sort((a, b) => (a.id || 0) - (b.id || 0));
+  };
+
   const handleBackup = async () => {
     let pid = profileId;
     if (!pid) {
@@ -2214,12 +2234,17 @@ export default function App() {
       setProfileId(pid);
       await store.set(PROFILE_KEY, pid);
     }
-    await saveProfile(pid, {
-      history,
-      savedNames,
-      upiMap,
-      games: allGames,
-    });
+    // Merge with existing cloud history so neither device loses its games
+    let mergedHist = history;
+    try {
+      const cloud = await loadProfile(pid);
+      if (cloud?.history) {
+        mergedHist = mergeHistory(history, cloud.history);
+        setHistory(mergedHist);
+        await store.set(HISTORY_KEY, mergedHist);
+      }
+    } catch {}
+    await saveProfile(pid, { history: mergedHist, savedNames, upiMap, games: allGames });
     return pid;
   };
 
@@ -2227,12 +2252,10 @@ export default function App() {
     const data = await loadProfile(code);
     if (!data) return false;
     if (data.history) {
-      // Firebase may return an array as a keyed object; normalize and sort by timestamp
-      const h = (Array.isArray(data.history) ? data.history : Object.values(data.history))
-        .filter(Boolean)
-        .sort((a, b) => (a.id || 0) - (b.id || 0));
-      setHistory(h);
-      await store.set(HISTORY_KEY, h);
+      // Merge cloud history with local — both devices keep all their games
+      const merged = mergeHistory(history, data.history);
+      setHistory(merged);
+      await store.set(HISTORY_KEY, merged);
     }
     if (data.savedNames) { setSavedNames(data.savedNames); await store.set(NAMES_KEY, data.savedNames); }
     if (data.upiMap) { setUpiMap(data.upiMap); await store.set(UPI_KEY, data.upiMap); }
