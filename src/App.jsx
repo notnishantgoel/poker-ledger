@@ -2226,7 +2226,14 @@ export default function App() {
   const handleRestore = async (code) => {
     const data = await loadProfile(code);
     if (!data) return false;
-    if (data.history) { setHistory(data.history); await store.set(HISTORY_KEY, data.history); }
+    if (data.history) {
+      // Firebase may return an array as a keyed object; normalize and sort by timestamp
+      const h = (Array.isArray(data.history) ? data.history : Object.values(data.history))
+        .filter(Boolean)
+        .sort((a, b) => (a.id || 0) - (b.id || 0));
+      setHistory(h);
+      await store.set(HISTORY_KEY, h);
+    }
     if (data.savedNames) { setSavedNames(data.savedNames); await store.set(NAMES_KEY, data.savedNames); }
     if (data.upiMap) { setUpiMap(data.upiMap); await store.set(UPI_KEY, data.upiMap); }
     if (data.games) { setAllGames(data.games); await store.set(GAMES_KEY, data.games); }
