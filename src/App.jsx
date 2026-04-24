@@ -16,6 +16,7 @@ import {
   getSessionUrl, getSessionIdFromUrl,
   saveProfile, loadProfile, generateProfileId
 } from "./firebase.js";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend } from "recharts";
 import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
@@ -1627,6 +1628,7 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
 /* ─────────── HISTORY ─────────── */
 function HistoryScreen({ history, onBack, defaultTab = "history" }) {
   const [tab, setTab] = useState(defaultTab);
+  const [expandedId, setExpandedId] = useState(null);
 
   // Aggregate leaderboard data from history
   const leaderboard = (() => {
@@ -1670,6 +1672,12 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
         >
           <Crown size={15}/> Leaderboard
         </button>
+        <button
+          onClick={() => setTab("graph")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "graph" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+        >
+          <Sparkles size={15}/> Graph
+        </button>
       </div>
 
       {tab === "history" ? (
@@ -1681,44 +1689,66 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
           </div>
         ) : (
           <div className="space-y-4">
-            {history.map((h, i) => {
+            {[...history].sort((a, b) => {
+              const getWinNet = (e) => {
+                if (!e.result?.winner) return 0;
+                return e.result.balances?.find(p => p.name === e.result.winner)?.balance ?? 0;
+              };
+              return getWinNet(b) - getWinNet(a);
+            }).map((h, i) => {
               const date = new Date(h.id).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+              const winnerNet = h.result?.winner ? (h.result.balances?.find(p => p.name === h.result.winner)?.balance ?? 0) : 0;
+              const isExpanded = expandedId === h.id;
               return (
-                <div key={h.id} className="glass-panel p-5 rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
-                  <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
-                    <div className="flex items-center gap-2 text-slate-300 font-semibold text-sm">
-                      <Clock size={16} className="text-purple-400" /> {date}
+                <div key={h.id} className="glass-panel rounded-[1.5rem] animate-slide-up overflow-hidden" style={{animationDelay:`${i*50}ms`}}>
+                  {/* Collapsed header — always visible, click to expand */}
+                  <button
+                    className="w-full p-5 flex items-center justify-between text-left"
+                    onClick={() => setExpandedId(isExpanded ? null : h.id)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Clock size={16} className="text-purple-400 flex-shrink-0" />
+                      <span className="text-slate-300 font-semibold text-sm truncate">{date}</span>
                     </div>
-                    {h.result?.winner && (
-                      <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                        <Crown size={12}/> {h.result.winner}
-                      </div>
-                    )}
-                  </div>
-                  {h.result?.settlements?.length > 0 ? (
-                    <div className="space-y-2">
-                      {h.result.settlements.map((s, j) => (
-                        <div key={j} className="flex justify-between items-center text-sm">
-                          <span className="text-rose-400 font-medium truncate max-w-[80px] sm:max-w-[120px]">{s.from}</span>
-                          <div className="flex items-center gap-2 flex-1 mx-2">
-                            <div className="h-px flex-1 bg-white/5" />
-                            <span className="text-amber-400 font-mono text-xs font-bold">{CURRENCY}{s.amount.toLocaleString()}</span>
-                            <ArrowRight size={12} className="text-slate-500" />
-                            <div className="h-px flex-1 bg-white/5" />
-                          </div>
-                          <span className="text-theme-400 font-medium truncate max-w-[80px] sm:max-w-[120px] text-right">{s.to}</span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {h.result?.winner && (
+                        <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                          <Crown size={12}/> {h.result.winner}
+                          {winnerNet > 0 && <span className="text-emerald-400 ml-1">+{CURRENCY}{winnerNet.toLocaleString()}</span>}
                         </div>
-                      ))}
+                      )}
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                     </div>
-                  ) : (
-                    <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
+                  </button>
+                  {/* Expanded settlement detail */}
+                  {isExpanded && (
+                    <div className="px-5 pb-5 border-t border-white/5 pt-3">
+                      {h.result?.settlements?.length > 0 ? (
+                        <div className="space-y-2">
+                          {h.result.settlements.map((s, j) => (
+                            <div key={j} className="flex justify-between items-center text-sm">
+                              <span className="text-rose-400 font-medium truncate max-w-[80px] sm:max-w-[120px]">{s.from}</span>
+                              <div className="flex items-center gap-2 flex-1 mx-2">
+                                <div className="h-px flex-1 bg-white/5" />
+                                <span className="text-amber-400 font-mono text-xs font-bold">{CURRENCY}{s.amount.toLocaleString()}</span>
+                                <ArrowRight size={12} className="text-slate-500" />
+                                <div className="h-px flex-1 bg-white/5" />
+                              </div>
+                              <span className="text-theme-400 font-medium truncate max-w-[80px] sm:max-w-[120px] text-right">{s.to}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
+                      )}
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
         )
-      ) : (
+      ) : tab === "leaderboard" ? (
         leaderboard.length === 0 ? (
           <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
             <Crown size={40} className="mx-auto text-slate-600 mb-4" />
@@ -1748,15 +1778,62 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
                     <p className={`font-mono font-bold text-base ${isUp ? "text-emerald-400" : isEven ? "text-slate-400" : "text-rose-400"}`}>
                       {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span>
-                    </p>
+                    <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                      {p.bestWin > 0 && <p>best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span></p>}
+                      {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
         )
+      ) : (
+        (() => {
+          const CHART_COLORS = ['#10b981','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+          const chronological = [...history].sort((a, b) => a.id - b.id);
+          const allPlayers = [...new Set(chronological.flatMap(g => (g.result?.balances || []).map(b => b.name)))];
+          const chartData = chronological.reduce((acc, entry, idx) => {
+            const prev = acc[idx - 1] || {};
+            const point = { date: new Date(entry.id).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) };
+            allPlayers.forEach(name => {
+              const bal = entry.result?.balances?.find(b => b.name === name);
+              point[name] = (prev[name] ?? 0) + (bal ? (bal.balance ?? 0) : 0);
+            });
+            acc.push(point);
+            return acc;
+          }, []);
+
+          if (history.length < 2) {
+            return (
+              <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
+                <Sparkles size={40} className="mx-auto text-slate-600 mb-4" />
+                <p className="text-base font-medium text-slate-400">Not enough data yet.</p>
+                <p className="text-sm text-slate-500 mt-2">Play at least 2 games to see performance graphs.</p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="glass-panel p-4 rounded-[1.5rem]">
+              <p className="text-sm font-semibold text-slate-300 mb-4">Cumulative Net P&L over time</p>
+              <LineChart width={undefined} height={280} data={chartData} style={{ width: '100%' }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
+                <RechartsTooltip
+                  formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]}
+                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }}
+                  labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
+                />
+                <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+                {allPlayers.map((name, i) => (
+                  <Line key={name} type="monotone" dataKey={name} stroke={CHART_COLORS[i % CHART_COLORS.length]} dot={{ r: 3 }} strokeWidth={2} activeDot={{ r: 5 }} />
+                ))}
+              </LineChart>
+            </div>
+          );
+        })()
       )}
     </div>
   );
