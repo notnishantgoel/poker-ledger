@@ -255,7 +255,7 @@ function SettlePlayerRow({ p, i, chipValue, fcVal, remaining, onChange }) {
         <Avatar name={p.name} i={i} size="w-9 h-9 sm:w-12 sm:h-12" textSize="text-sm sm:text-base font-bold" />
         <div className="flex-1 min-w-0">
           <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
-          <p className="text-xs font-medium mt-0.5 text-slate-400"><span className="font-mono">{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
+          <p className="text-xs font-medium mt-0.5 text-rose-400/80"><span className="font-mono">-{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
         </div>
         <div className={`flex items-center rounded-xl border shrink-0 overflow-hidden ${netColor}`}>
           <span className="pl-2.5 font-mono text-sm font-bold pointer-events-none">{CURRENCY}</span>
@@ -327,8 +327,8 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
           <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
         </div>
-        <div className="flex text-base font-bold text-amber-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-amber-500/20">
-            <span className="mr-0.5">{CURRENCY}</span>
+        <div className="flex text-base font-bold text-rose-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-rose-500/20">
+            <span className="mr-0.5">-{CURRENCY}</span>
             {p.cashInvested.toLocaleString()}
           </div>
       </div>
@@ -1216,7 +1216,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
               <div className="space-y-2.5 text-sm text-slate-300">
                 <div className="flex justify-between items-center"><span>Final chips</span><span className="font-mono bg-slate-800/50 px-2 py-0.5 rounded text-slate-200">{lCalc.fc}</span></div>
                 <div className="flex justify-between items-center"><span>Final value</span><span className="font-mono text-amber-400/90">{CURRENCY}{lCalc.chipMon.toLocaleString()}</span></div>
-                <div className="flex justify-between items-center"><span>Total invested</span><span className="font-mono text-slate-200">{CURRENCY}{lCalc.invested.toLocaleString()}</span></div>
+                <div className="flex justify-between items-center"><span>Total invested</span><span className="font-mono text-rose-400">-{CURRENCY}{lCalc.invested.toLocaleString()}</span></div>
                 <div className="flex justify-between pt-3 mt-3 border-t border-white/10">
                   <span className="font-bold text-slate-200">Net profit/loss</span>
                   <span className={`font-mono text-base font-bold bg-slate-950/50 px-3 py-1 rounded-lg border ${lCalc.net>0?'text-theme-400 border-theme-500/20':lCalc.net<0?'text-rose-400 border-rose-500/20':'text-slate-400 border-white/10'}`}>
@@ -1548,7 +1548,7 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
                 {b.name===result.winner && <div className="absolute top-0 right-0 p-1.5 bg-amber-500/20 text-amber-400 rounded-bl-[0.75rem] backdrop-blur-md border-b border-l border-amber-500/30"><Crown size={14} /></div>}
                 <span className="text-base sm:text-lg font-bold flex-1 text-slate-100 truncate">{b.name}</span>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-slate-400"><span className="font-mono">{b.finalChips}</span> chips &middot; Inv. {CURRENCY}{b.invested.toLocaleString()}</p>
+                  <p className="text-xs font-medium text-slate-400"><span className="font-mono">{b.finalChips}</span> chips &middot; Inv. <span className="text-rose-400/80">-{CURRENCY}{b.invested.toLocaleString()}</span></p>
                   <p className={`text-lg font-bold mt-1 font-mono ${b.balance>0?'text-theme-400':b.balance<0?'text-rose-400':'text-slate-400'}`}>
                     {b.balance>=0?"+":""}{CURRENCY}{round2(b.balance).toLocaleString()}
                   </p>
@@ -1629,6 +1629,8 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
 function HistoryScreen({ history, onBack, defaultTab = "history" }) {
   const [tab, setTab] = useState(defaultTab);
   const [expandedId, setExpandedId] = useState(null);
+  const [selectedPlayers, setSelectedPlayers] = useState([]);
+  const togglePlayer = (name) => setSelectedPlayers(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
 
   // Aggregate leaderboard data from history
   const leaderboard = (() => {
@@ -1703,22 +1705,29 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
                 <div key={h.id} className="glass-panel rounded-[1.5rem] animate-slide-up overflow-hidden" style={{animationDelay:`${i*50}ms`}}>
                   {/* Collapsed header — always visible, click to expand */}
                   <button
-                    className="w-full p-5 flex items-center justify-between text-left"
+                    className="w-full p-5 flex items-start justify-between text-left gap-3"
                     onClick={() => setExpandedId(isExpanded ? null : h.id)}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Clock size={16} className="text-purple-400 flex-shrink-0" />
-                      <span className="text-slate-300 font-semibold text-sm truncate">{date}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Clock size={14} className="text-purple-400 flex-shrink-0" />
+                        <span className="text-slate-400 font-medium text-xs">{date}</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {[...(h.result?.balances || [])].sort((a, b) => b.balance - a.balance).map(b => (
+                          <div key={b.name} className="flex items-center justify-between gap-4">
+                            <span className={`text-sm font-semibold flex items-center gap-1 ${b.name === h.result?.winner ? 'text-amber-400' : 'text-slate-300'}`}>
+                              {b.name === h.result?.winner && <Crown size={11}/>}
+                              {b.name}
+                            </span>
+                            <span className={`text-sm font-mono font-bold ${b.balance > 0 ? 'text-emerald-400' : b.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                              {b.balance > 0 ? '+' : ''}{CURRENCY}{round2(b.balance).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {h.result?.winner && (
-                        <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                          <Crown size={12}/> {h.result.winner}
-                          {winnerNet > 0 && <span className="text-emerald-400 ml-1">+{CURRENCY}{winnerNet.toLocaleString()}</span>}
-                        </div>
-                      )}
-                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                    </div>
+                    <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 flex-shrink-0 mt-1 ${isExpanded ? "rotate-180" : ""}`} />
                   </button>
                   {/* Expanded settlement detail */}
                   {isExpanded && (
@@ -1814,23 +1823,56 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
             );
           }
 
+          const visiblePlayers = selectedPlayers.length > 0 ? selectedPlayers : [];
+
           return (
-            <div className="glass-panel p-4 rounded-[1.5rem]">
-              <p className="text-sm font-semibold text-slate-300 mb-4">Cumulative Net P&L over time</p>
-              <LineChart width={undefined} height={280} data={chartData} style={{ width: '100%' }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
-                <RechartsTooltip
-                  formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }}
-                  labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                />
-                <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                {allPlayers.map((name, i) => (
-                  <Line key={name} type="monotone" dataKey={name} stroke={CHART_COLORS[i % CHART_COLORS.length]} dot={{ r: 3 }} strokeWidth={2} activeDot={{ r: 5 }} />
-                ))}
-              </LineChart>
+            <div className="space-y-4">
+              {/* Player toggle pills */}
+              <div className="glass-panel p-4 rounded-[1.5rem]">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Select players to display</p>
+                <div className="flex flex-wrap gap-2">
+                  {allPlayers.map((name, i) => {
+                    const isOn = selectedPlayers.includes(name);
+                    const color = CHART_COLORS[i % CHART_COLORS.length];
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => togglePlayer(name)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${isOn ? 'text-white border-transparent' : 'text-slate-400 bg-white/5 border-white/10 hover:border-white/20'}`}
+                        style={isOn ? { background: color + '33', borderColor: color, color: color } : {}}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Chart */}
+              <div className="glass-panel p-4 rounded-[1.5rem]">
+                <p className="text-sm font-semibold text-slate-300 mb-4">Cumulative Net P&L over time</p>
+                {visiblePlayers.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <p className="text-sm text-slate-500">Tap a player above to show their graph.</p>
+                  </div>
+                ) : (
+                  <LineChart width={undefined} height={260} data={chartData} style={{ width: '100%' }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
+                    <RechartsTooltip
+                      formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]}
+                      contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }}
+                      labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
+                    />
+                    <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+                    {visiblePlayers.map((name) => {
+                      const i = allPlayers.indexOf(name);
+                      return <Line key={name} type="monotone" dataKey={name} stroke={CHART_COLORS[i % CHART_COLORS.length]} dot={{ r: 3 }} strokeWidth={2} activeDot={{ r: 5 }} />;
+                    })}
+                  </LineChart>
+                )}
+              </div>
             </div>
           );
         })()
