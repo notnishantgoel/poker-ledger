@@ -988,7 +988,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                       const t = g;
                       const amt = t.amount != null
                         ? `${CURRENCY}${round2(t.amount)}`
-                        : `${round2(t.chips)}c · ${CURRENCY}${round2(t.money)}`;
+                        : `${CURRENCY}${round2(t.money)}`;
                       if (t.type==='initial'||t.type==='bank-buy-in')
                         return flowRow(`s-${gi}`, 'Bank', t.player, amt, t.time, ()=>onReverse(t.idx), 'bank');
                       if (t.type==='bank-return')
@@ -1028,7 +1028,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                               {subItems.map((item, ii) => {
                                 const from = item.type==='leave-bank-return' ? leaveExit.player : (item.from||leaveExit.player);
                                 const to   = item.type==='leave-bank-return' ? 'Bank' : (item.to||'Bank');
-                                const amt  = item.amount != null ? `${CURRENCY}${round2(item.amount)}` : `${round2(item.chips)}c · ${CURRENCY}${round2(item.money)}`;
+                                const amt  = item.amount != null ? `${CURRENCY}${round2(item.amount)}` : `${CURRENCY}${round2(item.money)}`;
                                 return flowRow(ii, from, to, amt, null, null, 'leave');
                               })}
                             </div>
@@ -1051,7 +1051,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                           {g.items.map((item, ii) => {
                             const from = isReturn ? pName : (item.type.includes('bank') ? 'Bank' : (item.seller||item.from||'Bank'));
                             const to   = isReturn ? (item.type.includes('bank') ? 'Bank' : (item.buyer||item.to)) : pName;
-                            return flowRow(ii, from, to, `${round2(item.chips)}c · ${CURRENCY}${round2(item.money)}`, null, ()=>onReverse(item.idx), 'bank');
+                            return flowRow(ii, from, to, `${CURRENCY}${round2(item.money)}`, null, ()=>onReverse(item.idx), 'bank');
                           })}
                         </div>
                       </div>
