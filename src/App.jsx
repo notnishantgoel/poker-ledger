@@ -1691,13 +1691,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
           </div>
         ) : (
           <div className="space-y-4">
-            {[...history].sort((a, b) => {
-              const getWinNet = (e) => {
-                if (!e.result?.winner) return 0;
-                return e.result.balances?.find(p => p.name === e.result.winner)?.balance ?? 0;
-              };
-              return getWinNet(b) - getWinNet(a);
-            }).map((h, i) => {
+            {[...history].sort((a, b) => (b.id || 0) - (a.id || 0)).map((h, i) => {
               const date = new Date(h.id).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
               const winnerNet = h.result?.winner ? (h.result.balances?.find(p => p.name === h.result.winner)?.balance ?? 0) : 0;
               const isExpanded = expandedId === h.id;
