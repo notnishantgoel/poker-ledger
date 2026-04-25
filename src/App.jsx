@@ -1727,9 +1727,30 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
           )}
 
           <div className="glass-panel p-5 sm:p-8 rounded-[2rem] bg-gradient-to-b from-indigo-950/40 to-slate-900/60 shadow-[0_0_40px_rgba(79,70,229,0.1)] border-indigo-500/20">
-            <h2 className="text-base font-bold mb-6 flex items-center gap-3 text-indigo-200">
-              <Sparkles size={20} className="text-amber-400"/> Settlements ({result.settlements.length} transaction{result.settlements.length!==1?"s":""})
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-base font-bold flex items-center gap-3 text-indigo-200">
+                <Sparkles size={20} className="text-amber-400"/> Settlements ({result.settlements.length} transaction{result.settlements.length!==1?"s":""})
+              </h2>
+              {result.settlements.length > 0 && result.settlements.some((_, i) => getSettleStatus(i).status !== "settled") && (
+                <button onClick={() => {
+                  const newPayments = { ...payments };
+                  result.settlements.forEach((s, i) => {
+                    const st = getSettleStatus(i);
+                    if (st.status !== "settled" && st.remaining > 0.01) {
+                      newPayments[i] = [...(newPayments[i] || []), { to: s.to, amount: round2(st.remaining), time: Date.now() }];
+                    }
+                  });
+                  setPayments(newPayments);
+                  const updatedSettlements = result.settlements.map((s, i) => ({ ...s, payments: newPayments[i] || [] }));
+                  const updatedResult = { ...result, settlements: updatedSettlements };
+                  setResult(updatedResult);
+                  if (onSettleResult) onSettleResult(updatedResult);
+                  haptic();
+                }} className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5">
+                  <Check size={12}/> All Settled
+                </button>
+              )}
+            </div>
             {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>:(
               <div className="space-y-3">{result.settlements.map((s,i)=>{
                 const st = getSettleStatus(i);
