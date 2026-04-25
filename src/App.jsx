@@ -521,6 +521,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
   const [exiting, setExiting] = useState(false);
   const nid = useRef(4);
   const listRef = useRef(null);
+  const [removingIds, setRemovingIds] = useState(new Set());
 
   const addP = () => {
     setError("");
@@ -539,7 +540,20 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
     ]);
     nid.current = 7;
   };
-  const rmP = id => { setError(""); if(players.length>2) setPlayers(p=>p.filter(x=>x.id!==id)); };
+  const rmP = id => {
+    if (players.length <= 2) return;
+    setError("");
+    setRemovingIds(s => new Set([...s, id]));
+    setTimeout(() => {
+      setPlayers(p => p.filter(x => x.id !== id));
+      setRemovingIds(s => { const n = new Set(s); n.delete(id); return n; });
+    }, 260);
+  };
+  const clearAll = () => {
+    setError("");
+    setPlayers([{id:"r1",name:"",chips:0,money:0},{id:"r2",name:"",chips:0,money:0},{id:"r3",name:"",chips:0,money:0}]);
+    nid.current = 4;
+  };
   const upd = (id,f,v) => { setError(""); setPlayers(p=>p.map(x=>{
     if(x.id!==id) return x;
     const nx={...x,[f]:v};
@@ -586,6 +600,9 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
           <button onClick={quickFill} className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors">
             <Sparkles size={13}/> <span className="hidden sm:inline">Auto-fill</span>
           </button>
+          <button onClick={clearAll} className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 text-slate-500 transition-colors">
+            <RotateCcw size={13}/> <span className="hidden sm:inline">Clear</span>
+          </button>
           <button onClick={addP} className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-3 py-2 rounded-xl border border-theme-500/30 bg-theme-500/10 hover:bg-theme-500/20 text-theme-400 transition-colors">
             <Plus size={13}/> Add
           </button>
@@ -595,7 +612,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
       {/* Player Rows */}
       <div ref={listRef} className="space-y-3 mb-5">
         {players.map((p,i)=>(
-          <div key={p.id} className="glass-panel rounded-2xl p-4 sm:p-5 animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
+          <div key={p.id} className={`glass-panel rounded-2xl p-4 sm:p-5 ${removingIds.has(p.id) ? 'animate-fade-out pointer-events-none' : 'animate-slide-up'}`} style={{animationDelay: removingIds.has(p.id) ? '0ms' : `${i*50}ms`}}>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-theme-500/10 text-theme-400 border border-theme-500/20">{i+1}</div>
               <div className="flex-1 relative min-w-0">
