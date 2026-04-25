@@ -967,105 +967,95 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                       else { curG = { gid: t.groupId, kind: 'group', items: [{...t, idx: i}] }; groups.push(curG); }
                     } else { groups.push({ ...t, kind: 'single', idx: i }); curG = null; }
                   });
+                  // Shared flow row renderer: From —amount→ To
+                  const flowRow = (key, from, to, amount, time, onDel, accent) => (
+                    <div key={key} className="group/txn flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-900/50 border border-white/5">
+                      <span className={`text-xs font-bold shrink-0 w-14 sm:w-20 truncate ${accent === 'bank' ? 'text-slate-400' : accent === 'leave' ? 'text-orange-300' : 'text-slate-200'}`}>{from}</span>
+                      <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
+                        <div className="h-px flex-1 bg-white/5"/>
+                        <span className="text-[10px] font-mono font-bold text-amber-400 px-1.5 whitespace-nowrap">{amount}</span>
+                        <ArrowRight size={10} className="text-slate-500 shrink-0"/>
+                        <div className="h-px flex-1 bg-white/5"/>
+                      </div>
+                      <span className="text-xs font-bold shrink-0 w-14 sm:w-20 truncate text-right text-slate-200">{to}</span>
+                      {time && <span className="text-[10px] text-slate-600 shrink-0 ml-1 hidden sm:block">{new Date(time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>}
+                      {onDel && <button onClick={onDel} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100 shrink-0"><Trash2 size={12}/></button>}
+                    </div>
+                  );
+
                   return [...groups].reverse().map((g, gi) => {
                     if (g.kind === 'single') {
                       const t = g;
-                      return (
-                        <div key={`s-${gi}`} className="group/txn text-xs sm:text-sm px-4 py-3 rounded-xl bg-slate-900/50 border border-white/5 text-slate-400 flex items-center justify-between gap-3">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-slate-600"/>
-                            <div className="min-w-0 leading-relaxed">
-                              {t.type==="initial"&&<><span className="font-semibold text-theme-400">{t.player}</span> initial: <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
-                              {t.type==="bank-buy-in"&&<><span className="font-semibold text-blue-400">{t.player}</span> buy-in: <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
-                              {t.type==="bank-return"&&<><span className="font-semibold text-amber-400">{t.player}</span> returned: <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)})</>}
-                              {t.type==="transfer"&&<><span className="font-semibold text-orange-400">{t.seller}</span> sold <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)}) to <span className="font-semibold text-purple-400">{t.buyer}</span></>}
-                              {t.type==="add-transfer"&&<><span className="font-semibold text-theme-400">{t.player}</span> joined via <span className="font-semibold text-orange-400">{t.from}</span>: <span className="font-mono text-slate-200 font-bold">{round2(t.chips)} chips</span> ({CURRENCY}{round2(t.money)})</>}
-                              {t.type==="leave-bank-return"&&<><span className="font-semibold text-orange-400">{t.player}</span> returned <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)}) to bank</>}
-                              {t.type==="leave-transfer"&&<><span className="font-semibold text-orange-400">{t.player}</span> gave <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)}) to <span className="font-semibold text-blue-400">{t.to}</span></>}
-                              {t.type==="leave-settle"&&<><span className="font-semibold text-rose-400">{t.from}</span> pays <span className="font-semibold text-theme-400">{t.to}</span> <span className="font-mono font-bold text-amber-400">{CURRENCY}{round2(t.amount)}</span></>}
-                              {t.time && <p className="text-[10px] text-slate-600 mt-0.5">{new Date(t.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>}
-                            </div>
-                          </div>
-                          <button onClick={()=>onReverse(t.idx)} className="p-2 -mr-2 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100"><Trash2 size={14}/></button>
-                        </div>
-                      );
-                    } else {
-                      // Check if this is a leave group
-                      const leaveExit = g.items.find(x => x.type === "leave-exit");
-                      if (leaveExit) {
-                        const subItems = g.items.filter(x => x.type !== "leave-exit");
-                        return (
-                          <div key={`g-${gi}`} className="group/txn rounded-xl overflow-hidden bg-orange-500/5 border border-orange-500/15">
-                            <div className="px-4 py-3 bg-orange-500/5 border-b border-orange-500/10 flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <LogOut size={14} className="text-orange-400 shrink-0"/>
-                                <div className="text-xs sm:text-sm">
-                                  <span className="font-bold text-orange-300">{leaveExit.player}</span>
-                                  <span className="text-slate-400"> exited </span>
-                                  <span className={`font-mono font-bold ${leaveExit.net>=0?'text-theme-400':'text-rose-400'}`}>
-                                    {leaveExit.net>=0?"+":""}{CURRENCY}{round2(leaveExit.net)}
-                                  </span>
-                                  {leaveExit.settleAtEnd && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">settle at end</span>}
-                                  {leaveExit.time && <span className="ml-2 text-[10px] text-slate-600">{new Date(leaveExit.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
-                                </div>
-                              </div>
-                              <button onClick={()=>onReverse(leaveExit.idx)} className="p-2 -mr-2 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100" title="Undo exit — bring player back">
-                                <RotateCcw size={14}/>
-                              </button>
-                            </div>
-                            {subItems.length > 0 && (
-                              <div className="p-1 px-2 space-y-1">
-                                {subItems.map((item, ii) => (
-                                  <div key={ii} className="px-3 py-1.5 text-[10px] sm:text-xs text-slate-500 flex items-center gap-2">
-                                    <ArrowRight size={10} className="text-slate-600 shrink-0"/>
-                                    {item.type==="leave-bank-return"&&<span>{round2(item.chips)} chips returned to bank</span>}
-                                    {item.type==="leave-transfer"&&<span>{round2(item.chips)} chips to <span className="font-semibold text-slate-400">{item.to}</span></span>}
-                                    {item.type==="leave-settle"&&<span><span className="text-slate-400">{item.from}</span> → <span className="text-slate-400">{item.to}</span>: <span className="font-mono text-amber-400/80">{CURRENCY}{round2(item.amount)}</span></span>}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
+                      const amt = t.amount != null
+                        ? `${CURRENCY}${round2(t.amount)}`
+                        : `${round2(t.chips)}c · ${CURRENCY}${round2(t.money)}`;
+                      if (t.type==='initial'||t.type==='bank-buy-in')
+                        return flowRow(`s-${gi}`, 'Bank', t.player, amt, t.time, ()=>onReverse(t.idx), 'bank');
+                      if (t.type==='bank-return')
+                        return flowRow(`s-${gi}`, t.player, 'Bank', amt, t.time, ()=>onReverse(t.idx), 'bank');
+                      if (t.type==='transfer')
+                        return flowRow(`s-${gi}`, t.seller, t.buyer, amt, t.time, ()=>onReverse(t.idx));
+                      if (t.type==='add-transfer')
+                        return flowRow(`s-${gi}`, t.from, t.player, amt, t.time, ()=>onReverse(t.idx));
+                      if (t.type==='leave-bank-return')
+                        return flowRow(`s-${gi}`, t.player, 'Bank', amt, t.time, ()=>onReverse(t.idx), 'leave');
+                      if (t.type==='leave-transfer')
+                        return flowRow(`s-${gi}`, t.player, t.to, amt, t.time, ()=>onReverse(t.idx), 'leave');
+                      if (t.type==='leave-settle')
+                        return flowRow(`s-${gi}`, t.from, t.to, amt, t.time, ()=>onReverse(t.idx), 'leave');
+                      return null;
+                    }
 
-                      // Regular buy-in/return group
-                      const first = g.items[0];
-                      const totalC = g.items.reduce((s, x) => s + (x.chips||0), 0);
-                      const totalM = g.items.reduce((s, x) => s + (x.money||0), 0);
-                      const pName = first.type.includes('bank') ? first.player : (first.buyer || first.player);
-                      const isReturn = first.type.includes('return') || (first.type === 'transfer' && first.seller === pName);
-
+                    // Leave group
+                    const leaveExit = g.items.find(x => x.type === 'leave-exit');
+                    if (leaveExit) {
+                      const subItems = g.items.filter(x => x.type !== 'leave-exit');
                       return (
-                        <div key={`g-${gi}`} className="rounded-xl overflow-hidden bg-slate-900/50 border border-white/5">
-                          <div className="px-4 py-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-1.5 h-1.5 rounded-full bg-theme-500/40"/>
-                              <div className="text-xs sm:text-sm">
-                                <span className="font-bold text-slate-100">{pName}</span> {isReturn ? 'returned' : 'took'} <span className="font-mono font-bold text-theme-400">{round2(totalC)}</span> chips <span className="text-slate-500">({CURRENCY}{round2(totalM)})</span>
-                                {first.time && <span className="ml-2 text-[10px] text-slate-600">{new Date(first.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
-                              </div>
+                        <div key={`g-${gi}`} className="group/txn rounded-xl overflow-hidden bg-orange-500/5 border border-orange-500/15">
+                          <div className="px-3 py-2.5 border-b border-orange-500/10 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-xs min-w-0">
+                              <LogOut size={13} className="text-orange-400 shrink-0"/>
+                              <span className="font-bold text-orange-300 truncate">{leaveExit.player}</span>
+                              <span className="text-slate-500 shrink-0">left</span>
+                              <span className={`font-mono font-bold shrink-0 ${leaveExit.net>=0?'text-theme-400':'text-rose-400'}`}>{leaveExit.net>=0?'+':''}{CURRENCY}{round2(leaveExit.net)}</span>
+                              {leaveExit.settleAtEnd && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">settle at end</span>}
+                              {leaveExit.time && <span className="text-[10px] text-slate-600 shrink-0">{new Date(leaveExit.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>}
                             </div>
+                            <button onClick={()=>onReverse(leaveExit.idx)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100 shrink-0"><RotateCcw size={13}/></button>
                           </div>
-                          <div className="p-1 px-2 space-y-1">
-                            {g.items.map((item, ii) => {
-                              const from = item.type.includes('bank') ? 'Bank' : (isReturn ? (item.buyer || item.to) : (item.seller || item.from));
-                              return (
-                                <div key={ii} className="group/item flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                                  <div className="flex items-center gap-2 text-[10px] sm:text-xs text-slate-400 italic">
-                                    <ArrowRight size={10} className="text-slate-600"/>
-                                    <span>{round2(item.chips)} chips <span className="text-slate-500">({CURRENCY}{round2(item.money)})</span> {isReturn ? 'to' : 'from'} <span className="font-semibold text-slate-300">{from}</span></span>
-                                  </div>
-                                  <button onClick={()=>onReverse(item.idx)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/item:opacity-100">
-                                    <Trash2 size={12}/>
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
+                          {subItems.length > 0 && (
+                            <div className="p-1.5 space-y-1">
+                              {subItems.map((item, ii) => {
+                                const from = item.type==='leave-bank-return' ? leaveExit.player : (item.from||leaveExit.player);
+                                const to   = item.type==='leave-bank-return' ? 'Bank' : (item.to||'Bank');
+                                const amt  = item.amount != null ? `${CURRENCY}${round2(item.amount)}` : `${round2(item.chips)}c · ${CURRENCY}${round2(item.money)}`;
+                                return flowRow(ii, from, to, amt, null, null, 'leave');
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     }
+
+                    // Regular buy-in / return group
+                    const first = g.items[0];
+                    const pName = first.type.includes('bank') ? first.player : (first.buyer||first.player);
+                    const isReturn = first.type.includes('return')||(first.type==='transfer'&&first.seller===pName);
+                    return (
+                      <div key={`g-${gi}`} className="rounded-xl overflow-hidden bg-slate-900/50 border border-white/5">
+                        <div className="px-3 py-1.5 border-b border-white/5 flex items-center gap-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{isReturn ? 'Return' : 'Buy-in'}</span>
+                          {first.time && <span className="text-[10px] text-slate-600">{new Date(first.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>}
+                        </div>
+                        <div className="p-1.5 space-y-1">
+                          {g.items.map((item, ii) => {
+                            const from = isReturn ? pName : (item.type.includes('bank') ? 'Bank' : (item.seller||item.from||'Bank'));
+                            const to   = isReturn ? (item.type.includes('bank') ? 'Bank' : (item.buyer||item.to)) : pName;
+                            return flowRow(ii, from, to, `${round2(item.chips)}c · ${CURRENCY}${round2(item.money)}`, null, ()=>onReverse(item.idx), 'bank');
+                          })}
+                        </div>
+                      </div>
+                    );
                   });
                 })()}
               </div>
