@@ -1543,26 +1543,17 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
     if (!result?.settlements) return [];
     // Build net balance: for each person, track what they should still receive vs pay
     const net = {};
+    // Step 1: Start with original obligations from all settlements
+    result.settlements.forEach(s => {
+      net[s.from] = round2((net[s.from] || 0) - s.amount); // debtor owes
+      net[s.to] = round2((net[s.to] || 0) + s.amount);     // creditor is owed
+    });
+    // Step 2: Subtract actual payments made
     result.settlements.forEach((s, idx) => {
       const pList = payments[idx] || [];
-      const totalPaid = round2(pList.reduce((sum, p) => sum + p.amount, 0));
-      const unpaid = round2(s.amount - totalPaid);
-      // Debtor still owes unpaid amount
-      if (unpaid > 0.01) {
-        net[s.from] = round2((net[s.from] || 0) - unpaid);
-        net[s.to] = round2((net[s.to] || 0) + unpaid);
-      } else if (unpaid < -0.01) {
-        // Overpaid — debtor overpaid
-        net[s.from] = round2((net[s.from] || 0) - unpaid); // negative unpaid = positive (they overpaid, so they're owed)
-        net[s.to] = round2((net[s.to] || 0) + unpaid); // creditor got less effectively
-      }
-      // Track redirected payments (paid to someone other than original recipient)
       pList.forEach(p => {
-        if (p.to !== s.to) {
-          // Paid to wrong person: the wrong person received money, original recipient didn't
-          net[p.to] = round2((net[p.to] || 0) + p.amount); // wrong person got money (now they owe it forward)
-          net[s.to] = round2((net[s.to] || 0) - p.amount); // original recipient still needs this
-        }
+        net[s.from] = round2((net[s.from] || 0) + p.amount); // debtor paid, reduces their debt
+        net[p.to] = round2((net[p.to] || 0) - p.amount);     // actual recipient received, reduces what they're owed
       });
     });
     // Filter out zero balances and compute remaining settlements
