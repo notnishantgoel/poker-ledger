@@ -53,21 +53,89 @@ function computeSettlements(netBalances) {
   // Clone balances to avoid mutating the original objects used for display
   const b = netBalances.map(x => ({ ...x, balance: round2(x.balance) }));
   const out = [];
-  const p = b.filter(x => x.balance > 0.01).sort((a,b)=>b.balance-a.balance);
-  const n = b.filter(x => x.balance < -0.01).sort((a,b)=>a.balance-b.balance);
+  const creditors = b.filter(x => x.balance > 0.01);
+  const debtors = b.filter(x => x.balance < -0.01).map(x => ({ ...x, balance: Math.abs(x.balance) }));
 
-  let pi=0; let ni=0;
-  while(pi < p.length && ni < n.length) {
-    const amt = Math.min(p[pi].balance, Math.abs(n[ni].balance));
-    if (amt > 0.01) {
-      out.push({ from: n[ni].name, to: p[pi].name, amount: round2(amt) });
+  // Phase 1: Find exact matches (debtor amount == creditor amount) to minimize transactions
+  // This handles cases like Agrim(-150) matching Parth(+150) perfectly
+  for (let i = 0; i < creditors.length; i++) {
+    if (creditors[i].balance <= 0.01) continue;
+    for (let j = 0; j < debtors.length; j++) {
+      if (debtors[j].balance <= 0.01) continue;
+      if (Math.abs(creditors[i].balance - debtors[j].balance) < 0.01) {
+        out.push({ from: debtors[j].name, to: creditors[i].name, amount: round2(creditors[i].balance) });
+        creditors[i].balance = 0;
+        debtors[j].balance = 0;
+        break;
+      }
     }
-    p[pi].balance = round2(p[pi].balance - amt);
-    n[ni].balance = round2(n[ni].balance + amt);
-    if(p[pi].balance <= 0.01) pi++;
-    if(Math.abs(n[ni].balance) <= 0.01) ni++;
+  }
+
+  // Phase 2: Check if a subset of debtors exactly matches a creditor (or vice versa)
+  // e.g. Monty(-100) + Samarth(-100) exactly match Nishant(+200)
+  for (let i = 0; i < creditors.length; i++) {
+    if (creditors[i].balance <= 0.01) continue;
+    const remaining = debtors.filter(d => d.balance > 0.01);
+    if (remaining.length === 0) break;
+    // Try to find a subset of debtors that sum to this creditor's balance
+    const subset = findSubsetSum(remaining, creditors[i].balance);
+    if (subset) {
+      subset.forEach(d => {
+        out.push({ from: d.name, to: creditors[i].name, amount: round2(d.balance) });
+        const orig = debtors.find(x => x.name === d.name);
+        if (orig) orig.balance = 0;
+      });
+      creditors[i].balance = 0;
+    }
+  }
+
+  // Also try the reverse: subset of creditors matching a debtor
+  for (let j = 0; j < debtors.length; j++) {
+    if (debtors[j].balance <= 0.01) continue;
+    const remaining = creditors.filter(c => c.balance > 0.01);
+    if (remaining.length === 0) break;
+    const subset = findSubsetSum(remaining, debtors[j].balance);
+    if (subset) {
+      subset.forEach(c => {
+        out.push({ from: debtors[j].name, to: c.name, amount: round2(c.balance) });
+        const orig = creditors.find(x => x.name === c.name);
+        if (orig) orig.balance = 0;
+      });
+      debtors[j].balance = 0;
+    }
+  }
+
+  // Phase 3: Greedy fallback for any remaining unmatched balances
+  const remCreditors = creditors.filter(x => x.balance > 0.01).sort((a,b) => b.balance - a.balance);
+  const remDebtors = debtors.filter(x => x.balance > 0.01).sort((a,b) => b.balance - a.balance);
+  let pi = 0, ni = 0;
+  while (pi < remCreditors.length && ni < remDebtors.length) {
+    const amt = Math.min(remCreditors[pi].balance, remDebtors[ni].balance);
+    if (amt > 0.01) {
+      out.push({ from: remDebtors[ni].name, to: remCreditors[pi].name, amount: round2(amt) });
+    }
+    remCreditors[pi].balance = round2(remCreditors[pi].balance - amt);
+    remDebtors[ni].balance = round2(remDebtors[ni].balance - amt);
+    if (remCreditors[pi].balance <= 0.01) pi++;
+    if (remDebtors[ni].balance <= 0.01) ni++;
   }
   return out;
+}
+
+// Find a subset of items whose balances sum to target (within tolerance)
+// Uses recursive backtracking, limited to small sets for performance
+function findSubsetSum(items, target, startIdx = 0, current = []) {
+  if (items.length > 10) return null; // safety cap for large groups
+  const sum = current.reduce((s, x) => s + x.balance, 0);
+  if (Math.abs(sum - target) < 0.01 && current.length > 0) return [...current];
+  if (sum >= target + 0.01) return null;
+  for (let i = startIdx; i < items.length; i++) {
+    current.push(items[i]);
+    const result = findSubsetSum(items, target, i + 1, current);
+    if (result) return result;
+    current.pop();
+  }
+  return null;
 }
 
 function TwoWayInput({ chipValue, chips, money, onChange, chipLabel, moneyLabel, maxChips, noStepper }) {
