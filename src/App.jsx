@@ -16,7 +16,7 @@ import {
   getSessionUrl, getSessionIdFromUrl,
   saveProfile, loadProfile, generateProfileId
 } from "./firebase.js";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer, LabelList } from "recharts";
 import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
@@ -1766,7 +1766,10 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
                   </div>
                   {/* Name + stats */}
                   <div className="flex-1 min-w-0">
-                    <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
+                    <button
+                      className={`font-bold text-base truncate block text-left ${isTop ? "text-amber-300" : "text-slate-100"} underline-offset-2 hover:underline active:opacity-70`}
+                      onClick={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
+                    >{p.name}</button>
                     <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · {p.wins} win{p.wins !== 1 ? "s" : ""} · {winRate}% win rate</p>
                   </div>
                   {/* Net P&L */}
@@ -1843,21 +1846,28 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
                     <p className="text-sm text-slate-500">Tap a player above to show their graph.</p>
                   </div>
                 ) : (
-                  <LineChart width={undefined} height={260} data={chartData} style={{ width: '100%' }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
-                    <RechartsTooltip
-                      formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]}
-                      contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }}
-                      labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                    />
-                    <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                    {visiblePlayers.map((name) => {
-                      const i = allPlayers.indexOf(name);
-                      return <Line key={name} type="monotone" dataKey={name} stroke={CHART_COLORS[i % CHART_COLORS.length]} dot={{ r: 3 }} strokeWidth={2} activeDot={{ r: 5 }} />;
-                    })}
-                  </LineChart>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={chartData} margin={{ top: 24, right: 12, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
+                      <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
+                      <RechartsTooltip
+                        formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]}
+                        contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }}
+                        labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
+                      />
+                      <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+                      {visiblePlayers.map((name) => {
+                        const i = allPlayers.indexOf(name);
+                        const color = CHART_COLORS[i % CHART_COLORS.length];
+                        return (
+                          <Line key={name} type="monotone" dataKey={name} stroke={color} dot={{ r: 5, fill: color, strokeWidth: 0 }} strokeWidth={2} activeDot={{ r: 7 }} isAnimationActive={false}>
+                            <LabelList dataKey={name} position="top" formatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(1)+'k' : v}`} style={{ fontSize: 10, fill: color, fontWeight: 600 }} />
+                          </Line>
+                        );
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
                 )}
               </div>
             </div>
