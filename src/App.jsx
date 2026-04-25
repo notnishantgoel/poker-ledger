@@ -1690,11 +1690,38 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
 
 
 /* ─────────── HISTORY ─────────── */
-function HistoryScreen({ history, onBack, defaultTab = "history" }) {
+function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer }) {
   const [tab, setTab] = useState(defaultTab);
   const [expandedId, setExpandedId] = useState(null);
   const [selectedPlayers, setSelectedPlayers] = useState([]);
   const togglePlayer = (name) => setSelectedPlayers(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+
+  // Rename modal state
+  const [renameModal, setRenameModal] = useState(null); // { oldName: string }
+  const [renameValue, setRenameValue] = useState("");
+  const [renameErr, setRenameErr] = useState("");
+  const longPressTimer = useRef(null);
+
+  const handleLongPressStart = (name) => {
+    longPressTimer.current = setTimeout(() => {
+      haptic();
+      setRenameModal({ oldName: name });
+      setRenameValue(name);
+      setRenameErr("");
+    }, 600);
+  };
+  const handleLongPressEnd = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  };
+  const submitRename = () => {
+    const newName = renameValue.trim();
+    if (!newName) return setRenameErr("Name cannot be empty");
+    if (newName === renameModal.oldName) { setRenameModal(null); return; }
+    if (leaderboard.some(p => p.name.toLowerCase() === newName.toLowerCase() && p.name !== renameModal.oldName))
+      return setRenameErr("A player with this name already exists");
+    onRenamePlayer(renameModal.oldName, newName);
+    setRenameModal(null);
+  };
 
   // Aggregate leaderboard data from history
   const leaderboard = (() => {
@@ -1835,7 +1862,16 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
               const isUp = p.net > 0;
               const isEven = p.net === 0;
               return (
-                <button key={p.name} onClick={() => { setTab("graph"); setSelectedPlayers([p.name]); }} className={`w-full glass-panel p-5 rounded-[1.5rem] animate-slide-up flex items-center gap-5 active:scale-[0.98] transition-transform ${isTop ? "border border-amber-500/20" : ""}`} style={{animationDelay:`${i*40}ms`}}>
+                <button key={p.name}
+                  onClick={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
+                  onTouchStart={() => handleLongPressStart(p.name)}
+                  onTouchEnd={handleLongPressEnd}
+                  onTouchCancel={handleLongPressEnd}
+                  onMouseDown={() => handleLongPressStart(p.name)}
+                  onMouseUp={handleLongPressEnd}
+                  onMouseLeave={handleLongPressEnd}
+                  onContextMenu={e => e.preventDefault()}
+                  className={`w-full glass-panel p-5 rounded-[1.5rem] animate-slide-up flex items-center gap-5 active:scale-[0.98] transition-transform ${isTop ? "border border-amber-500/20" : ""}`} style={{animationDelay:`${i*40}ms`}}>
                   {/* Rank */}
                   <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
                     {isTop ? <Crown size={16}/> : `#${i+1}`}
@@ -1941,6 +1977,29 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
         })()
       )}
 
+      {/* Rename Player Modal */}
+      <Modal open={!!renameModal} onClose={() => setRenameModal(null)} title="Rename Player" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><Users size={20}/></div>}>
+        <div className="space-y-4">
+          <p className="text-slate-400 text-sm">Renaming <span className="font-bold text-slate-200">{renameModal?.oldName}</span> across all history and saved names.</p>
+          <div>
+            <label className="text-xs font-semibold mb-2 block tracking-wider uppercase text-slate-400">New Name</label>
+            <input
+              type="text" value={renameValue}
+              onChange={e => { setRenameValue(e.target.value); setRenameErr(""); }}
+              onKeyDown={e => e.key === 'Enter' && submitRename()}
+              autoFocus
+              className="w-full rounded-xl px-4 py-3.5 text-sm sm:text-base glass-input text-slate-200"
+              placeholder="Enter new name"
+            />
+          </div>
+          {renameErr && <Err msg={renameErr}/>}
+          <div className="flex gap-3">
+            <Btn onClick={() => setRenameModal(null)} variant="secondary" className="flex-1">Cancel</Btn>
+            <Btn onClick={submitRename} variant="primary" className="flex-1"><Check size={16}/> Rename</Btn>
+          </div>
+          <p className="text-[10px] text-slate-600 text-center italic">Long-press any player on the leaderboard to rename</p>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -2077,6 +2136,65 @@ export default function App() {
     setSessionChipValue(g.chipValue || 5);
     setPhase(g.phase && g.phase !== "session" ? g.phase : "game");
     haptic();
+  };
+
+  // Rename a player across all history entries and saved names
+  const handleRenamePlayer = async (oldName, newName) => {
+    // Update history
+    const updatedHistory = history.map(h => {
+      const updated = { ...h };
+      if (updated.result) {
+        updated.result = { ...updated.result };
+        // Rename in balances
+        if (updated.result.balances) {
+          updated.result.balances = updated.result.balances.map(b =>
+            b.name === oldName ? { ...b, name: newName } : b
+          );
+        }
+        // Rename in settlements
+        if (updated.result.settlements) {
+          updated.result.settlements = updated.result.settlements.map(s => ({
+            ...s,
+            from: s.from === oldName ? newName : s.from,
+            to: s.to === oldName ? newName : s.to
+          }));
+        }
+        // Rename winner
+        if (updated.result.winner === oldName) updated.result.winner = newName;
+      }
+      // Rename in gameData
+      if (updated.gameData) {
+        updated.gameData = { ...updated.gameData };
+        if (updated.gameData.players) {
+          updated.gameData.players = updated.gameData.players.map(p =>
+            p.name === oldName ? { ...p, name: newName } : p
+          );
+        }
+        if (updated.gameData.leftPlayers) {
+          updated.gameData.leftPlayers = updated.gameData.leftPlayers.map(p =>
+            p.name === oldName ? { ...p, name: newName } : p
+          );
+        }
+        if (updated.gameData.transactions) {
+          updated.gameData.transactions = updated.gameData.transactions.map(t => {
+            const nt = { ...t };
+            if (nt.player === oldName) nt.player = newName;
+            if (nt.seller === oldName) nt.seller = newName;
+            if (nt.buyer === oldName) nt.buyer = newName;
+            if (nt.from === oldName) nt.from = newName;
+            return nt;
+          });
+        }
+      }
+      return updated;
+    });
+    setHistory(updatedHistory);
+    await store.set(HISTORY_KEY, updatedHistory);
+
+    // Update saved names
+    const updatedNames = savedNames.map(n => n === oldName ? newName : n);
+    setSavedNames(updatedNames);
+    await store.set(NAMES_KEY, updatedNames);
   };
 
   const handleReset=async(completedResult = null)=>{
@@ -2367,7 +2485,7 @@ export default function App() {
       <div className="relative">
         {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onSync={()=>setSyncModal(true)} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} />}
-        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} />}
+        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} onRenamePlayer={handleRenamePlayer} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
         {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))}/>}
 
