@@ -323,9 +323,8 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
       </div>
       <div ref={cardRef} onClick={() => onSwipeRight(p.id)} className="flex items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-3 sm:p-4 glass-card relative z-10 w-full cursor-pointer transition-transform duration-300">
         <Avatar name={p.name} i={i} />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex items-center">
           <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">Invested</p>
         </div>
         <div className="flex text-base font-bold text-rose-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-rose-500/20">
             <span className="mr-0.5">-{CURRENCY}</span>
@@ -978,7 +977,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                         <div className="h-px flex-1 bg-white/5"/>
                       </div>
                       <span className="text-xs font-bold shrink-0 w-14 sm:w-20 truncate text-right text-slate-200">{to}</span>
-                      {time && <span className="text-[10px] text-slate-600 shrink-0 ml-1 hidden sm:block">{new Date(time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>}
+                      {time && <span className="text-[10px] text-slate-600 shrink-0 ml-1">{new Date(time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>}
                       {onDel && <button onClick={onDel} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100 shrink-0"><Trash2 size={12}/></button>}
                     </div>
                   );
@@ -1864,6 +1863,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
           );
         })()
       )}
+
     </div>
   );
 }
