@@ -983,6 +983,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                               {t.type==="leave-bank-return"&&<><span className="font-semibold text-orange-400">{t.player}</span> returned <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)}) to bank</>}
                               {t.type==="leave-transfer"&&<><span className="font-semibold text-orange-400">{t.player}</span> gave <span className="font-mono text-slate-200">{round2(t.chips)}</span> chips ({CURRENCY}{round2(t.money)}) to <span className="font-semibold text-blue-400">{t.to}</span></>}
                               {t.type==="leave-settle"&&<><span className="font-semibold text-rose-400">{t.from}</span> pays <span className="font-semibold text-theme-400">{t.to}</span> <span className="font-mono font-bold text-amber-400">{CURRENCY}{round2(t.amount)}</span></>}
+                              {t.time && <p className="text-[10px] text-slate-600 mt-0.5">{new Date(t.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>}
                             </div>
                           </div>
                           <button onClick={()=>onReverse(t.idx)} className="p-2 -mr-2 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100"><Trash2 size={14}/></button>
@@ -1005,6 +1006,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                                     {leaveExit.net>=0?"+":""}{CURRENCY}{round2(leaveExit.net)}
                                   </span>
                                   {leaveExit.settleAtEnd && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">settle at end</span>}
+                                  {leaveExit.time && <span className="ml-2 text-[10px] text-slate-600">{new Date(leaveExit.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
                                 </div>
                               </div>
                               <button onClick={()=>onReverse(leaveExit.idx)} className="p-2 -mr-2 rounded-lg hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all opacity-60 sm:opacity-0 sm:group-hover/txn:opacity-100" title="Undo exit — bring player back">
@@ -1041,6 +1043,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                               <div className="w-1.5 h-1.5 rounded-full bg-theme-500/40"/>
                               <div className="text-xs sm:text-sm">
                                 <span className="font-bold text-slate-100">{pName}</span> {isReturn ? 'returned' : 'took'} <span className="font-mono font-bold text-theme-400">{round2(totalC)}</span> chips <span className="text-slate-500">({CURRENCY}{round2(totalM)})</span>
+                                {first.time && <span className="ml-2 text-[10px] text-slate-600">{new Date(first.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
                               </div>
                             </div>
                           </div>
