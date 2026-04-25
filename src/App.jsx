@@ -1024,7 +1024,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                 <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-xl px-4 py-3 text-sm bg-slate-900/50 border border-white/5">
                   <span className="font-semibold text-slate-200">{p.name}</span><div className="flex-1 border-b border-dashed border-white/10 mx-2"/>
                   <span className={`font-mono font-bold ${p.net>=0?'text-theme-400 bg-theme-400/10':'text-rose-400 bg-rose-400/10'} px-2.5 py-1 rounded-md`}>
-                    {p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}
+                    {p.net>0?"+":p.net<0?"-":""}{CURRENCY}{Math.abs(round2(p.net)).toLocaleString()}
                   </span>
                   {p.settledWith&&<span className="text-xs text-slate-500 font-medium">with {p.settledWith}</span>}
                 </div>
@@ -1296,7 +1296,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
                 <div className="flex justify-between pt-3 mt-3 border-t border-white/10">
                   <span className="font-bold text-slate-200">Net profit/loss</span>
                   <span className={`font-mono text-base font-bold bg-slate-950/50 px-3 py-1 rounded-lg border ${lCalc.net>0?'text-theme-400 border-theme-500/20':lCalc.net<0?'text-rose-400 border-rose-500/20':'text-slate-400 border-white/10'}`}>
-                    {lCalc.net>=0?"+":""}{CURRENCY}{round2(lCalc.net).toLocaleString()}
+                    {lCalc.net>0?"+":lCalc.net<0?"-":""}{CURRENCY}{Math.abs(round2(lCalc.net)).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -1680,7 +1680,7 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
                     <div key={i} className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-500/5 border border-purple-500/10 text-xs sm:text-sm">
                       <span className="font-semibold text-slate-300">{u.name}</span>
                       <span className={`font-mono font-bold ${u.balance > 0 ? 'text-emerald-400' : u.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                        {u.balance >= 0 ? '+' : ''}{CURRENCY}{round2(u.balance).toLocaleString()}
+                        {u.balance > 0 ? '+' : u.balance < 0 ? '-' : ''}{CURRENCY}{Math.abs(round2(u.balance)).toLocaleString()}
                       </span>
                     </div>
                   ))}
@@ -1751,7 +1751,7 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
                 <div className="text-right">
                   <p className="text-xs font-medium text-slate-400"><span className="font-mono">{b.finalChips}</span> chips &middot; Inv. <span className="text-rose-400/80">-{CURRENCY}{b.invested.toLocaleString()}</span></p>
                   <p className={`text-lg font-bold mt-1 font-mono ${b.balance>0?'text-theme-400':b.balance<0?'text-rose-400':'text-slate-400'}`}>
-                    {b.balance>=0?"+":""}{CURRENCY}{round2(b.balance).toLocaleString()}
+                    {b.balance>0?"+":b.balance<0?"-":""}{CURRENCY}{Math.abs(round2(b.balance)).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -1766,7 +1766,7 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
               <div className="space-y-2">{lpData.map((p,i)=>(
                 <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-xl px-5 py-3.5 text-sm bg-slate-900/60 border border-white/5 text-slate-300">
                   <span className="font-semibold text-slate-100">{p.name}</span><div className="flex-1 border-b border-dashed border-white/10 mx-2"/>
-                  <span className={`font-mono font-bold ${p.net>=0?'text-theme-400':'text-rose-400'}`}>{p.net>=0?"+":""}{CURRENCY}{round2(p.net).toLocaleString()}</span>
+                  <span className={`font-mono font-bold ${p.net>=0?'text-theme-400':'text-rose-400'}`}>{p.net>0?"+":p.net<0?"-":""}{CURRENCY}{Math.abs(round2(p.net)).toLocaleString()}</span>
                   {p.settledWith&&<span className="text-xs text-slate-500">w/ {p.settledWith}</span>}
                 </div>
               ))}</div>
@@ -2079,7 +2079,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
                               {b.name}
                             </span>
                             <span className={`text-sm font-mono font-bold ${b.balance > 0 ? 'text-emerald-400' : b.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                              {b.balance > 0 ? '+' : ''}{CURRENCY}{round2(b.balance).toLocaleString()}
+                              {b.balance > 0 ? '+' : b.balance < 0 ? '-' : ''}{CURRENCY}{Math.abs(round2(b.balance)).toLocaleString()}
                             </span>
                           </div>
                         ))}
