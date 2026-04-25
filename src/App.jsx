@@ -1787,12 +1787,16 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
                     </div>
                     <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 flex-shrink-0 mt-1 ${isExpanded ? "rotate-180" : ""}`} />
                   </button>
-                  {/* Expanded settlement detail */}
-                  {isExpanded && (
+                  {/* Expanded settlement detail — recompute from balances for optimal transactions */}
+                  {isExpanded && (() => {
+                    const recomputedSettlements = h.result?.balances?.length > 0
+                      ? computeSettlements(h.result.balances)
+                      : (h.result?.settlements || []);
+                    return (
                     <div className="px-5 pb-5 border-t border-white/5 pt-3">
-                      {h.result?.settlements?.length > 0 ? (
+                      {recomputedSettlements.length > 0 ? (
                         <div className="space-y-2">
-                          {h.result.settlements.map((s, j) => (
+                          {recomputedSettlements.map((s, j) => (
                             <div key={j} className="flex justify-between items-center text-sm">
                               <span className="text-rose-400 font-medium truncate max-w-[80px] sm:max-w-[120px]">{s.from}</span>
                               <div className="flex items-center gap-2 flex-1 mx-2">
@@ -1809,7 +1813,8 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
                         <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
                       )}
                     </div>
-                  )}
+                  );
+                  })()}
                 </div>
               );
             })}
