@@ -37,5 +37,8 @@
 * { scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { display: none; }
 
+/* Remove focus outline on chart SVG elements */
+.recharts-wrapper, .recharts-wrapper svg, .recharts-surface { outline: none !important; }
+
 /* Remove old glow styles */
 .bg-glow-container, .bg-glow-1, .bg-glow-2 { display: none; }
