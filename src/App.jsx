@@ -1505,13 +1505,101 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
     
     const finalResult = {
       balances: finalBalances.filter(p => !p.isLeft), // Display only on-table players in the balance list
-      settlements: computeSettlements(finalBalances), // Calculate settlements for everyone
+      settlements: computeSettlements(finalBalances).map(s => ({ ...s, payments: [] })),
       winner: winnerName
     };
     if (onSettleResult) onSettleResult(finalResult);
     setResult(finalResult);
+    setPayments({}); // Reset payment tracking
   };
   const lpData=game.leftPlayers||[];
+
+  // ── Payment tracking state ──
+  const [payments, setPayments] = useState({}); // { settlementIndex: [{ to, amount, time }] }
+  const [payModal, setPayModal] = useState(null); // settlement index or null
+  const [payEntries, setPayEntries] = useState([{ to: "", amount: "" }]);
+
+  // All player names for recipient dropdown
+  const allPlayerNames = [...new Set([
+    ...game.players.map(p => p.name),
+    ...(game.leftPlayers || []).map(p => p.name)
+  ])];
+
+  // Get status for a settlement
+  const getSettleStatus = (idx) => {
+    const s = result?.settlements?.[idx];
+    if (!s) return { status: "pending", paid: 0, remaining: s?.amount || 0 };
+    const pList = payments[idx] || [];
+    const paid = round2(pList.reduce((sum, p) => sum + p.amount, 0));
+    const remaining = round2(s.amount - paid);
+    if (paid === 0) return { status: "pending", paid, remaining: s.amount };
+    if (remaining <= 0.01 && remaining >= -0.01) return { status: "settled", paid, remaining: 0 };
+    if (remaining < -0.01) return { status: "overpaid", paid, remaining };
+    return { status: "partial", paid, remaining };
+  };
+
+  // Compute remaining adjustments from redirected / partial payments
+  const computeRemainingAdjustments = () => {
+    if (!result?.settlements) return [];
+    // Build net balance: for each person, track what they should still receive vs pay
+    const net = {};
+    result.settlements.forEach((s, idx) => {
+      const pList = payments[idx] || [];
+      const totalPaid = round2(pList.reduce((sum, p) => sum + p.amount, 0));
+      const unpaid = round2(s.amount - totalPaid);
+      // Debtor still owes unpaid amount
+      if (unpaid > 0.01) {
+        net[s.from] = round2((net[s.from] || 0) - unpaid);
+        net[s.to] = round2((net[s.to] || 0) + unpaid);
+      } else if (unpaid < -0.01) {
+        // Overpaid — debtor overpaid
+        net[s.from] = round2((net[s.from] || 0) - unpaid); // negative unpaid = positive (they overpaid, so they're owed)
+        net[s.to] = round2((net[s.to] || 0) + unpaid); // creditor got less effectively
+      }
+      // Track redirected payments (paid to someone other than original recipient)
+      pList.forEach(p => {
+        if (p.to !== s.to) {
+          // Paid to wrong person: the wrong person received money, original recipient didn't
+          net[p.to] = round2((net[p.to] || 0) + p.amount); // wrong person got money (now they owe it forward)
+          net[s.to] = round2((net[s.to] || 0) - p.amount); // original recipient still needs this
+        }
+      });
+    });
+    // Filter out zero balances and compute remaining settlements
+    const remaining = Object.entries(net)
+      .filter(([_, bal]) => Math.abs(bal) > 0.01)
+      .map(([name, balance]) => ({ name, balance }));
+    if (remaining.length === 0) return [];
+    return computeSettlements(remaining);
+  };
+
+  const openPayModal = (idx) => {
+    const s = result.settlements[idx];
+    setPayModal(idx);
+    setPayEntries([{ to: s.to, amount: String(getSettleStatus(idx).remaining) }]);
+  };
+
+  const submitPayment = () => {
+    if (payModal === null) return;
+    const valid = payEntries.filter(e => e.amount && parseFloat(e.amount) > 0 && e.to);
+    if (valid.length === 0) return;
+    const newPayments = { ...payments };
+    const existing = newPayments[payModal] || [];
+    newPayments[payModal] = [...existing, ...valid.map(e => ({ to: e.to, amount: round2(parseFloat(e.amount)), time: Date.now() }))];
+    setPayments(newPayments);
+    // Also update result settlements with payments for history persistence
+    if (result) {
+      const updatedSettlements = result.settlements.map((s, i) => ({
+        ...s,
+        payments: newPayments[i] || []
+      }));
+      const updatedResult = { ...result, settlements: updatedSettlements };
+      setResult(updatedResult);
+      if (onSettleResult) onSettleResult(updatedResult);
+    }
+    setPayModal(null);
+    haptic();
+  };
 
   const receiptRef = useRef(null);
   const shareReceipt = async () => {
@@ -1653,34 +1741,158 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
             </h2>
             {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>:(
               <div className="space-y-3">{result.settlements.map((s,i)=>{
+                const st = getSettleStatus(i);
+                const pList = payments[i] || [];
+                const statusColors = {
+                  pending: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+                  partial: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                  settled: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                  overpaid: "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                };
+                const statusLabel = {
+                  pending: "Pending",
+                  partial: `₹${st.remaining} left`,
+                  settled: "Settled ✓",
+                  overpaid: `Overpaid ₹${Math.abs(st.remaining)}`
+                };
                 return (
-                 <div key={i} className="flex flex-col gap-2 rounded-2xl px-5 py-4 animate-slide-up bg-slate-900/80 border border-indigo-500/30 shadow-lg" style={{animationDelay:`${i*80}ms`}}>
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
-                      <div className="h-px flex-1 bg-indigo-500/30"/>
-                      <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono shadow-[inset_0_0_10px_rgba(245,158,11,0.1)]">
-                        {CURRENCY}{s.amount.toLocaleString()}
-                      </span>
-                      <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
-                      <div className="h-px flex-1 bg-indigo-500/30"/>
+                 <div key={i} className={`rounded-2xl animate-slide-up bg-slate-900/80 border shadow-lg overflow-hidden ${st.status === "settled" ? "border-emerald-500/20" : "border-indigo-500/30"}`} style={{animationDelay:`${i*80}ms`}}>
+                  <button onClick={() => openPayModal(i)} className="w-full px-5 py-4 flex flex-col gap-2 text-left active:bg-white/5 transition-colors">
+                   <div className="flex items-center gap-3 sm:gap-4">
+                     <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
+                     <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
+                       <div className="h-px flex-1 bg-indigo-500/30"/>
+                       <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono shadow-[inset_0_0_10px_rgba(245,158,11,0.1)]">
+                         {CURRENCY}{s.amount.toLocaleString()}
+                       </span>
+                       <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
+                       <div className="h-px flex-1 bg-indigo-500/30"/>
+                     </div>
+                     <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
+                   </div>
+                   <div className="flex items-center justify-between">
+                     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${statusColors[st.status]}`}>
+                       {statusLabel[st.status]}
+                     </span>
+                     <span className="text-[10px] text-slate-500 italic">Tap to log payment</span>
+                   </div>
+                  </button>
+                  {/* Logged payments */}
+                  {pList.length > 0 && (
+                    <div className="px-5 pb-4 pt-1 border-t border-white/5 space-y-1.5">
+                      {pList.map((p, j) => (
+                        <div key={j} className="flex items-center gap-2 text-xs">
+                          <Check size={12} className="text-emerald-400 shrink-0"/>
+                          <span className="text-slate-400">
+                            {CURRENCY}{p.amount.toLocaleString()} → <span className={`font-semibold ${p.to === s.to ? "text-theme-400" : "text-blue-400"}`}>{p.to}</span>
+                            {p.to !== s.to && <span className="text-blue-400/60 ml-1">(redirected)</span>}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
-                  </div>
+                  )}
                  </div>
                 );
               })}</div>
             )}
           </div>
+
+          {/* Remaining Adjustments */}
+          {(() => {
+            const remaining = computeRemainingAdjustments();
+            const hasAnyPayments = Object.values(payments).some(p => p.length > 0);
+            if (!hasAnyPayments || remaining.length === 0) return null;
+            return (
+              <div className="glass-panel p-5 sm:p-8 rounded-[2rem] bg-gradient-to-b from-amber-950/30 to-slate-900/60 border-amber-500/20">
+                <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-amber-300 uppercase tracking-wider">
+                  <AlertTriangle size={16} className="text-amber-400"/> Remaining Adjustments
+                </h2>
+                <p className="text-xs text-slate-400 mb-4">Based on actual payments logged, these additional transfers are needed:</p>
+                <div className="space-y-2">{remaining.map((r, i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-900/60 border border-amber-500/15">
+                    <span className="text-sm font-bold text-rose-400 truncate w-20 sm:w-28 shrink-0">{r.from}</span>
+                    <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+                      <div className="h-px flex-1 bg-amber-500/20"/>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+                        {CURRENCY}{r.amount.toLocaleString()}
+                      </span>
+                      <ArrowRight size={12} className="text-amber-400/60 shrink-0"/>
+                      <div className="h-px flex-1 bg-amber-500/20"/>
+                    </div>
+                    <span className="text-sm font-bold text-theme-400 truncate w-20 sm:w-28 shrink-0 text-right">{r.to}</span>
+                  </div>
+                ))}</div>
+              </div>
+            );
+          })()}
           
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-4">
             <Btn onClick={()=>{
               setResult(null);
+              setPayments({});
               if (onSettleResult) onSettleResult(null);
             }} variant="secondary" className="flex-1 py-3 text-sm sm:text-base"><RotateCcw size={18}/> Re-enter</Btn>
             <Btn onClick={()=>{haptic(); shareReceipt();}} variant="primary" className="flex-1 py-3 text-sm sm:text-base"><Download size={18}/> Share Receipt</Btn>
             <Btn onClick={()=>onReset(result)} variant="danger" className="flex-1 py-3 text-sm sm:text-base"><Trash2 size={18}/> New Game</Btn>
           </div>
+
+          {/* Payment Modal */}
+          <Modal open={payModal !== null} onClose={() => setPayModal(null)}
+            title={payModal !== null ? `Log Payment — ${result?.settlements?.[payModal]?.from}` : ""}
+            icon={<div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><ArrowRightLeft size={20}/></div>}>
+            {payModal !== null && result?.settlements?.[payModal] && (() => {
+              const s = result.settlements[payModal];
+              const st = getSettleStatus(payModal);
+              return (
+                <div className="space-y-5">
+                  <div className="px-4 py-3 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
+                    <p className="text-sm text-slate-300">
+                      <span className="font-bold text-rose-400">{s.from}</span> owes <span className="font-bold font-mono text-amber-400">{CURRENCY}{s.amount.toLocaleString()}</span> to <span className="font-bold text-theme-400">{s.to}</span>
+                    </p>
+                    {st.paid > 0 && <p className="text-xs text-slate-500 mt-1">Already paid: <span className="text-emerald-400 font-mono">{CURRENCY}{st.paid}</span> · Remaining: <span className="text-amber-400 font-mono">{CURRENCY}{Math.max(0, st.remaining)}</span></p>}
+                  </div>
+
+                  {payEntries.map((entry, idx) => (
+                    <div key={idx} className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                      {payEntries.length > 1 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Payment {idx + 1}</span>
+                          <button onClick={() => setPayEntries(prev => prev.filter((_, i) => i !== idx))} className="text-slate-600 hover:text-rose-400 transition-colors"><X size={14}/></button>
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-xs font-semibold mb-2 block tracking-wider uppercase text-slate-400">Paid to</label>
+                        <select value={entry.to} onChange={e => setPayEntries(prev => prev.map((x, i) => i === idx ? { ...x, to: e.target.value } : x))}
+                          className="w-full rounded-xl px-4 py-3 text-sm glass-input text-slate-200 cursor-pointer">
+                          <option value="" className="bg-slate-900 text-slate-400">Select recipient...</option>
+                          {allPlayerNames.map(n => <option key={n} value={n} className="bg-slate-800 text-slate-100">{n}{n !== s.to ? " (redirect)" : ""}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold mb-2 block tracking-wider uppercase text-slate-400">Amount</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm">{CURRENCY}</span>
+                          <input type="number" value={entry.amount}
+                            onChange={e => setPayEntries(prev => prev.map((x, i) => i === idx ? { ...x, amount: e.target.value } : x))}
+                            placeholder="0" className="w-full rounded-xl pl-7 pr-4 py-3 text-sm glass-input font-mono text-amber-400"/>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button onClick={() => setPayEntries(prev => [...prev, { to: "", amount: "" }])}
+                    className="w-full flex items-center justify-center gap-2 text-xs font-semibold py-2.5 rounded-xl border border-dashed border-white/10 hover:border-blue-500/30 hover:bg-blue-500/5 text-slate-500 hover:text-blue-400 transition-all">
+                    <Plus size={14}/> Split payment to multiple players
+                  </button>
+
+                  <div className="flex gap-3">
+                    <Btn onClick={() => setPayModal(null)} variant="secondary" className="flex-1">Cancel</Btn>
+                    <Btn onClick={submitPayment} variant="primary" className="flex-1"><Check size={16}/> Confirm</Btn>
+                  </div>
+                </div>
+              );
+            })()}
+          </Modal>
         </div>
       )}
     </div>
