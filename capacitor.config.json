@@ -7,6 +7,9 @@
   },
   "android": {
     "allowMixedContent": false,
-    "backgroundColor": "#020617"
+    "backgroundColor": "#020617",
+    "overScrollMode": "never",
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
   }
 }

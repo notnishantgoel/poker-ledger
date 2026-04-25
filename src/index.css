@@ -21,6 +21,10 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   input, textarea, [contenteditable="true"] {
@@ -47,7 +51,7 @@
 @layer components {
   /* Glassmorphism primitives - Simplified & Muted */
   .glass-panel {
-    @apply bg-slate-900/80 backdrop-blur-md border border-white/[0.05] shadow-2xl;
+    @apply bg-slate-900/95 border border-white/[0.06] shadow-2xl;
   }
 
   .glass-card {
