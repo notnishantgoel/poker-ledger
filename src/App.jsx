@@ -16,7 +16,7 @@ import {
   getSessionUrl, getSessionIdFromUrl,
   saveProfile, loadProfile, generateProfileId
 } from "./firebase.js";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer, LabelList } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer } from "recharts";
 import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
@@ -1847,23 +1847,23 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={chartData} margin={{ top: 24, right: 12, left: 0, bottom: 4 }}>
+                    <LineChart data={chartData} margin={{ top: 24, right: 12, left: 0, bottom: 4 }} onClick={() => {}}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                       <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
                       <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
                       <RechartsTooltip
                         formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]}
-                        contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }}
-                        labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
+                        contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '12px', fontSize: 13, padding: '8px 12px' }}
+                        labelStyle={{ color: '#94a3b8', marginBottom: 6, fontWeight: 600 }}
+                        cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 2' }}
+                        trigger="hover"
                       />
                       <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
                       {visiblePlayers.map((name) => {
                         const i = allPlayers.indexOf(name);
                         const color = CHART_COLORS[i % CHART_COLORS.length];
                         return (
-                          <Line key={name} type="monotone" dataKey={name} stroke={color} dot={{ r: 5, fill: color, strokeWidth: 0 }} strokeWidth={2} activeDot={{ r: 7 }} isAnimationActive={false}>
-                            <LabelList dataKey={name} position="top" formatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(1)+'k' : v}`} style={{ fontSize: 10, fill: color, fontWeight: 600 }} />
-                          </Line>
+                          <Line key={name} type="monotone" dataKey={name} stroke={color} dot={{ r: 6, fill: color, strokeWidth: 2, stroke: '#0f172a' }} strokeWidth={2.5} activeDot={{ r: 9, strokeWidth: 0 }} isAnimationActive={false} />
                         );
                       })}
                     </LineChart>
