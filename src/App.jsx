@@ -143,7 +143,7 @@ function Modal({ open, onClose, title, icon, children }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 sm:px-4">
       <div className="absolute inset-0 bg-slate-950/80 animate-fade-in" onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl overflow-hidden max-h-[90vh] overflow-y-auto bg-slate-900 border border-white/[0.06] shadow-[0_0_40px_rgba(0,0,0,0.6)] animate-slide-up" style={{willChange:'transform'}}>
+      <div className="relative w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl overflow-hidden max-h-[90vh] overflow-y-auto no-scrollbar bg-slate-900 border border-white/[0.06] shadow-[0_0_40px_rgba(0,0,0,0.6)] animate-slide-up" style={{willChange:'transform'}}>
         <div className="flex items-center gap-3 px-6 py-5 sticky top-0 z-10 bg-slate-900/95 border-b border-white/5">
           {icon}
           <h3 className="text-lg font-semibold flex-1 text-slate-100">{title}</h3>
