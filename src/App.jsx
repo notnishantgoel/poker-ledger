@@ -7,7 +7,7 @@ import {
   RotateCcw, ArrowRight, ArrowLeft, Sparkles, Search, UserPlus, MoreVertical,
   LogOut, Building2, Users, Palette, Crown, Download, Share2,
   Link2, Wifi, WifiOff, Copy, ExternalLink,
-  History, QrCode, Clock, ChevronRight, Smartphone,
+  History, Clock, ChevronRight,
   CloudUpload, CloudDownload, RefreshCw, KeyRound
 } from "lucide-react";
 import {
@@ -24,7 +24,6 @@ const PROFILE_KEY = "poker-ledger-profile";
 const GAMES_KEY = "poker-ledger-games";
 const NAMES_KEY = "poker-ledger-names";
 const HISTORY_KEY = "poker-ledger-history";
-const UPI_KEY = "poker-ledger-upi";
 const CURRENCY = "₹";
 
 const store = {
@@ -514,15 +513,20 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
 }
 
 /* ─────────── PLAYERS SCREEN (step 2) ─────────── */
-function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdateUpi }) {
+function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
   const cv = chipValue;
-  const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0},{id:"4",name:"",chips:0,money:0}]);
+  const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0}]);
   const [error, setError] = useState("");
   const [sug, setSug] = useState({id:null,list:[]});
   const [exiting, setExiting] = useState(false);
-  const nid = useRef(5);
+  const nid = useRef(4);
+  const listRef = useRef(null);
 
-  const addP = () => { setError(""); setPlayers(p=>[...p,{id:String(nid.current++),name:"",chips:0,money:0}]); };
+  const addP = () => {
+    setError("");
+    setPlayers(p => [...p, {id:String(nid.current++),name:"",chips:0,money:0}]);
+    setTimeout(() => listRef.current?.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  };
   const quickFill = () => {
     setError("");
     setPlayers([
@@ -558,7 +562,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdat
     if(valid.some(p=>p.chips<=0)) return setError("All players need a buy-in");
     const data={
       chipValue:cv,
-      players:valid.map(p=>({id:p.id,name:p.name.trim(),cashInvested:round2(p.chips*cv),upi:upiMap&&upiMap[p.name.trim()]?upiMap[p.name.trim()]:""})),
+      players:valid.map(p=>({id:p.id,name:p.name.trim(),cashInvested:round2(p.chips*cv)})),
       totalBankChips:valid.reduce((s,p)=>s+p.chips,0),
       leftPlayers:[],
       transactions:valid.map(p=>({type:"initial",player:p.name.trim(),chips:p.chips,money:round2(p.chips*cv),time:Date.now()})),
@@ -589,7 +593,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdat
       </div>
 
       {/* Player Rows */}
-      <div className="space-y-3 mb-5">
+      <div ref={listRef} className="space-y-3 mb-5">
         {players.map((p,i)=>(
           <div key={p.id} className="glass-panel rounded-2xl p-4 sm:p-5 animate-slide-up" style={{animationDelay:`${i*50}ms`}}>
             <div className="flex items-center gap-3 mb-3">
@@ -610,12 +614,6 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, upiMap, onUpdat
                 )}
               </div>
               {players.length>2&&<button onClick={()=>rmP(p.id)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-rose-400/60 hover:text-rose-400 transition-all shrink-0"><Trash2 size={15}/></button>}
-            </div>
-            <div className="relative mb-2">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Smartphone size={12}/></span>
-              <input value={p.name?upiMap[p.name]||"":""} onChange={e=>p.name&&onUpdateUpi(p.name,e.target.value)}
-                placeholder="UPI ID (optional)"
-                className="w-full rounded-lg pl-8 pr-3 py-2 text-xs glass-input placeholder:text-slate-600" disabled={!p.name}/>
             </div>
             <TwoWayInput chipValue={cv} chips={p.chips} money={p.money} chipLabel={null} moneyLabel={null}
               onChange={({chips,money})=>{upd(p.id,"chips",chips);upd(p.id,"money",money);}}/>
@@ -1344,7 +1342,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 }
 
 /* ─────────── SETTLE ─────────── */
-function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChange }) {
+function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
   const [fc, setFc] = useState(() => {
     if (game.fc) return game.fc;
     const m = {};
@@ -1570,8 +1568,6 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
             </h2>
             {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>:(
               <div className="space-y-3">{result.settlements.map((s,i)=>{
-                const pInfo = game.players.find(p=>p.name===s.to) || game.leftPlayers?.find(p=>p.name===s.to);
-                const targetUpi = pInfo?.upi || (upiMap && upiMap[s.to]);
                 return (
                  <div key={i} className="flex flex-col gap-2 rounded-2xl px-5 py-4 animate-slide-up bg-slate-900/80 border border-indigo-500/30 shadow-lg" style={{animationDelay:`${i*80}ms`}}>
                   <div className="flex items-center gap-3 sm:gap-4">
@@ -1586,15 +1582,6 @@ function SettleScreen({ game, onBack, onReset, upiMap, onSettleResult, onFcChang
                     </div>
                     <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
                   </div>
-                  {targetUpi && (
-                    <div className="flex justify-end mt-1">
-                      <a href={`upi://pay?pa=${targetUpi}&pn=${encodeURIComponent(s.to)}&am=${s.amount}&cu=INR`} 
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors text-xs font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]"
-                        onClick={()=>haptic()}>
-                        <QrCode size={14}/> Pay with UPI
-                      </a>
-                    </div>
-                  )}
                  </div>
                 );
               })}</div>
@@ -1875,7 +1862,6 @@ export default function App() {
   const [sessionChipValue,setSessionChipValue]=useState(5);
   const [savedNames,setSavedNames]=useState([]);
   const [exitPrompt, setExitPrompt]=useState(false);
-  const [upiMap, setUpiMap] = useState({});
   const [history, setHistory] = useState([]);
   const [historyReturnPhase, setHistoryReturnPhase] = useState("session");
   const [allGames, setAllGames] = useState({});
@@ -1917,10 +1903,9 @@ export default function App() {
     
     // Fallback: load from localStorage
     const n=await store.get(NAMES_KEY);
-    const u=await store.get(UPI_KEY); const h=await store.get(HISTORY_KEY);
+    const h=await store.get(HISTORY_KEY);
     const pid=await store.get(PROFILE_KEY);
     setSavedNames(n||[]);
-    setUpiMap(u||{});
     setHistory(h||[]);
     if (pid) setProfileId(pid);
 
@@ -2018,7 +2003,7 @@ export default function App() {
             const merged = mergeHistory(next, cloud?.history);
             setHistory(merged);
             await store.set(HISTORY_KEY, merged);
-            await saveProfile(profileId, { history: merged, savedNames, upiMap, games: allGames });
+            await saveProfile(profileId, { history: merged, savedNames, games: allGames });
           } catch {}
         })();
       }
@@ -2136,13 +2121,6 @@ export default function App() {
     haptic();
   };
 
-  const handleUpdateUpi = (name, upi) => {
-    setUpiMap(prev => {
-      const next = { ...prev, [name]: upi.trim() };
-      store.set(UPI_KEY, next);
-      return next;
-    });
-  };
 
   // ── Share session ──
   const handleShare = async () => {
@@ -2231,7 +2209,7 @@ export default function App() {
         await store.set(HISTORY_KEY, mergedHist);
       }
     } catch {}
-    await saveProfile(pid, { history: mergedHist, savedNames, upiMap, games: allGames });
+    await saveProfile(pid, { history: mergedHist, savedNames, games: allGames });
     return pid;
   };
 
@@ -2245,7 +2223,6 @@ export default function App() {
       await store.set(HISTORY_KEY, merged);
     }
     if (data.savedNames) { setSavedNames(data.savedNames); await store.set(NAMES_KEY, data.savedNames); }
-    if (data.upiMap) { setUpiMap(data.upiMap); await store.set(UPI_KEY, data.upiMap); }
     if (data.games) { setAllGames(data.games); await store.set(GAMES_KEY, data.games); }
     setProfileId(code);
     await store.set(PROFILE_KEY, code);
@@ -2299,10 +2276,10 @@ export default function App() {
       )}
       <div className="relative">
         {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onSync={()=>setSyncModal(true)} />}
-        {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} upiMap={upiMap} onUpdateUpi={handleUpdateUpi} />}
+        {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
-        {phase==="settle"&&game&&<SettleScreen game={game} upiMap={upiMap} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))}/>}
+        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))}/>}
 
         {/* Exit Confirmation */}
         <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
