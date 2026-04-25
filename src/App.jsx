@@ -1759,7 +1759,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history" }) {
               const isUp = p.net > 0;
               const isEven = p.net === 0;
               return (
-                <button key={p.name} onClick={() => { setTab("graph"); setSelectedPlayers([p.name]); }} className={`w-full glass-panel p-4 rounded-[1.5rem] animate-slide-up flex items-center gap-4 active:scale-[0.98] transition-transform ${isTop ? "border border-amber-500/20" : ""}`} style={{animationDelay:`${i*40}ms`}}>
+                <button key={p.name} onClick={() => { setTab("graph"); setSelectedPlayers([p.name]); }} className={`w-full glass-panel p-5 rounded-[1.5rem] animate-slide-up flex items-center gap-5 active:scale-[0.98] transition-transform ${isTop ? "border border-amber-500/20" : ""}`} style={{animationDelay:`${i*40}ms`}}>
                   {/* Rank */}
                   <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
                     {isTop ? <Crown size={16}/> : `#${i+1}`}
