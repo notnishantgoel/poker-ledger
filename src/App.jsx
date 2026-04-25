@@ -1730,11 +1730,13 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
       const balances = h.result?.balances || [];
       for (const b of balances) {
         if (!b.name) continue;
-        if (!map[b.name]) map[b.name] = { name: b.name, net: 0, games: 0, wins: 0, bestWin: 0, worstLoss: 0 };
+        if (!map[b.name]) map[b.name] = { name: b.name, net: 0, games: 0, wins: 0, losses: 0, draws: 0, bestWin: 0, worstLoss: 0 };
         const net = round2(b.balance ?? 0);
         map[b.name].net = round2(map[b.name].net + net);
         map[b.name].games += 1;
-        if (h.result?.winner === b.name) map[b.name].wins += 1;
+        if (net > 0) map[b.name].wins += 1;
+        else if (net < 0) map[b.name].losses += 1;
+        else map[b.name].draws += 1;
         if (net > map[b.name].bestWin) map[b.name].bestWin = net;
         if (net < map[b.name].worstLoss) map[b.name].worstLoss = net;
       }
@@ -1879,7 +1881,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
                   {/* Name + stats */}
                   <div className="flex-1 min-w-0 text-left">
                     <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · {p.wins} win{p.wins !== 1 ? "s" : ""} · {winRate}% win rate</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · <span className="text-emerald-500">{p.wins}W</span> · <span className="text-rose-500">{p.losses}L</span>{p.draws > 0 ? <> · <span className="text-slate-400">{p.draws}D</span></> : null} · {winRate}%</p>
                   </div>
                   {/* Net P&L */}
                   <div className="text-right flex-shrink-0">
