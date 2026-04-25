@@ -24,6 +24,7 @@ const PROFILE_KEY = "poker-ledger-profile";
 const GAMES_KEY = "poker-ledger-games";
 const NAMES_KEY = "poker-ledger-names";
 const HISTORY_KEY = "poker-ledger-history";
+const UNSETTLED_KEY = "poker-ledger-unsettled";
 const CURRENCY = "₹";
 
 const store = {
@@ -1427,7 +1428,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 }
 
 /* ─────────── SETTLE ─────────── */
-function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
+function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unsettledBalances }) {
   const [fc, setFc] = useState(() => {
     if (game.fc) return game.fc;
     const m = {};
@@ -1454,6 +1455,10 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
   const [warning, setWarning] = useState("");
   const [adj, setAdj] = useState([]); // {id, from, to, amount}
   const [newAdj, setNewAdj] = useState({from:"", to:"", amount:""});
+  const [mergeUnsettled, setMergeUnsettled] = useState(false);
+
+  // Filter unsettled balances to only include players relevant to this game
+  const prevUnsettled = unsettledBalances || [];
   
   const tb = game.totalBankChips;
   const tf = Object.values(fc).reduce((s,v)=>s+(parseFloat(v)||0),0);
@@ -1500,6 +1505,18 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
       });
       return { ...p, balance: round2(p.balance + totalAdj) };
     });
+
+    // 4. Merge previous unsettled balances if enabled
+    if (mergeUnsettled && prevUnsettled.length > 0) {
+      prevUnsettled.forEach(u => {
+        const existing = finalBalances.find(p => p.name === u.name);
+        if (existing) {
+          existing.balance = round2(existing.balance + u.balance);
+        } else {
+          finalBalances.push({ name: u.name, balance: u.balance, finalChips: 0, invested: 0 });
+        }
+      });
+    }
 
     const winnerName = bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0])?.balance > 0 ? bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0]).name : null;
     
@@ -1641,6 +1658,36 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
             ))}
           </div>
           {warning&&<div className="flex items-start gap-3 px-5 py-4 rounded-xl text-sm font-medium animate-fade-in bg-amber-500/10 border border-amber-500/20 text-amber-300"><AlertTriangle size={18} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
+
+          {/* Previous Unsettled Balances */}
+          {prevUnsettled.length > 0 && (
+            <div className="pt-6 border-t border-white/5 space-y-3">
+              <button onClick={() => setMergeUnsettled(!mergeUnsettled)} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border transition-all ${mergeUnsettled ? 'bg-purple-500/10 border-purple-500/30' : 'bg-white/[0.02] border-white/10 hover:border-purple-500/20'}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${mergeUnsettled ? 'bg-purple-500 border-purple-500' : 'border-slate-600'}`}>
+                    {mergeUnsettled && <Check size={12} className="text-white"/>}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-slate-200">Include previous unsettled dues</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{prevUnsettled.length} player{prevUnsettled.length !== 1 ? 's' : ''} with carry-forward balances</p>
+                  </div>
+                </div>
+                <History size={16} className="text-purple-400/60"/>
+              </button>
+              {mergeUnsettled && (
+                <div className="space-y-1.5 px-1">
+                  {prevUnsettled.map((u, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-500/5 border border-purple-500/10 text-xs sm:text-sm">
+                      <span className="font-semibold text-slate-300">{u.name}</span>
+                      <span className={`font-mono font-bold ${u.balance > 0 ? 'text-emerald-400' : u.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                        {u.balance >= 0 ? '+' : ''}{CURRENCY}{round2(u.balance).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* External Adjustments Section */}
           <div className="pt-6 border-t border-white/5 space-y-4">
@@ -2243,6 +2290,7 @@ export default function App() {
   const [activeGameId, setActiveGameId] = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [syncModal, setSyncModal] = useState(false);
+  const [unsettledBalances, setUnsettledBalances] = useState([]);
 
   // ── Session state ──
   const [sessionId, setSessionId] = useState(null);
@@ -2283,6 +2331,8 @@ export default function App() {
     setSavedNames(n||[]);
     setHistory(h||[]);
     if (pid) setProfileId(pid);
+    const unsettled = await store.get(UNSETTLED_KEY);
+    if (unsettled) setUnsettledBalances(unsettled);
 
     // Load all running sessions
     let games = await store.get(GAMES_KEY) || {};
@@ -2429,6 +2479,40 @@ export default function App() {
       const next = [record, ...history].slice(0, 50);
       setHistory(next);
       await store.set(HISTORY_KEY, next);
+
+      // Compute unsettled amounts from settlement payments
+      const settlements = completedResult.settlements || [];
+      const net = {};
+      settlements.forEach(s => {
+        net[s.from] = round2((net[s.from] || 0) - s.amount);
+        net[s.to] = round2((net[s.to] || 0) + s.amount);
+      });
+      settlements.forEach(s => {
+        const pList = s.payments || [];
+        pList.forEach(p => {
+          net[s.from] = round2((net[s.from] || 0) + p.amount);
+          net[p.to] = round2((net[p.to] || 0) - p.amount);
+        });
+      });
+      const unsettled = Object.entries(net)
+        .filter(([_, bal]) => Math.abs(bal) > 0.01)
+        .map(([name, balance]) => ({ name, balance }));
+      if (unsettled.length > 0) {
+        // Merge with existing unsettled balances
+        const existing = [...unsettledBalances];
+        unsettled.forEach(u => {
+          const ex = existing.find(e => e.name === u.name);
+          if (ex) ex.balance = round2(ex.balance + u.balance);
+          else existing.push({ ...u });
+        });
+        const merged = existing.filter(e => Math.abs(e.balance) > 0.01);
+        setUnsettledBalances(merged);
+        await store.set(UNSETTLED_KEY, merged);
+      } else {
+        // All settled — clear unsettled balances
+        setUnsettledBalances([]);
+        await store.delete(UNSETTLED_KEY);
+      }
       // Auto-push merged history to cloud if this device has a profile linked
       if (profileId) {
         (async () => {
@@ -2713,7 +2797,7 @@ export default function App() {
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} onRenamePlayer={handleRenamePlayer} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
-        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))}/>}
+        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))} unsettledBalances={unsettledBalances}/>}
 
         {/* Exit Confirmation */}
         <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
