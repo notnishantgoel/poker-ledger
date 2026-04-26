@@ -615,7 +615,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
       {id:"3",name:"Nema",chips:20,money:round2(20*cv)},
       {id:"4",name:"Parth",chips:30,money:round2(30*cv)},
       {id:"5",name:"Monty",chips:30,money:round2(30*cv)},
-      {id:"6",name:"Ritabrata",chips:40,money:round2(40*cv)}
+      {id:"6",name:"Ritabrata",chips:20,money:round2(20*cv)}
     ]);
     nid.current = 7;
   };
@@ -638,7 +638,7 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
     const nx={...x,[f]:v};
     if(f==="name"&&!x.name&&v.trim()&&nx.chips===0){
       const name = v.trim().toLowerCase();
-      const dc = (name==="ritabrata"||name==="nishant") ? 40 : (["agrim","parth","monty"].includes(name)) ? 30 : 20;
+      const dc = (name==="nishant") ? 40 : (["agrim","parth","monty"].includes(name)) ? 30 : 20;
       nx.chips=dc;nx.money=round2(dc*cv);
     }
     return nx;
