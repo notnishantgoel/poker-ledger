@@ -477,6 +477,12 @@ function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
           </Btn>
         </div>
 
+        <div className="pt-4 border-t border-white/5">
+          <p className="text-center text-[10px] text-slate-500 mb-3">App changes on GitHub can take 1-2 minutes to deploy.</p>
+          <Btn onClick={() => { haptic(); window.location.reload(); }} variant="ghost" full className="text-xs py-2 border border-white/5 hover:border-emerald-500/20">
+            <CloudDownload size={14}/> Force Refresh App Code
+          </Btn>
+        </div>
         <p className="text-center text-xs text-slate-600">Save your sync code somewhere safe — it's the only way to access your backup.</p>
       </div>
     </Modal>
@@ -499,6 +505,10 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
   return (
     <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} relative w-full max-w-md mx-auto px-4 py-12 sm:py-20 flex flex-col`}>
       <div className="absolute top-2 right-0 flex items-center gap-1">
+        <button onClick={() => { haptic(); window.location.reload(); }} className="p-3 rounded-xl text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all group flex items-center gap-2">
+          <CloudDownload size={22} className="group-active:rotate-180 transition-transform duration-500"/>
+          <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Update App</span>
+        </button>
         {onSync && (
           <button onClick={()=>{haptic(); onSync();}} className="p-3 rounded-xl text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all">
             <RefreshCw size={22}/>
