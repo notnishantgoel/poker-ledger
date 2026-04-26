@@ -601,10 +601,10 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
     setError("");
     setPlayers([
       {id:"1",name:"Nishant",chips:40,money:round2(40*cv)},
-      {id:"2",name:"Agrim",chips:20,money:round2(20*cv)},
+      {id:"2",name:"Agrim",chips:30,money:round2(30*cv)},
       {id:"3",name:"Nema",chips:20,money:round2(20*cv)},
-      {id:"4",name:"Parth",chips:40,money:round2(40*cv)},
-      {id:"5",name:"Monty",chips:40,money:round2(40*cv)},
+      {id:"4",name:"Parth",chips:30,money:round2(30*cv)},
+      {id:"5",name:"Monty",chips:30,money:round2(30*cv)},
       {id:"6",name:"Ritabrata",chips:40,money:round2(40*cv)}
     ]);
     nid.current = 7;
@@ -626,7 +626,11 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
   const upd = (id,f,v) => { setError(""); setPlayers(p=>p.map(x=>{
     if(x.id!==id) return x;
     const nx={...x,[f]:v};
-    if(f==="name"&&!x.name&&v.trim()&&nx.chips===0){const dc=v.trim().toLowerCase()==="ritabrata"?40:20;nx.chips=dc;nx.money=round2(dc*cv);}
+    if(f==="name"&&!x.name&&v.trim()&&nx.chips===0){
+      const name = v.trim().toLowerCase();
+      const dc = (name==="ritabrata"||name==="nishant") ? 40 : (["agrim","parth","monty"].includes(name)) ? 30 : 20;
+      nx.chips=dc;nx.money=round2(dc*cv);
+    }
     return nx;
   }));};
   const showSug = (id,name) => {
@@ -1645,34 +1649,42 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
         </div>
       </div>
 
-      {!result?(
-        <div className="space-y-8 glass-panel p-5 sm:p-8 rounded-[2rem]">
-          <p className="text-sm sm:text-base font-semibold text-slate-300">Enter each player's final chip count or P&amp;L:</p>
+      {!result ? (
+        <div className="space-y-6 pb-24">
           <div className="space-y-4">
-            {game.players.map((p,i) => (
-              <SettlePlayerRow key={p.id} p={p} i={i}
-                chipValue={game.chipValue}
-                fcVal={fc[p.id]}
-                remaining={remaining}
-                onChange={v => handleFcChange(p.id, v)} />
-            ))}
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-1">Player Final Counts</h3>
+            <div className="space-y-3">
+              {game.players.map((p, i) => (
+                <SettlePlayerRow key={p.id} p={p} i={i}
+                  chipValue={game.chipValue}
+                  fcVal={fc[p.id]}
+                  remaining={remaining}
+                  onChange={v => handleFcChange(p.id, v)} />
+              ))}
+            </div>
           </div>
-          {warning&&<div className="flex items-start gap-3 px-5 py-4 rounded-xl text-sm font-medium animate-fade-in bg-amber-500/10 border border-amber-500/20 text-amber-300"><AlertTriangle size={18} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
+
+          {warning && (
+            <div className="flex items-start gap-3 px-5 py-4 rounded-xl text-sm font-medium animate-fade-in bg-amber-500/10 border border-amber-500/20 text-amber-300 shadow-lg">
+              <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+              <span>{warning}</span>
+            </div>
+          )}
 
           {/* Previous Unsettled Balances */}
           {prevUnsettled.length > 0 && (
-            <div className="pt-6 border-t border-white/5 space-y-3">
+            <div className="glass-panel p-5 sm:p-6 rounded-[2rem] space-y-4">
               <button onClick={() => setMergeUnsettled(!mergeUnsettled)} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border transition-all ${mergeUnsettled ? 'bg-purple-500/10 border-purple-500/30' : 'bg-white/[0.02] border-white/10 hover:border-purple-500/20'}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${mergeUnsettled ? 'bg-purple-500 border-purple-500' : 'border-slate-600'}`}>
-                    {mergeUnsettled && <Check size={12} className="text-white"/>}
+                    {mergeUnsettled && <Check size={12} className="text-white" />}
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-semibold text-slate-200">Include previous unsettled dues</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{prevUnsettled.length} player{prevUnsettled.length !== 1 ? 's' : ''} with carry-forward balances</p>
+                    <p className="text-sm font-semibold text-slate-200">Include previous dues</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{prevUnsettled.length} player{prevUnsettled.length !== 1 ? 's' : ''} carry-forward</p>
                   </div>
                 </div>
-                <History size={16} className="text-purple-400/60"/>
+                <History size={16} className="text-purple-400/60" />
               </button>
               {mergeUnsettled && (
                 <div className="space-y-1.5 px-1">
@@ -1690,15 +1702,15 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
           )}
 
           {/* External Adjustments Section */}
-          <div className="pt-6 border-t border-white/5 space-y-4">
-            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+          <div className="glass-panel p-5 sm:p-6 rounded-[2rem] space-y-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1">
               <ArrowRightLeft size={14} className="text-blue-400" /> External Dues (Optional)
             </h3>
-            
+
             {adj.length > 0 && (
               <div className="space-y-2">
                 {adj.map(a => (
-                  <div key={a.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-slate-900/40 border border-white/5 text-xs sm:text-sm">
+                  <div key={a.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-slate-950/40 border border-white/5 text-xs sm:text-sm">
                     <div className="flex items-center gap-2 text-slate-300">
                       <span className="font-bold text-rose-400/80">{a.from}</span>
                       <ArrowRight size={12} className="text-slate-600" />
@@ -1706,42 +1718,44 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-mono font-bold text-slate-200">{CURRENCY}{a.amount.toLocaleString()}</span>
-                      <button onClick={()=>rmAdj(a.id)} className="text-slate-600 hover:text-rose-400 transition-colors"><X size={14}/></button>
+                      <button onClick={() => rmAdj(a.id)} className="text-slate-600 hover:text-rose-400 transition-colors"><X size={14} /></button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <select value={newAdj.from} onChange={e=>setNewAdj({...newAdj, from: e.target.value})} className="rounded-xl px-3 py-2 text-xs glass-input sm:text-sm">
+            <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+              <select value={newAdj.from} onChange={e => setNewAdj({ ...newAdj, from: e.target.value })} className="rounded-xl px-4 py-3 text-sm glass-input">
                 <option value="">From...</option>
-                {[...game.players, ...(game.leftPlayers||[])].map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
+                {[...game.players, ...(game.leftPlayers || [])].map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
-              <select value={newAdj.to} onChange={e=>setNewAdj({...newAdj, to: e.target.value})} className="rounded-xl px-3 py-2 text-xs glass-input sm:text-sm">
+              <select value={newAdj.to} onChange={e => setNewAdj({ ...newAdj, to: e.target.value })} className="rounded-xl px-4 py-3 text-sm glass-input">
                 <option value="">To...</option>
-                {[...game.players, ...(game.leftPlayers||[])].map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
+                {[...game.players, ...(game.leftPlayers || [])].map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
             </div>
             <div className="flex gap-3">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm">{CURRENCY}</span>
-                <input type="number" value={newAdj.amount} onChange={e=>setNewAdj({...newAdj, amount: e.target.value})} placeholder="Amount owed"
-                  className="w-full rounded-xl pl-7 pr-4 py-2.5 text-sm glass-input font-mono"/>
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm">{CURRENCY}</span>
+                <input type="number" value={newAdj.amount} onChange={e => setNewAdj({ ...newAdj, amount: e.target.value })} placeholder="Amount owed"
+                  className="w-full rounded-xl pl-8 pr-4 py-3 text-sm glass-input font-mono" />
               </div>
-              <button onClick={addAdj} className="px-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all">
-                Add Due
+              <button onClick={addAdj} className="px-5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all font-semibold text-sm">
+                Add
               </button>
             </div>
-            <p className="text-[10px] text-slate-500 italic px-1">Note: These dues are one-off for this settlement and won't be saved to history.</p>
+            <p className="text-[10px] text-slate-500 italic px-1 leading-relaxed">Note: These dues are one-off for this settlement and won't be saved to history.</p>
           </div>
 
-          <div className="pt-4">
-            <Btn onClick={calc} full variant="amber" className="py-4 text-base"><Calculator size={20}/> Calculate Settlement</Btn>
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 sm:pb-8 px-4 pointer-events-none">
+            <div className="flex gap-2 sm:gap-4 max-w-2xl mx-auto pointer-events-auto">
+              <Btn onClick={calc} full variant="amber" className="py-4 text-base shadow-amber-500/20 shadow-lg"><Calculator size={20} /> Calculate Settlement</Btn>
+            </div>
           </div>
         </div>
-      ):(
-        <div className="space-y-8 animate-slide-up">
+      ) : (
+        <div className="space-y-8 animate-slide-up pb-24">
           <div ref={receiptRef} className="glass-panel p-5 sm:p-8 rounded-[2rem]">
             <h2 className="text-sm font-semibold mb-5 tracking-wider uppercase text-slate-400">Player balances</h2>
             <div className="space-y-3">{result.balances.map((b,i)=>(
