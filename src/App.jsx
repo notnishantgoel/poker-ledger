@@ -874,7 +874,8 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   const calcLeave = () => {
     setErr("");
     if(!lp) return setErr("Select a player");
-    if(lFinalAmount.chips <= 0) return setErr("Enter final chip count");
+    if(lFinalAmount.chips === "" || lFinalAmount.chips === null) return setErr("Enter final chip count");
+    if(lFinalAmount.chips < 0) return setErr("Final chips cannot be negative");
 
     const p = game.players.find(x => x.id === lp);
     const chipMon = round2(lFinalAmount.chips * game.chipValue);
