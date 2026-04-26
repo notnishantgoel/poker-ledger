@@ -323,7 +323,7 @@ function SettlePlayerRow({ p, i, chipValue, fcVal, remaining, onChange }) {
         <Avatar name={p.name} i={i} size="w-9 h-9 sm:w-12 sm:h-12" textSize="text-sm sm:text-base font-bold" />
         <div className="flex-1 min-w-0">
           <span className="text-base sm:text-lg font-bold text-slate-100 truncate block">{p.name}</span>
-          <p className="text-xs font-medium mt-0.5 text-rose-400/80"><span className="font-mono">-{CURRENCY}{p.cashInvested.toLocaleString()}</span></p>
+          <p className="text-xs font-medium mt-0.5 text-slate-500"><span className="font-mono">{p.cashInvested < 0 ? '+' : ''}{CURRENCY}{Math.abs(p.cashInvested).toLocaleString()}</span></p>
         </div>
         <div className={`flex items-center rounded-xl border shrink-0 overflow-hidden ${netColor}`}>
           <span className="pl-2.5 font-mono text-sm font-bold pointer-events-none">{CURRENCY}</span>
@@ -394,9 +394,9 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
         <div className="flex-1 min-w-0 flex items-center">
           <p className="text-sm font-bold text-slate-100 truncate">{p.name}</p>
         </div>
-        <div className="flex text-base font-bold text-rose-400 font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border border-rose-500/20">
-            <span className="mr-0.5">-{CURRENCY}</span>
-            {p.cashInvested.toLocaleString()}
+        <div className={`flex text-base font-bold font-mono drop-shadow-sm bg-slate-950/40 px-2.5 py-1 rounded-lg border ${p.cashInvested >= 0 ? 'text-amber-400 border-amber-500/20' : 'text-theme-400 border-theme-500/20'}`}>
+            <span className="mr-0.5">{p.cashInvested < 0 ? '+' : ''}{CURRENCY}</span>
+            {Math.abs(p.cashInvested).toLocaleString()}
           </div>
       </div>
     </div>
@@ -1292,7 +1292,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
               <div className="space-y-2.5 text-sm text-slate-300">
                 <div className="flex justify-between items-center"><span>Final chips</span><span className="font-mono bg-slate-800/50 px-2 py-0.5 rounded text-slate-200">{lCalc.fc}</span></div>
                 <div className="flex justify-between items-center"><span>Final value</span><span className="font-mono text-amber-400/90">{CURRENCY}{lCalc.chipMon.toLocaleString()}</span></div>
-                <div className="flex justify-between items-center"><span>Total invested</span><span className="font-mono text-rose-400">-{CURRENCY}{lCalc.invested.toLocaleString()}</span></div>
+                <div className="flex justify-between items-center"><span>Total invested</span><span className="font-mono text-slate-200">{CURRENCY}{lCalc.invested.toLocaleString()}</span></div>
                 <div className="flex justify-between pt-3 mt-3 border-t border-white/10">
                   <span className="font-bold text-slate-200">Net profit/loss</span>
                   <span className={`font-mono text-base font-bold bg-slate-950/50 px-3 py-1 rounded-lg border ${lCalc.net>0?'text-theme-400 border-theme-500/20':lCalc.net<0?'text-rose-400 border-rose-500/20':'text-slate-400 border-white/10'}`}>
@@ -1749,7 +1749,7 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
                 {b.name===result.winner && <div className="absolute top-0 right-0 p-1.5 bg-amber-500/20 text-amber-400 rounded-bl-[0.75rem] backdrop-blur-md border-b border-l border-amber-500/30"><Crown size={14} /></div>}
                 <span className="text-base sm:text-lg font-bold flex-1 text-slate-100 truncate">{b.name}</span>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-slate-400"><span className="font-mono">{b.finalChips}</span> chips &middot; Inv. <span className="text-rose-400/80">-{CURRENCY}{b.invested.toLocaleString()}</span></p>
+                  <p className="text-xs font-medium text-slate-400"><span className="font-mono">{b.finalChips}</span> chips &middot; Inv. <span className="text-slate-300">{CURRENCY}{b.invested.toLocaleString()}</span></p>
                   <p className={`text-lg font-bold mt-1 font-mono ${b.balance>0?'text-theme-400':b.balance<0?'text-rose-400':'text-slate-400'}`}>
                     {b.balance>0?"+":b.balance<0?"-":""}{CURRENCY}{Math.abs(round2(b.balance)).toLocaleString()}
                   </p>
