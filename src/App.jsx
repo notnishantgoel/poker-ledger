@@ -1986,10 +1986,34 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
 
 
 /* ─────────── HISTORY ─────────── */
-function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer }) {
+function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer, onDeleteHistory }) {
   const [tab, setTab] = useState(defaultTab);
   const [expandedId, setExpandedId] = useState(null);
   const [selectedPlayers, setSelectedPlayers] = useState([]);
+
+  // Delete confirmation state — 2-step flow
+  const [deleteTarget, setDeleteTarget] = useState(null); // id of history entry to delete, or "all"
+  const [deleteStep, setDeleteStep] = useState(0); // 0=none, 1=first confirm, 2=final confirm
+
+  const initiateDelete = (id) => {
+    haptic();
+    setDeleteTarget(id);
+    setDeleteStep(1);
+  };
+  const advanceDelete = () => {
+    if (deleteStep === 1) {
+      setDeleteStep(2);
+    } else if (deleteStep === 2) {
+      onDeleteHistory(deleteTarget);
+      setDeleteTarget(null);
+      setDeleteStep(0);
+      setExpandedId(null);
+    }
+  };
+  const cancelDelete = () => {
+    setDeleteTarget(null);
+    setDeleteStep(0);
+  };
   const togglePlayer = (name) => setSelectedPlayers(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
 
   // Rename modal state
@@ -2080,38 +2104,57 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Delete All History button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => initiateDelete("all")}
+                className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-2 rounded-xl border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/15 text-rose-400 transition-colors"
+              >
+                <Trash2 size={13}/> Delete All
+              </button>
+            </div>
             {[...history].sort((a, b) => (b.id || 0) - (a.id || 0)).map((h, i) => {
               const date = new Date(h.id).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
               const winnerNet = h.result?.winner ? (h.result.balances?.find(p => p.name === h.result.winner)?.balance ?? 0) : 0;
               const isExpanded = expandedId === h.id;
               return (
-                <div key={h.id} className="glass-panel rounded-[1.5rem] animate-slide-up overflow-hidden" style={{animationDelay:`${i*50}ms`}}>
+                <div key={h.id} className="glass-panel rounded-[1.5rem] animate-slide-up overflow-hidden group/hist" style={{animationDelay:`${i*50}ms`}}>
                   {/* Collapsed header — always visible, click to expand */}
-                  <button
-                    className="w-full p-5 flex items-start justify-between text-left gap-3"
-                    onClick={() => setExpandedId(isExpanded ? null : h.id)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Clock size={14} className="text-purple-400 flex-shrink-0" />
-                        <span className="text-slate-400 font-medium text-xs">{date}</span>
+                  <div className="relative">
+                    <button
+                      className="w-full p-5 flex items-start justify-between text-left gap-3"
+                      onClick={() => setExpandedId(isExpanded ? null : h.id)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Clock size={14} className="text-purple-400 flex-shrink-0" />
+                          <span className="text-slate-400 font-medium text-xs">{date}</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {[...(h.result?.balances || [])].sort((a, b) => b.balance - a.balance).map(b => (
+                            <div key={b.name} className="flex items-center justify-between gap-4">
+                              <span className={`text-sm font-semibold flex items-center gap-1 ${b.name === h.result?.winner ? 'text-amber-400' : 'text-slate-300'}`}>
+                                {b.name === h.result?.winner && <Crown size={11}/>}
+                                {b.name}
+                              </span>
+                              <span className={`text-sm font-mono font-bold ${b.balance > 0 ? 'text-emerald-400' : b.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                {b.balance > 0 ? '+' : b.balance < 0 ? '-' : ''}{CURRENCY}{Math.abs(round2(b.balance)).toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        {[...(h.result?.balances || [])].sort((a, b) => b.balance - a.balance).map(b => (
-                          <div key={b.name} className="flex items-center justify-between gap-4">
-                            <span className={`text-sm font-semibold flex items-center gap-1 ${b.name === h.result?.winner ? 'text-amber-400' : 'text-slate-300'}`}>
-                              {b.name === h.result?.winner && <Crown size={11}/>}
-                              {b.name}
-                            </span>
-                            <span className={`text-sm font-mono font-bold ${b.balance > 0 ? 'text-emerald-400' : b.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                              {b.balance > 0 ? '+' : b.balance < 0 ? '-' : ''}{CURRENCY}{Math.abs(round2(b.balance)).toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 flex-shrink-0 mt-1 ${isExpanded ? "rotate-180" : ""}`} />
-                  </button>
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 flex-shrink-0 mt-1 ${isExpanded ? "rotate-180" : ""}`} />
+                    </button>
+                    {/* Delete button — visible on hover/tap */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); initiateDelete(h.id); }}
+                      className="absolute top-3 right-12 p-2 rounded-xl text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all opacity-0 group-hover/hist:opacity-100 sm:opacity-0 active:opacity-100"
+                      title="Delete this game"
+                    >
+                      <Trash2 size={15}/>
+                    </button>
+                  </div>
                   {/* Expanded settlement detail — recompute from balances for optimal transactions */}
                   {isExpanded && (() => {
                     const recomputedSettlements = h.result?.balances?.length > 0
@@ -2137,6 +2180,13 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
                       ) : (
                         <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
                       )}
+                      {/* Delete this game — always visible in expanded view */}
+                      <button
+                        onClick={() => initiateDelete(h.id)}
+                        className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-500/15 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 text-xs font-semibold transition-all"
+                      >
+                        <Trash2 size={13}/> Delete this game
+                      </button>
                     </div>
                   );
                   })()}
@@ -2296,6 +2346,68 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
             <Btn onClick={submitRename} variant="primary" className="flex-1"><Check size={16}/> Rename</Btn>
           </div>
           <p className="text-[10px] text-slate-600 text-center italic">Long-press any player on the leaderboard to rename</p>
+        </div>
+      </Modal>
+
+      {/* Delete History Confirmation — Step 1 */}
+      <Modal
+        open={deleteStep === 1}
+        onClose={cancelDelete}
+        title={deleteTarget === "all" ? "Delete All History?" : "Delete Game?"}
+        icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><Trash2 size={20}/></div>}
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl p-4 bg-rose-500/5 border border-rose-500/10">
+            {deleteTarget === "all" ? (
+              <p className="text-sm text-slate-300 leading-relaxed">
+                You are about to delete <span className="font-bold text-rose-400">all {history.length} game{history.length !== 1 ? "s" : ""}</span> from your history.
+                This will also reset the <span className="font-bold text-amber-400">leaderboard</span> and <span className="font-bold text-blue-400">performance graphs</span>.
+              </p>
+            ) : (
+              <p className="text-sm text-slate-300 leading-relaxed">
+                You are about to delete this game from your history.
+                The <span className="font-bold text-amber-400">leaderboard</span> and <span className="font-bold text-blue-400">graphs</span> will be recalculated without this game's data.
+              </p>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 text-center">This action cannot be undone.</p>
+          <div className="flex gap-3">
+            <Btn onClick={cancelDelete} variant="secondary" className="flex-1">Cancel</Btn>
+            <Btn onClick={advanceDelete} variant="danger" className="flex-1">
+              <AlertTriangle size={16}/> Yes, Continue
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete History Confirmation — Step 2 (Final) */}
+      <Modal
+        open={deleteStep === 2}
+        onClose={cancelDelete}
+        title="Are you absolutely sure?"
+        icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400 animate-pulse"><AlertTriangle size={20}/></div>}
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl p-4 bg-rose-500/10 border border-rose-500/20">
+            <p className="text-sm text-rose-300 font-semibold mb-2">⚠️ Final Warning</p>
+            {deleteTarget === "all" ? (
+              <p className="text-sm text-slate-300 leading-relaxed">
+                This will <span className="font-bold text-rose-400">permanently erase</span> all game records, leaderboard stats, and graph data.
+                If you have cloud sync enabled, the deleted data will also be removed from the cloud on next backup.
+              </p>
+            ) : (
+              <p className="text-sm text-slate-300 leading-relaxed">
+                This game record will be <span className="font-bold text-rose-400">permanently deleted</span>.
+                Leaderboard rankings and graph trends will be recalculated without it.
+              </p>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Btn onClick={cancelDelete} variant="secondary" className="flex-1">Go Back</Btn>
+            <Btn onClick={advanceDelete} variant="danger" className="flex-1">
+              <Trash2 size={16}/> {deleteTarget === "all" ? "Delete Everything" : "Delete Permanently"}
+            </Btn>
+          </div>
         </div>
       </Modal>
     </div>
@@ -2496,6 +2608,27 @@ export default function App() {
     const updatedNames = savedNames.map(n => n === oldName ? newName : n);
     setSavedNames(updatedNames);
     await store.set(NAMES_KEY, updatedNames);
+  };
+
+  // Delete a single history entry or all history
+  const handleDeleteHistory = async (target) => {
+    let updatedHistory;
+    if (target === "all") {
+      updatedHistory = [];
+    } else {
+      updatedHistory = history.filter(h => h.id !== target);
+    }
+    setHistory(updatedHistory);
+    await store.set(HISTORY_KEY, updatedHistory);
+
+    // Push deletion to cloud if profile exists
+    if (profileId) {
+      (async () => {
+        try {
+          await saveProfile(profileId, { history: updatedHistory, savedNames, games: allGames });
+        } catch {}
+      })();
+    }
   };
 
   const handleReset=async(completedResult = null)=>{
@@ -2820,7 +2953,7 @@ export default function App() {
       <div className="relative">
         {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onSync={()=>setSyncModal(true)} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} />}
-        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} onRenamePlayer={handleRenamePlayer} />}
+        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
         {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))} unsettledBalances={unsettledBalances}/>}
 
