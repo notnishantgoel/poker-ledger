@@ -8,7 +8,8 @@ import {
   LogOut, Building2, Users, Palette, Crown, Download, Share2,
   Link2, Wifi, WifiOff, Copy, ExternalLink,
   History, Clock, ChevronRight,
-  CloudUpload, CloudDownload, RefreshCw, KeyRound
+  CloudUpload, CloudDownload, RefreshCw, KeyRound,
+  EyeOff, Eye
 } from "lucide-react";
 import {
   createSession, joinSession, updateSessionGame,
@@ -2020,9 +2021,29 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
   const [renameModal, setRenameModal] = useState(null); // { oldName: string }
   const [renameValue, setRenameValue] = useState("");
   const [renameErr, setRenameErr] = useState("");
+  const [mergeConfirm, setMergeConfirm] = useState(null); // { oldName, newName, existingPlayer }
+  const [mergeStep, setMergeStep] = useState(0); // 0=none, 1=first confirm, 2=final confirm
+  const [hiddenPlayers, setHiddenPlayers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; }
+  });
   const longPressTimer = useRef(null);
+  const touchStartPos = useRef(null);
 
-  const handleLongPressStart = (name) => {
+  const toggleHidePlayer = (name) => {
+    setHiddenPlayers(prev => {
+      const next = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
+      localStorage.setItem("poker-ledger-hidden-players", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleLongPressStart = (name, e) => {
+    // Store touch start position for scroll detection
+    if (e?.touches?.[0]) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else {
+      touchStartPos.current = null;
+    }
     longPressTimer.current = setTimeout(() => {
       haptic();
       setRenameModal({ oldName: name });
@@ -2030,17 +2051,51 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
       setRenameErr("");
     }, 600);
   };
+  const handleLongPressMove = (e) => {
+    // Cancel long press if finger moves (scrolling)
+    if (longPressTimer.current && touchStartPos.current && e?.touches?.[0]) {
+      const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
+      const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
+      if (dx > 10 || dy > 10) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+        touchStartPos.current = null;
+      }
+    }
+  };
   const handleLongPressEnd = () => {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    touchStartPos.current = null;
   };
   const submitRename = () => {
     const newName = renameValue.trim();
     if (!newName) return setRenameErr("Name cannot be empty");
     if (newName === renameModal.oldName) { setRenameModal(null); return; }
-    if (leaderboard.some(p => p.name.toLowerCase() === newName.toLowerCase() && p.name !== renameModal.oldName))
-      return setRenameErr("A player with this name already exists");
+    // Check if the new name already exists — if so, show merge confirmation
+    const existingPlayer = leaderboard.find(p => p.name.toLowerCase() === newName.toLowerCase() && p.name !== renameModal.oldName);
+    if (existingPlayer) {
+      const oldPlayer = leaderboard.find(p => p.name === renameModal.oldName);
+      setMergeConfirm({ oldName: renameModal.oldName, newName: existingPlayer.name, oldPlayer, existingPlayer });
+      setMergeStep(1);
+      return;
+    }
     onRenamePlayer(renameModal.oldName, newName);
     setRenameModal(null);
+  };
+  const advanceMerge = () => {
+    if (mergeStep === 1) {
+      setMergeStep(2);
+    } else if (mergeStep === 2) {
+      if (!mergeConfirm) return;
+      onRenamePlayer(mergeConfirm.oldName, mergeConfirm.newName);
+      setMergeConfirm(null);
+      setMergeStep(0);
+      setRenameModal(null);
+    }
+  };
+  const cancelMerge = () => {
+    setMergeConfirm(null);
+    setMergeStep(0);
   };
 
   // Aggregate leaderboard data from history
@@ -2196,7 +2251,10 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           </div>
         )
       ) : tab === "leaderboard" ? (
-        leaderboard.length === 0 ? (
+        (() => {
+          const visibleLeaderboard = leaderboard.filter(p => !hiddenPlayers.includes(p.name));
+          const hiddenLeaderboard = leaderboard.filter(p => hiddenPlayers.includes(p.name));
+          return visibleLeaderboard.length === 0 && hiddenLeaderboard.length === 0 ? (
           <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
             <Crown size={40} className="mx-auto text-slate-600 mb-4" />
             <p className="text-base font-medium text-slate-400">No data yet.</p>
@@ -2204,51 +2262,95 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           </div>
         ) : (
           <div className="space-y-3">
-            {leaderboard.map((p, i) => {
+            {visibleLeaderboard.map((p, i) => {
               const isTop = i === 0;
               const winRate = p.games > 0 ? Math.round((p.wins / p.games) * 100) : 0;
               const isUp = p.net > 0;
               const isEven = p.net === 0;
               return (
-                <button key={p.name}
-                  onClick={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
-                  onTouchStart={() => handleLongPressStart(p.name)}
-                  onTouchEnd={handleLongPressEnd}
-                  onTouchCancel={handleLongPressEnd}
-                  onMouseDown={() => handleLongPressStart(p.name)}
-                  onMouseUp={handleLongPressEnd}
-                  onMouseLeave={handleLongPressEnd}
-                  onContextMenu={e => e.preventDefault()}
-                  className={`w-full glass-panel p-5 rounded-[1.5rem] animate-slide-up flex items-center gap-5 active:scale-[0.98] transition-transform ${isTop ? "border border-amber-500/20" : ""}`} style={{animationDelay:`${i*40}ms`}}>
-                  {/* Rank */}
-                  <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
-                    {isTop ? <Crown size={16}/> : `#${i+1}`}
-                  </div>
-                  {/* Name + stats */}
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · <span className="text-emerald-500">{p.wins}W</span> · <span className="text-rose-500">{p.losses}L</span>{p.draws > 0 ? <> · <span className="text-slate-400">{p.draws}D</span></> : null} · {winRate}%</p>
-                  </div>
-                  {/* Net P&L */}
-                  <div className="text-right flex-shrink-0">
-                    <p className={`font-mono font-bold text-base ${isUp ? "text-emerald-400" : isEven ? "text-slate-400" : "text-rose-400"}`}>
-                      {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
-                    </p>
-                    <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
-                      {p.bestWin > 0 && <p>best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span></p>}
-                      {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
+                <div key={p.name} className={`w-full glass-panel p-5 rounded-[1.5rem] animate-slide-up flex items-center gap-5 ${isTop ? "border border-amber-500/20" : ""}`} style={{animationDelay:`${i*40}ms`}}>
+                  <button
+                    onClick={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
+                    onTouchStart={(e) => handleLongPressStart(p.name, e)}
+                    onTouchMove={handleLongPressMove}
+                    onTouchEnd={handleLongPressEnd}
+                    onTouchCancel={handleLongPressEnd}
+                    onMouseDown={(e) => handleLongPressStart(p.name, e)}
+                    onMouseUp={handleLongPressEnd}
+                    onMouseLeave={handleLongPressEnd}
+                    onContextMenu={e => e.preventDefault()}
+                    className="flex-1 flex items-center gap-5 active:scale-[0.98] transition-transform min-w-0">
+                    {/* Rank */}
+                    <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
+                      {isTop ? <Crown size={16}/> : `#${i+1}`}
                     </div>
-                  </div>
-                </button>
+                    {/* Name + stats */}
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · <span className="text-emerald-500">{p.wins}W</span> · <span className="text-rose-500">{p.losses}L</span>{p.draws > 0 ? <> · <span className="text-slate-400">{p.draws}D</span></> : null} · {winRate}%</p>
+                    </div>
+                    {/* Net P&L */}
+                    <div className="text-right flex-shrink-0">
+                      <p className={`font-mono font-bold text-base ${isUp ? "text-emerald-400" : isEven ? "text-slate-400" : "text-rose-400"}`}>
+                        {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
+                      </p>
+                      <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                        {p.bestWin > 0 && <p>best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span></p>}
+                        {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
+                      </div>
+                    </div>
+                  </button>
+                  {/* Hide button */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleHidePlayer(p.name); }}
+                    className="p-2 rounded-lg hover:bg-white/5 text-slate-600 hover:text-slate-400 transition-all shrink-0"
+                    title="Hide from leaderboard"
+                  >
+                    <EyeOff size={15}/>
+                  </button>
+                </div>
               );
             })}
+            {/* Hidden players section */}
+            {hiddenLeaderboard.length > 0 && (
+              <details className="glass-panel rounded-[1.5rem] overflow-hidden">
+                <summary className="px-5 py-4 cursor-pointer flex items-center gap-3 text-sm font-semibold text-slate-500 hover:text-slate-300 transition-colors">
+                  <EyeOff size={15}/> {hiddenLeaderboard.length} hidden player{hiddenLeaderboard.length !== 1 ? "s" : ""}
+                </summary>
+                <div className="px-3 pb-3 space-y-2">
+                  {hiddenLeaderboard.map((p) => {
+                    const isUp = p.net > 0;
+                    const isEven = p.net === 0;
+                    return (
+                      <div key={p.name} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/3 opacity-60">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-400 truncate">{p.name}</p>
+                          <p className="text-xs text-slate-600">{p.games} game{p.games !== 1 ? "s" : ""}</p>
+                        </div>
+                        <p className={`font-mono text-sm font-bold ${isUp ? "text-emerald-400/60" : isEven ? "text-slate-500" : "text-rose-400/60"}`}>
+                          {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
+                        </p>
+                        <button
+                          onClick={() => toggleHidePlayer(p.name)}
+                          className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-emerald-400 transition-all"
+                          title="Show on leaderboard"
+                        >
+                          <Eye size={14}/>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            )}
           </div>
-        )
+        );
+        })()
       ) : (
         (() => {
           const CHART_COLORS = ['#10b981','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
           const chronological = [...history].sort((a, b) => a.id - b.id);
-          const allPlayers = [...new Set(chronological.flatMap(g => (g.result?.balances || []).map(b => b.name)))];
+          const allPlayers = [...new Set(chronological.flatMap(g => (g.result?.balances || []).map(b => b.name)))].filter(name => !hiddenPlayers.includes(name));
           const chartData = chronological.reduce((acc, entry, idx) => {
             const prev = acc[idx - 1] || {};
             const point = { date: new Date(entry.id).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) };
@@ -2326,7 +2428,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
       )}
 
       {/* Rename Player Modal */}
-      <Modal open={!!renameModal} onClose={() => setRenameModal(null)} title="Rename Player" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><Users size={20}/></div>}>
+      <Modal open={!!renameModal && !mergeConfirm} onClose={() => setRenameModal(null)} title="Rename Player" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><Users size={20}/></div>}>
         <div className="space-y-4">
           <p className="text-slate-400 text-sm">Renaming <span className="font-bold text-slate-200">{renameModal?.oldName}</span> across all history and saved names.</p>
           <div>
@@ -2347,6 +2449,98 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           </div>
           <p className="text-[10px] text-slate-600 text-center italic">Long-press any player on the leaderboard to rename</p>
         </div>
+      </Modal>
+
+      {/* Merge Confirmation — Step 1 */}
+      <Modal open={!!mergeConfirm && mergeStep === 1} onClose={cancelMerge} title="Merge Players?" icon={<div className="p-2 bg-amber-500/20 rounded-lg text-amber-400"><Users size={20}/></div>}>
+        {mergeConfirm && (
+          <div className="space-y-5">
+            <div className="rounded-2xl p-4 bg-amber-500/5 border border-amber-500/10">
+              <p className="text-sm text-slate-300 leading-relaxed">
+                <span className="font-bold text-amber-400">{mergeConfirm.oldName}</span> will be merged into <span className="font-bold text-amber-400">{mergeConfirm.newName}</span>.
+                All transactions, game logs, and money records will be combined under <span className="font-bold text-slate-100">{mergeConfirm.newName}</span>.
+              </p>
+            </div>
+
+            {/* Preview of what gets merged */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Merge Preview</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="glass-panel rounded-xl p-3 border border-rose-500/10">
+                  <p className="text-xs font-semibold text-rose-400 mb-2 uppercase tracking-wider">Will be removed</p>
+                  <p className="text-sm font-bold text-slate-200 truncate">{mergeConfirm.oldName}</p>
+                  {mergeConfirm.oldPlayer && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-slate-500">{mergeConfirm.oldPlayer.games} game{mergeConfirm.oldPlayer.games !== 1 ? "s" : ""}</p>
+                      <p className={`text-xs font-mono font-bold ${mergeConfirm.oldPlayer.net >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {mergeConfirm.oldPlayer.net >= 0 ? "+" : ""}{CURRENCY}{Math.abs(mergeConfirm.oldPlayer.net).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="glass-panel rounded-xl p-3 border border-emerald-500/10">
+                  <p className="text-xs font-semibold text-emerald-400 mb-2 uppercase tracking-wider">Merging into</p>
+                  <p className="text-sm font-bold text-slate-200 truncate">{mergeConfirm.newName}</p>
+                  {mergeConfirm.existingPlayer && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-slate-500">{mergeConfirm.existingPlayer.games} game{mergeConfirm.existingPlayer.games !== 1 ? "s" : ""}</p>
+                      <p className={`text-xs font-mono font-bold ${mergeConfirm.existingPlayer.net >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {mergeConfirm.existingPlayer.net >= 0 ? "+" : ""}{CURRENCY}{Math.abs(mergeConfirm.existingPlayer.net).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {mergeConfirm.oldPlayer && mergeConfirm.existingPlayer && (
+                <div className="glass-panel rounded-xl p-3 border border-amber-500/15">
+                  <p className="text-xs font-semibold text-amber-400 mb-2 uppercase tracking-wider">Combined Result</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-slate-100">{mergeConfirm.newName}</p>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500">{mergeConfirm.oldPlayer.games + mergeConfirm.existingPlayer.games} games</p>
+                      <p className={`text-sm font-mono font-bold ${(mergeConfirm.oldPlayer.net + mergeConfirm.existingPlayer.net) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {(mergeConfirm.oldPlayer.net + mergeConfirm.existingPlayer.net) >= 0 ? "+" : ""}{CURRENCY}{Math.abs(round2(mergeConfirm.oldPlayer.net + mergeConfirm.existingPlayer.net)).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl p-3 bg-rose-500/5 border border-rose-500/10">
+              <p className="text-xs text-rose-300 flex items-start gap-2">
+                <AlertTriangle size={14} className="shrink-0 mt-0.5"/>
+                This action cannot be undone. Both players are assumed to be the same person.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <Btn onClick={cancelMerge} variant="secondary" className="flex-1">Cancel</Btn>
+              <Btn onClick={advanceMerge} variant="amber" className="flex-1"><ArrowRight size={16}/> Continue</Btn>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Merge Confirmation — Step 2 (Final) */}
+      <Modal open={!!mergeConfirm && mergeStep === 2} onClose={cancelMerge} title="Are you absolutely sure?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
+        {mergeConfirm && (
+          <div className="space-y-5">
+            <div className="rounded-2xl p-4 bg-rose-500/5 border border-rose-500/10">
+              <p className="text-sm text-slate-300 leading-relaxed">
+                You are about to <span className="font-bold text-rose-400">permanently merge</span> <span className="font-bold text-amber-400">{mergeConfirm.oldName}</span> into <span className="font-bold text-amber-400">{mergeConfirm.newName}</span>.
+              </p>
+              <p className="text-sm text-slate-400 mt-2">
+                All of <span className="font-bold text-slate-200">{mergeConfirm.oldName}</span>'s game history, transactions, and records will be reassigned to <span className="font-bold text-slate-200">{mergeConfirm.newName}</span>. This cannot be reversed.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <Btn onClick={cancelMerge} variant="secondary" className="flex-1">Go Back</Btn>
+              <Btn onClick={advanceMerge} variant="danger" className="flex-1"><Check size={16}/> Merge Forever</Btn>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Delete History Confirmation — Step 1 */}
