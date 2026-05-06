@@ -2100,6 +2100,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
   const [hiddenPlayers, setHiddenPlayers] = useState(() => {
     try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; }
   });
+  const [hideConfirm, setHideConfirm] = useState(null); // name to hide
   const [priorBalances, setPriorBalances] = useState(() => {
     try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; }
   });
@@ -2231,8 +2232,17 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
     return result.sort((a, b) => b.net - a.net);
   })();
 
+  const TABS = ["history", "leaderboard", "graph"];
+  const tabSwipeHandlers = useSwipeable({
+    onSwipedLeft: () => { const i = TABS.indexOf(tab); if (i < TABS.length - 1) setTab(TABS[i + 1]); },
+    onSwipedRight: () => { const i = TABS.indexOf(tab); if (i > 0) setTab(TABS[i - 1]); },
+    preventScrollOnSwipe: false,
+    delta: 60,
+    trackMouse: false,
+  });
+
   return (
-    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
+    <div {...tabSwipeHandlers} className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
       <div className="flex items-center gap-4 sm:gap-5 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">{tab === "leaderboard" ? "Leaderboard" : "Game History"}</h1>
@@ -2380,7 +2390,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
               const isUp = p.net > 0;
               const isEven = p.net === 0;
               return (
-                <LeaderboardSwipeRow key={p.name} name={p.name} i={i} onHide={toggleHidePlayer}
+                <LeaderboardSwipeRow key={p.name} name={p.name} i={i} onHide={(name) => setHideConfirm(name)}
                   onPriorBalance={(name) => { setPriorBalanceModal({ name }); setPriorBalanceInput(priorBalances[name] != null ? String(priorBalances[name]) : ""); }}
                   onTap={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
                   onLongPressStart={handleLongPressStart} onLongPressMove={handleLongPressMove} onLongPressEnd={handleLongPressEnd}>
@@ -2523,6 +2533,21 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           );
         })()
       )}
+
+      {/* Hide Player Confirmation */}
+      <Modal open={!!hideConfirm} onClose={() => setHideConfirm(null)} title="Hide Player?" icon={<div className="p-2 bg-slate-500/20 rounded-lg text-slate-400"><EyeOff size={20}/></div>}>
+        {hideConfirm && (
+          <div className="space-y-5">
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Hide <span className="font-bold text-slate-100">{hideConfirm}</span> from the leaderboard and graphs? You can unhide them from the hidden players section at the bottom of the leaderboard.
+            </p>
+            <div className="flex gap-3">
+              <Btn onClick={() => setHideConfirm(null)} variant="secondary" className="flex-1">Cancel</Btn>
+              <Btn onClick={() => { toggleHidePlayer(hideConfirm); setHideConfirm(null); }} variant="primary" className="flex-1"><EyeOff size={16}/> Hide</Btn>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Rename Player Modal */}
       <Modal open={!!renameModal && !mergeConfirm} onClose={() => setRenameModal(null)} title="Rename Player" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><Users size={20}/></div>}>
