@@ -453,7 +453,10 @@ const LeaderboardSwipeRow = memo(({ name, i, onHide, onPriorBalance, onTap, onLo
   });
 
   return (
-    <div {...handlers} className="relative group isolate overflow-hidden rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*40}ms`, touchAction: 'pan-y'}}>
+    <div {...handlers}
+      onTouchStart={(e) => { e.stopPropagation(); handlers.onTouchStart?.(e); }}
+      onTouchMove={(e) => { e.stopPropagation(); handlers.onTouchMove?.(e); }}
+      className="relative group isolate overflow-hidden rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*40}ms`, touchAction: 'pan-y'}}>
       <div ref={leftBgRef} className="absolute inset-y-0 left-0 w-1/2 bg-indigo-500/20 text-indigo-400 flex items-center pl-5 font-bold text-sm transition-opacity duration-200" style={{opacity: 0}}>
         <History size={16} className="mr-2"/> Prior
       </div>
@@ -2233,16 +2236,58 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
   })();
 
   const TABS = ["history", "leaderboard", "graph"];
-  const tabSwipeHandlers = useSwipeable({
-    onSwipedLeft: () => { const i = TABS.indexOf(tab); if (i < TABS.length - 1) setTab(TABS[i + 1]); },
-    onSwipedRight: () => { const i = TABS.indexOf(tab); if (i > 0) setTab(TABS[i - 1]); },
-    preventScrollOnSwipe: false,
-    delta: 60,
-    trackMouse: false,
-  });
+  const tabIndex = TABS.indexOf(tab);
+  const [tabDragX, setTabDragX] = useState(0);
+  const [isDraggingTab, setIsDraggingTab] = useState(false);
+  const tabTouchStart = useRef(null);
+
+  const handleTabTouchStart = (e) => {
+    tabTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    setTabDragX(0);
+    setIsDraggingTab(false);
+  };
+  const handleTabTouchMove = (e) => {
+    if (!tabTouchStart.current) return;
+    const dx = e.touches[0].clientX - tabTouchStart.current.x;
+    const dy = e.touches[0].clientY - tabTouchStart.current.y;
+    if (!isDraggingTab) {
+      if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 8) return;
+      setIsDraggingTab(true);
+    }
+    const clamped = tabIndex === 0 ? Math.min(0, dx) : tabIndex === TABS.length - 1 ? Math.max(0, dx) : dx;
+    setTabDragX(clamped);
+  };
+  const handleTabTouchEnd = () => {
+    if (isDraggingTab && Math.abs(tabDragX) > 60) {
+      if (tabDragX < 0 && tabIndex < TABS.length - 1) setTab(TABS[tabIndex + 1]);
+      else if (tabDragX > 0 && tabIndex > 0) setTab(TABS[tabIndex - 1]);
+    }
+    setTabDragX(0);
+    setIsDraggingTab(false);
+    tabTouchStart.current = null;
+  };
+
+  // Pre-compute panel data (all three panels are always in DOM for smooth sliding)
+  const visibleLeaderboard = leaderboard.filter(p => !hiddenPlayers.includes(p.name));
+  const hiddenLeaderboard = leaderboard.filter(p => hiddenPlayers.includes(p.name));
+  const CHART_COLORS = ['#10b981','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+  const chronological = [...history].sort((a, b) => a.id - b.id);
+  const allChartPlayers = [...new Set(chronological.flatMap(g => (g.result?.balances || []).map(b => b.name)))].filter(name => !hiddenPlayers.includes(name));
+  const chartData = chronological.reduce((acc, entry, idx) => {
+    const prev = acc[idx - 1] || {};
+    const point = { date: new Date(entry.id).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) };
+    allChartPlayers.forEach(name => {
+      const bal = entry.result?.balances?.find(b => b.name === name);
+      const base = prev[name] ?? (priorBalances[name] ?? 0);
+      point[name] = round2(base + (bal ? (bal.balance ?? 0) : 0));
+    });
+    acc.push(point);
+    return acc;
+  }, []);
+  const visiblePlayers = selectedPlayers.length > 0 ? selectedPlayers : [];
 
   return (
-    <div {...tabSwipeHandlers} className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
+    <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
       <div className="flex items-center gap-4 sm:gap-5 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">{tab === "leaderboard" ? "Leaderboard" : "Game History"}</h1>
@@ -2272,24 +2317,19 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
         </button>
       </div>
 
-      {tab === "history" ? (
-        history.length === 0 ? (
+      <div style={{ overflow: 'hidden' }} onTouchStart={handleTabTouchStart} onTouchMove={handleTabTouchMove} onTouchEnd={handleTabTouchEnd}>
+        <div style={{ display: 'flex', width: '300%', willChange: 'transform', transform: `translateX(calc(${-tabIndex * (100 / 3)}% + ${tabDragX}px))`, transition: isDraggingTab ? 'none' : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+
+          {/* ── History panel ── */}
+          <div style={{ width: '33.333%', minWidth: 0 }}>
+          {history.length === 0 ? (
           <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
             <Clock size={40} className="mx-auto text-slate-600 mb-4" />
             <p className="text-base font-medium text-slate-400">No game history yet.</p>
             <p className="text-sm text-slate-500 mt-2">Completed games will appear here.</p>
           </div>
-        ) : (
+          ) : (
           <div className="space-y-4">
-            {/* Delete All History button */}
-            <div className="flex justify-end">
-              <button
-                onClick={() => initiateDelete("all")}
-                className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-2 rounded-xl border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/15 text-rose-400 transition-colors"
-              >
-                <Trash2 size={13}/> Delete All
-              </button>
-            </div>
             {[...history].sort((a, b) => (b.id || 0) - (a.id || 0)).map((h, i) => {
               const date = new Date(h.id).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
               const winnerNet = h.result?.winner ? (h.result.balances?.find(p => p.name === h.result.winner)?.balance ?? 0) : 0;
@@ -2371,140 +2411,104 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
               );
             })}
           </div>
-        )
-      ) : tab === "leaderboard" ? (
-        (() => {
-          const visibleLeaderboard = leaderboard.filter(p => !hiddenPlayers.includes(p.name));
-          const hiddenLeaderboard = leaderboard.filter(p => hiddenPlayers.includes(p.name));
-          return visibleLeaderboard.length === 0 && hiddenLeaderboard.length === 0 ? (
-          <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
-            <Crown size={40} className="mx-auto text-slate-600 mb-4" />
-            <p className="text-base font-medium text-slate-400">No data yet.</p>
-            <p className="text-sm text-slate-500 mt-2">Complete a game to see leaderboard stats.</p>
+          )}
           </div>
-        ) : (
-          <div className="space-y-3">
-            {visibleLeaderboard.map((p, i) => {
-              const isTop = i === 0;
-              const winRate = p.games > 0 ? Math.round((p.wins / p.games) * 100) : 0;
-              const isUp = p.net > 0;
-              const isEven = p.net === 0;
-              return (
-                <LeaderboardSwipeRow key={p.name} name={p.name} i={i} onHide={(name) => setHideConfirm(name)}
-                  onPriorBalance={(name) => { setPriorBalanceModal({ name }); setPriorBalanceInput(priorBalances[name] != null ? String(priorBalances[name]) : ""); }}
-                  onTap={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
-                  onLongPressStart={handleLongPressStart} onLongPressMove={handleLongPressMove} onLongPressEnd={handleLongPressEnd}>
-                  {/* Rank */}
-                  <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
-                    {isTop ? <Crown size={16}/> : `#${i+1}`}
-                  </div>
-                  {/* Name + stats */}
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · <span className="text-emerald-500">{p.wins}W</span> · <span className="text-rose-500">{p.losses}L</span>{p.draws > 0 ? <> · <span className="text-slate-400">{p.draws}D</span></> : null} · {winRate}%</p>
-                  </div>
-                  {/* Net P&L */}
-                  <div className="text-right flex-shrink-0">
-                    <p className={`font-mono font-bold text-base ${isUp ? "text-emerald-400" : isEven ? "text-slate-400" : "text-rose-400"}`}>
-                      {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
-                    </p>
-                    <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
-                      {p.priorBalance && <p className="text-slate-600">incl. <span className={p.priorBalance > 0 ? "text-emerald-600" : "text-rose-600"}>{p.priorBalance > 0 ? "+" : ""}{CURRENCY}{p.priorBalance.toLocaleString()}</span> prior</p>}
-                      {p.bestWin > 0 && <p>best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span></p>}
-                      {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
+
+          {/* ── Leaderboard panel ── */}
+          <div style={{ width: '33.333%', minWidth: 0 }}>
+          {visibleLeaderboard.length === 0 && hiddenLeaderboard.length === 0 ? (
+            <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
+              <Crown size={40} className="mx-auto text-slate-600 mb-4" />
+              <p className="text-base font-medium text-slate-400">No data yet.</p>
+              <p className="text-sm text-slate-500 mt-2">Complete a game to see leaderboard stats.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleLeaderboard.map((p, i) => {
+                const isTop = i === 0;
+                const winRate = p.games > 0 ? Math.round((p.wins / p.games) * 100) : 0;
+                const isUp = p.net > 0;
+                const isEven = p.net === 0;
+                return (
+                  <LeaderboardSwipeRow key={p.name} name={p.name} i={i} onHide={(name) => setHideConfirm(name)}
+                    onPriorBalance={(name) => { setPriorBalanceModal({ name }); setPriorBalanceInput(priorBalances[name] != null ? String(priorBalances[name]) : ""); }}
+                    onTap={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
+                    onLongPressStart={handleLongPressStart} onLongPressMove={handleLongPressMove} onLongPressEnd={handleLongPressEnd}>
+                    <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
+                      {isTop ? <Crown size={16}/> : `#${i+1}`}
                     </div>
-                  </div>
-                </LeaderboardSwipeRow>
-              );
-            })}
-            {/* Hidden players section */}
-            {hiddenLeaderboard.length > 0 && (
-              <details className="glass-panel rounded-[1.5rem] overflow-hidden">
-                <summary className="px-5 py-4 cursor-pointer flex items-center gap-3 text-sm font-semibold text-slate-500 hover:text-slate-300 transition-colors">
-                  <EyeOff size={15}/> {hiddenLeaderboard.length} hidden player{hiddenLeaderboard.length !== 1 ? "s" : ""}
-                </summary>
-                <div className="px-3 pb-3 space-y-2">
-                  {hiddenLeaderboard.map((p) => {
-                    const isUp = p.net > 0;
-                    const isEven = p.net === 0;
-                    return (
-                      <div key={p.name} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/3 opacity-60">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-400 truncate">{p.name}</p>
-                          <p className="text-xs text-slate-600">{p.games} game{p.games !== 1 ? "s" : ""}</p>
-                        </div>
-                        <p className={`font-mono text-sm font-bold ${isUp ? "text-emerald-400/60" : isEven ? "text-slate-500" : "text-rose-400/60"}`}>
-                          {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
-                        </p>
-                        <button
-                          onClick={() => toggleHidePlayer(p.name)}
-                          className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-emerald-500/10 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-all border border-white/5 hover:border-emerald-500/20"
-                        >
-                          Show
-                        </button>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · <span className="text-emerald-500">{p.wins}W</span> · <span className="text-rose-500">{p.losses}L</span>{p.draws > 0 ? <> · <span className="text-slate-400">{p.draws}D</span></> : null} · {winRate}%</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className={`font-mono font-bold text-base ${isUp ? "text-emerald-400" : isEven ? "text-slate-400" : "text-rose-400"}`}>
+                        {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
+                      </p>
+                      <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                        {p.priorBalance && <p className="text-slate-600">incl. <span className={p.priorBalance > 0 ? "text-emerald-600" : "text-rose-600"}>{p.priorBalance > 0 ? "+" : ""}{CURRENCY}{p.priorBalance.toLocaleString()}</span> prior</p>}
+                        {p.bestWin > 0 && <p>best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span></p>}
+                        {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
                       </div>
-                    );
-                  })}
-                </div>
-              </details>
-            )}
+                    </div>
+                  </LeaderboardSwipeRow>
+                );
+              })}
+              {hiddenLeaderboard.length > 0 && (
+                <details className="glass-panel rounded-[1.5rem] overflow-hidden">
+                  <summary className="px-5 py-4 cursor-pointer flex items-center gap-3 text-sm font-semibold text-slate-500 hover:text-slate-300 transition-colors">
+                    <EyeOff size={15}/> {hiddenLeaderboard.length} hidden player{hiddenLeaderboard.length !== 1 ? "s" : ""}
+                  </summary>
+                  <div className="px-3 pb-3 space-y-2">
+                    {hiddenLeaderboard.map((p) => {
+                      const isUp = p.net > 0;
+                      const isEven = p.net === 0;
+                      return (
+                        <div key={p.name} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/3 opacity-60">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-400 truncate">{p.name}</p>
+                            <p className="text-xs text-slate-600">{p.games} game{p.games !== 1 ? "s" : ""}</p>
+                          </div>
+                          <p className={`font-mono text-sm font-bold ${isUp ? "text-emerald-400/60" : isEven ? "text-slate-500" : "text-rose-400/60"}`}>
+                            {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
+                          </p>
+                          <button onClick={() => toggleHidePlayer(p.name)} className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-emerald-500/10 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-all border border-white/5 hover:border-emerald-500/20">Show</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
           </div>
-        );
-        })()
-      ) : (
-        (() => {
-          const CHART_COLORS = ['#10b981','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
-          const chronological = [...history].sort((a, b) => a.id - b.id);
-          const allPlayers = [...new Set(chronological.flatMap(g => (g.result?.balances || []).map(b => b.name)))].filter(name => !hiddenPlayers.includes(name));
-          const chartData = chronological.reduce((acc, entry, idx) => {
-            const prev = acc[idx - 1] || {};
-            const point = { date: new Date(entry.id).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) };
-            allPlayers.forEach(name => {
-              const bal = entry.result?.balances?.find(b => b.name === name);
-              // First data point starts from prior balance (offset before tracking began)
-              const base = prev[name] ?? (priorBalances[name] ?? 0);
-              point[name] = round2(base + (bal ? (bal.balance ?? 0) : 0));
-            });
-            acc.push(point);
-            return acc;
-          }, []);
 
-          if (history.length < 2) {
-            return (
-              <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
-                <Sparkles size={40} className="mx-auto text-slate-600 mb-4" />
-                <p className="text-base font-medium text-slate-400">Not enough data yet.</p>
-                <p className="text-sm text-slate-500 mt-2">Play at least 2 games to see performance graphs.</p>
-              </div>
-            );
-          }
-
-          const visiblePlayers = selectedPlayers.length > 0 ? selectedPlayers : [];
-
-          return (
+          {/* ── Graph panel ── */}
+          <div style={{ width: '33.333%', minWidth: 0 }}>
+          {history.length < 2 ? (
+            <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
+              <Sparkles size={40} className="mx-auto text-slate-600 mb-4" />
+              <p className="text-base font-medium text-slate-400">Not enough data yet.</p>
+              <p className="text-sm text-slate-500 mt-2">Play at least 2 games to see performance graphs.</p>
+            </div>
+          ) : (
             <div className="space-y-4">
-              {/* Player toggle pills */}
               <div className="glass-panel p-4 rounded-[1.5rem]">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Select players to display</p>
                 <div className="flex flex-wrap gap-2">
-                  {allPlayers.map((name, i) => {
+                  {allChartPlayers.map((name, i) => {
                     const isOn = selectedPlayers.includes(name);
                     const color = CHART_COLORS[i % CHART_COLORS.length];
                     return (
-                      <button
-                        key={name}
-                        onClick={() => togglePlayer(name)}
+                      <button key={name} onClick={() => togglePlayer(name)}
                         className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${isOn ? 'text-white border-transparent' : 'text-slate-400 bg-white/5 border-white/10 hover:border-white/20'}`}
-                        style={isOn ? { background: color + '33', borderColor: color, color: color } : {}}
-                      >
+                        style={isOn ? { background: color + '33', borderColor: color, color: color } : {}}>
                         {name}
                       </button>
                     );
                   })}
                 </div>
               </div>
-
-              {/* Chart */}
               <div className="glass-panel p-4 rounded-[1.5rem]">
                 <p className="text-sm font-semibold text-slate-300 mb-4">Cumulative Net P&L over time</p>
                 {visiblePlayers.length === 0 ? (
@@ -2516,23 +2520,21 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                     <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
                     <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
-                    <RechartsTooltip
-                      formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]}
-                      contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }}
-                      labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                    />
+                    <RechartsTooltip formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]} contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: '#94a3b8', marginBottom: 4 }} />
                     <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
                     {visiblePlayers.map((name) => {
-                      const i = allPlayers.indexOf(name);
+                      const i = allChartPlayers.indexOf(name);
                       return <Line key={name} type="monotone" dataKey={name} stroke={CHART_COLORS[i % CHART_COLORS.length]} dot={{ r: 3 }} strokeWidth={2} activeDot={{ r: 5 }} />;
                     })}
                   </LineChart>
                 )}
               </div>
             </div>
-          );
-        })()
-      )}
+          )}
+          </div>
+
+        </div>
+      </div>
 
       {/* Hide Player Confirmation */}
       <Modal open={!!hideConfirm} onClose={() => setHideConfirm(null)} title="Hide Player?" icon={<div className="p-2 bg-slate-500/20 rounded-lg text-slate-400"><EyeOff size={20}/></div>}>
