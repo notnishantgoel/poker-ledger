@@ -406,11 +406,11 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
 /* ─────────── LEADERBOARD SWIPE ROW ─────────── */
 const LeaderboardSwipeRow = memo(({ name, i, onTap, onLongPressStart, onLongPressMove, onLongPressEnd, children }) => {
   return (
-    <div className="rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*40}ms`}}
-      onTouchStart={(e) => { e.stopPropagation(); onLongPressStart(name, e); }}
-      onTouchMove={(e) => { e.stopPropagation(); onLongPressMove(e); }}
-      onTouchEnd={(e) => { e.stopPropagation(); onLongPressEnd(); }}
-      onTouchCancel={(e) => { e.stopPropagation(); onLongPressEnd(); }}
+    <div className="overflow-hidden rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*40}ms`}}
+      onTouchStart={(e) => onLongPressStart(name, e)}
+      onTouchMove={(e) => onLongPressMove(e)}
+      onTouchEnd={onLongPressEnd}
+      onTouchCancel={onLongPressEnd}
       onMouseDown={(e) => onLongPressStart(name, e)}
       onMouseUp={onLongPressEnd}
       onMouseLeave={onLongPressEnd}
