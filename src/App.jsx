@@ -2088,6 +2088,11 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
   const [hiddenPlayers, setHiddenPlayers] = useState(() => {
     try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; }
   });
+  const [priorBalances, setPriorBalances] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; }
+  });
+  const [priorBalanceModal, setPriorBalanceModal] = useState(null); // { name: string }
+  const [priorBalanceInput, setPriorBalanceInput] = useState("");
   const longPressTimer = useRef(null);
   const touchStartPos = useRef(null);
 
@@ -2095,6 +2100,19 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
     setHiddenPlayers(prev => {
       const next = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
       localStorage.setItem("poker-ledger-hidden-players", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const savePriorBalance = (name, value) => {
+    setPriorBalances(prev => {
+      const next = { ...prev };
+      if (value === 0 || value === null || value === undefined || isNaN(value)) {
+        delete next[name];
+      } else {
+        next[name] = value;
+      }
+      localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(next));
       return next;
     });
   };
@@ -2142,6 +2160,11 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
       return;
     }
     onRenamePlayer(renameModal.oldName, newName);
+    // Migrate prior balance to the new name
+    if (priorBalances[renameModal.oldName] != null) {
+      savePriorBalance(newName, priorBalances[renameModal.oldName]);
+      savePriorBalance(renameModal.oldName, 0);
+    }
     setRenameModal(null);
   };
   const advanceMerge = () => {
@@ -2149,6 +2172,13 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
       setMergeStep(2);
     } else if (mergeStep === 2) {
       if (!mergeConfirm) return;
+      // When merging, combine prior balances
+      const oldPrior = priorBalances[mergeConfirm.oldName] ?? 0;
+      const newPrior = priorBalances[mergeConfirm.newName] ?? 0;
+      if (oldPrior !== 0 || newPrior !== 0) {
+        savePriorBalance(mergeConfirm.newName, round2(oldPrior + newPrior));
+        savePriorBalance(mergeConfirm.oldName, 0);
+      }
       onRenamePlayer(mergeConfirm.oldName, mergeConfirm.newName);
       setMergeConfirm(null);
       setMergeStep(0);
@@ -2178,7 +2208,15 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
         if (net < map[b.name].worstLoss) map[b.name].worstLoss = net;
       }
     }
-    return Object.values(map).sort((a, b) => b.net - a.net);
+    const result = Object.values(map);
+    // Apply prior balances — offset that existed before app tracking started
+    for (const p of result) {
+      if (priorBalances[p.name]) {
+        p.priorBalance = priorBalances[p.name];
+        p.net = round2(p.net + priorBalances[p.name]);
+      }
+    }
+    return result.sort((a, b) => b.net - a.net);
   })();
 
   return (
@@ -2348,10 +2386,19 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
                       {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
                     </p>
                     <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                      {p.priorBalance && <p className="text-slate-600">incl. <span className={p.priorBalance > 0 ? "text-emerald-600" : "text-rose-600"}>{p.priorBalance > 0 ? "+" : ""}{CURRENCY}{p.priorBalance.toLocaleString()}</span> prior</p>}
                       {p.bestWin > 0 && <p>best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span></p>}
                       {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
                     </div>
                   </div>
+                  {/* Prior balance edit button — stops propagation so row tap (→ graph) still works */}
+                  <button
+                    onClick={e => { e.stopPropagation(); setPriorBalanceModal({ name: p.name }); setPriorBalanceInput(priorBalances[p.name] != null ? String(priorBalances[p.name]) : ""); }}
+                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl border border-white/5 bg-white/3 hover:bg-slate-700/60 hover:border-white/10 text-slate-600 hover:text-slate-300 transition-all"
+                    title="Set prior balance"
+                  >
+                    <History size={14}/>
+                  </button>
                 </LeaderboardSwipeRow>
               );
             })}
@@ -2399,7 +2446,9 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
             const point = { date: new Date(entry.id).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) };
             allPlayers.forEach(name => {
               const bal = entry.result?.balances?.find(b => b.name === name);
-              point[name] = (prev[name] ?? 0) + (bal ? (bal.balance ?? 0) : 0);
+              // First data point starts from prior balance (offset before tracking began)
+              const base = prev[name] ?? (priorBalances[name] ?? 0);
+              point[name] = round2(base + (bal ? (bal.balance ?? 0) : 0));
             });
             acc.push(point);
             return acc;
@@ -2615,6 +2664,45 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
             </Btn>
           </div>
         </div>
+      </Modal>
+
+      {/* Prior Balance Modal */}
+      <Modal
+        open={!!priorBalanceModal}
+        onClose={() => setPriorBalanceModal(null)}
+        title="Prior Balance"
+        icon={<div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400"><History size={20}/></div>}
+      >
+        {priorBalanceModal && (
+          <div className="space-y-5">
+            <div className="rounded-2xl p-4 bg-indigo-500/5 border border-indigo-500/10 text-sm text-slate-300 leading-relaxed">
+              Enter the net amount <span className="font-bold text-slate-100">{priorBalanceModal.name}</span> was owed or owed <span className="text-slate-400">before you started tracking in this app</span>.
+              <p className="mt-2 text-xs text-slate-500">Negative = they owed money · Positive = they were owed money</p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold mb-2 block tracking-wider uppercase text-slate-400">Prior Balance ({CURRENCY})</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm pointer-events-none">{CURRENCY}</span>
+                <input
+                  type="number"
+                  value={priorBalanceInput}
+                  onChange={e => setPriorBalanceInput(e.target.value)}
+                  placeholder="e.g. -1000 or 500"
+                  className="w-full rounded-xl pl-7 pr-3 py-3 glass-input font-mono text-slate-100 text-sm"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Btn onClick={() => { savePriorBalance(priorBalanceModal.name, 0); setPriorBalanceModal(null); }} variant="secondary" className="flex-1">Clear</Btn>
+              <Btn onClick={() => {
+                const val = parseFloat(priorBalanceInput);
+                savePriorBalance(priorBalanceModal.name, isNaN(val) ? 0 : val);
+                setPriorBalanceModal(null);
+              }} variant="primary" className="flex-1"><Check size={16}/> Save</Btn>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Delete History Confirmation — Step 2 (Final) */}
@@ -2845,6 +2933,15 @@ export default function App() {
     const updatedNames = savedNames.map(n => n === oldName ? newName : n);
     setSavedNames(updatedNames);
     await store.set(NAMES_KEY, updatedNames);
+
+    // Migrate prior balance to new name
+    setPriorBalances(prev => {
+      if (!(oldName in prev)) return prev;
+      const next = { ...prev, [newName]: prev[oldName] };
+      delete next[oldName];
+      localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(next));
+      return next;
+    });
   };
 
   // Delete a single history entry or all history
