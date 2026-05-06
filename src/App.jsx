@@ -9,7 +9,7 @@ import {
   Link2, Wifi, WifiOff, Copy, ExternalLink,
   History, Clock, ChevronRight,
   CloudUpload, CloudDownload, RefreshCw, KeyRound,
-  EyeOff, Eye
+  EyeOff
 } from "lucide-react";
 import {
   createSession, joinSession, updateSessionGame,
@@ -399,6 +399,68 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
             <span className="mr-0.5">{p.cashInvested < 0 ? '+' : ''}{CURRENCY}</span>
             {Math.abs(p.cashInvested).toLocaleString()}
           </div>
+      </div>
+    </div>
+  );
+});
+/* ─────────── LEADERBOARD SWIPE ROW ─────────── */
+const LeaderboardSwipeRow = memo(({ name, i, onHide, onTap, onLongPressStart, onLongPressMove, onLongPressEnd, children }) => {
+  const cardRef = useRef(null);
+  const bgRef = useRef(null);
+  const isDragging = useRef(false);
+
+  const resetSwipe = () => {
+    isDragging.current = false;
+    if (cardRef.current) {
+      cardRef.current.style.transform = 'translate3d(0px, 0px, 0px)';
+      cardRef.current.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    }
+    if (bgRef.current) bgRef.current.style.opacity = '0';
+  };
+
+  const handlers = useSwipeable({
+    onSwiping: (e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !isDragging.current) return;
+      if (e.deltaX > 0) return;
+      isDragging.current = true;
+      const x = Math.max(-120, Math.min(0, e.deltaX));
+      if (cardRef.current) {
+        cardRef.current.style.transform = `translate3d(${x}px, 0px, 0px)`;
+        cardRef.current.style.transition = 'none';
+      }
+      if (bgRef.current) bgRef.current.style.opacity = x < -20 ? '1' : '0';
+    },
+    onSwipedLeft: (e) => {
+      if (e.deltaX < -60) {
+        haptic();
+        onHide(name);
+      }
+      resetSwipe();
+    },
+    onSwiped: () => resetSwipe(),
+    preventScrollOnSwipe: false,
+    trackMouse: true,
+    delta: 20
+  });
+
+  return (
+    <div {...handlers} className="relative group isolate overflow-hidden rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*40}ms`, touchAction: 'pan-y'}}>
+      <div ref={bgRef} className="absolute inset-y-0 right-0 w-1/2 bg-slate-500/20 text-slate-400 flex items-center justify-end pr-5 font-bold text-sm transition-opacity duration-200" style={{opacity: 0}}>
+        <EyeOff size={16} className="mr-2"/> Hide
+      </div>
+      <div ref={cardRef}
+        onClick={onTap}
+        onTouchStart={(e) => onLongPressStart(name, e)}
+        onTouchMove={(ev) => { onLongPressMove(ev); }}
+        onTouchEnd={onLongPressEnd}
+        onTouchCancel={onLongPressEnd}
+        onMouseDown={(e) => onLongPressStart(name, e)}
+        onMouseUp={onLongPressEnd}
+        onMouseLeave={onLongPressEnd}
+        onContextMenu={e => e.preventDefault()}
+        className="w-full glass-panel p-5 flex items-center gap-5 relative z-10 cursor-pointer transition-transform duration-300"
+      >
+        {children}
       </div>
     </div>
   );
@@ -2268,47 +2330,29 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
               const isUp = p.net > 0;
               const isEven = p.net === 0;
               return (
-                <div key={p.name} className={`w-full glass-panel p-5 rounded-[1.5rem] animate-slide-up flex items-center gap-5 ${isTop ? "border border-amber-500/20" : ""}`} style={{animationDelay:`${i*40}ms`}}>
-                  <button
-                    onClick={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
-                    onTouchStart={(e) => handleLongPressStart(p.name, e)}
-                    onTouchMove={handleLongPressMove}
-                    onTouchEnd={handleLongPressEnd}
-                    onTouchCancel={handleLongPressEnd}
-                    onMouseDown={(e) => handleLongPressStart(p.name, e)}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
-                    onContextMenu={e => e.preventDefault()}
-                    className="flex-1 flex items-center gap-5 active:scale-[0.98] transition-transform min-w-0">
-                    {/* Rank */}
-                    <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
-                      {isTop ? <Crown size={16}/> : `#${i+1}`}
+                <LeaderboardSwipeRow key={p.name} name={p.name} i={i} onHide={toggleHidePlayer}
+                  onTap={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
+                  onLongPressStart={handleLongPressStart} onLongPressMove={handleLongPressMove} onLongPressEnd={handleLongPressEnd}>
+                  {/* Rank */}
+                  <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
+                    {isTop ? <Crown size={16}/> : `#${i+1}`}
+                  </div>
+                  {/* Name + stats */}
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · <span className="text-emerald-500">{p.wins}W</span> · <span className="text-rose-500">{p.losses}L</span>{p.draws > 0 ? <> · <span className="text-slate-400">{p.draws}D</span></> : null} · {winRate}%</p>
+                  </div>
+                  {/* Net P&L */}
+                  <div className="text-right flex-shrink-0">
+                    <p className={`font-mono font-bold text-base ${isUp ? "text-emerald-400" : isEven ? "text-slate-400" : "text-rose-400"}`}>
+                      {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
+                    </p>
+                    <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                      {p.bestWin > 0 && <p>best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span></p>}
+                      {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
                     </div>
-                    {/* Name + stats */}
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className={`font-bold text-base truncate ${isTop ? "text-amber-300" : "text-slate-100"}`}>{p.name}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{p.games} game{p.games !== 1 ? "s" : ""} · <span className="text-emerald-500">{p.wins}W</span> · <span className="text-rose-500">{p.losses}L</span>{p.draws > 0 ? <> · <span className="text-slate-400">{p.draws}D</span></> : null} · {winRate}%</p>
-                    </div>
-                    {/* Net P&L */}
-                    <div className="text-right flex-shrink-0">
-                      <p className={`font-mono font-bold text-base ${isUp ? "text-emerald-400" : isEven ? "text-slate-400" : "text-rose-400"}`}>
-                        {isUp ? "+" : ""}{CURRENCY}{Math.abs(p.net).toLocaleString()}
-                      </p>
-                      <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
-                        {p.bestWin > 0 && <p>best <span className="text-emerald-500">+{CURRENCY}{p.bestWin.toLocaleString()}</span></p>}
-                        {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
-                      </div>
-                    </div>
-                  </button>
-                  {/* Hide button */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toggleHidePlayer(p.name); }}
-                    className="p-2 rounded-lg hover:bg-white/5 text-slate-600 hover:text-slate-400 transition-all shrink-0"
-                    title="Hide from leaderboard"
-                  >
-                    <EyeOff size={15}/>
-                  </button>
-                </div>
+                  </div>
+                </LeaderboardSwipeRow>
               );
             })}
             {/* Hidden players section */}
@@ -2332,10 +2376,9 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
                         </p>
                         <button
                           onClick={() => toggleHidePlayer(p.name)}
-                          className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-emerald-400 transition-all"
-                          title="Show on leaderboard"
+                          className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-emerald-500/10 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-all border border-white/5 hover:border-emerald-500/20"
                         >
-                          <Eye size={14}/>
+                          Show
                         </button>
                       </div>
                     );
