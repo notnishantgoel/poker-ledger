@@ -404,9 +404,10 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
   );
 });
 /* ─────────── LEADERBOARD SWIPE ROW ─────────── */
-const LeaderboardSwipeRow = memo(({ name, i, onHide, onTap, onLongPressStart, onLongPressMove, onLongPressEnd, children }) => {
+const LeaderboardSwipeRow = memo(({ name, i, onHide, onPriorBalance, onTap, onLongPressStart, onLongPressMove, onLongPressEnd, children }) => {
   const cardRef = useRef(null);
-  const bgRef = useRef(null);
+  const leftBgRef = useRef(null);
+  const rightBgRef = useRef(null);
   const isDragging = useRef(false);
 
   const resetSwipe = () => {
@@ -415,20 +416,28 @@ const LeaderboardSwipeRow = memo(({ name, i, onHide, onTap, onLongPressStart, on
       cardRef.current.style.transform = 'translate3d(0px, 0px, 0px)';
       cardRef.current.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
     }
-    if (bgRef.current) bgRef.current.style.opacity = '0';
+    if (leftBgRef.current) leftBgRef.current.style.opacity = '0';
+    if (rightBgRef.current) rightBgRef.current.style.opacity = '0';
   };
 
   const handlers = useSwipeable({
     onSwiping: (e) => {
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !isDragging.current) return;
-      if (e.deltaX > 0) return;
       isDragging.current = true;
-      const x = Math.max(-120, Math.min(0, e.deltaX));
+      const x = Math.max(-120, Math.min(120, e.deltaX));
       if (cardRef.current) {
         cardRef.current.style.transform = `translate3d(${x}px, 0px, 0px)`;
         cardRef.current.style.transition = 'none';
       }
-      if (bgRef.current) bgRef.current.style.opacity = x < -20 ? '1' : '0';
+      if (leftBgRef.current) leftBgRef.current.style.opacity = x > 20 ? '1' : '0';
+      if (rightBgRef.current) rightBgRef.current.style.opacity = x < -20 ? '1' : '0';
+    },
+    onSwipedRight: (e) => {
+      if (e.deltaX > 60) {
+        haptic();
+        onPriorBalance(name);
+      }
+      resetSwipe();
     },
     onSwipedLeft: (e) => {
       if (e.deltaX < -60) {
@@ -445,7 +454,10 @@ const LeaderboardSwipeRow = memo(({ name, i, onHide, onTap, onLongPressStart, on
 
   return (
     <div {...handlers} className="relative group isolate overflow-hidden rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*40}ms`, touchAction: 'pan-y'}}>
-      <div ref={bgRef} className="absolute inset-y-0 right-0 w-1/2 bg-slate-500/20 text-slate-400 flex items-center justify-end pr-5 font-bold text-sm transition-opacity duration-200" style={{opacity: 0}}>
+      <div ref={leftBgRef} className="absolute inset-y-0 left-0 w-1/2 bg-indigo-500/20 text-indigo-400 flex items-center pl-5 font-bold text-sm transition-opacity duration-200" style={{opacity: 0}}>
+        <History size={16} className="mr-2"/> Prior
+      </div>
+      <div ref={rightBgRef} className="absolute inset-y-0 right-0 w-1/2 bg-slate-500/20 text-slate-400 flex items-center justify-end pr-5 font-bold text-sm transition-opacity duration-200" style={{opacity: 0}}>
         <EyeOff size={16} className="mr-2"/> Hide
       </div>
       <div ref={cardRef}
@@ -2234,19 +2246,19 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           onClick={() => setTab("history")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "history" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
         >
-          <Clock size={15}/> History
+          History
         </button>
         <button
           onClick={() => setTab("leaderboard")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "leaderboard" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
         >
-          <Crown size={15}/> Leaderboard
+          Leaderboard
         </button>
         <button
           onClick={() => setTab("graph")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "graph" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
         >
-          <Sparkles size={15}/> Graph
+          Graph
         </button>
       </div>
 
@@ -2369,6 +2381,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
               const isEven = p.net === 0;
               return (
                 <LeaderboardSwipeRow key={p.name} name={p.name} i={i} onHide={toggleHidePlayer}
+                  onPriorBalance={(name) => { setPriorBalanceModal({ name }); setPriorBalanceInput(priorBalances[name] != null ? String(priorBalances[name]) : ""); }}
                   onTap={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
                   onLongPressStart={handleLongPressStart} onLongPressMove={handleLongPressMove} onLongPressEnd={handleLongPressEnd}>
                   {/* Rank */}
@@ -2391,14 +2404,6 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
                       {p.worstLoss < 0 && <p>worst <span className="text-rose-500">-{CURRENCY}{Math.abs(p.worstLoss).toLocaleString()}</span></p>}
                     </div>
                   </div>
-                  {/* Prior balance edit button — stops propagation so row tap (→ graph) still works */}
-                  <button
-                    onClick={e => { e.stopPropagation(); setPriorBalanceModal({ name: p.name }); setPriorBalanceInput(priorBalances[p.name] != null ? String(priorBalances[p.name]) : ""); }}
-                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl border border-white/5 bg-white/3 hover:bg-slate-700/60 hover:border-white/10 text-slate-600 hover:text-slate-300 transition-all"
-                    title="Set prior balance"
-                  >
-                    <History size={14}/>
-                  </button>
                 </LeaderboardSwipeRow>
               );
             })}
