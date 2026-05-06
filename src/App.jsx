@@ -404,77 +404,20 @@ const SwipeableCard = memo(({ p, i, onSwipeLeft, onSwipeRight }) => {
   );
 });
 /* ─────────── LEADERBOARD SWIPE ROW ─────────── */
-const LeaderboardSwipeRow = memo(({ name, i, onHide, onPriorBalance, onTap, onLongPressStart, onLongPressMove, onLongPressEnd, children }) => {
-  const cardRef = useRef(null);
-  const leftBgRef = useRef(null);
-  const rightBgRef = useRef(null);
-  const isDragging = useRef(false);
-
-  const resetSwipe = () => {
-    isDragging.current = false;
-    if (cardRef.current) {
-      cardRef.current.style.transform = 'translate3d(0px, 0px, 0px)';
-      cardRef.current.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
-    }
-    if (leftBgRef.current) leftBgRef.current.style.opacity = '0';
-    if (rightBgRef.current) rightBgRef.current.style.opacity = '0';
-  };
-
-  const handlers = useSwipeable({
-    onSwiping: (e) => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !isDragging.current) return;
-      isDragging.current = true;
-      const x = Math.max(-120, Math.min(120, e.deltaX));
-      if (cardRef.current) {
-        cardRef.current.style.transform = `translate3d(${x}px, 0px, 0px)`;
-        cardRef.current.style.transition = 'none';
-      }
-      if (leftBgRef.current) leftBgRef.current.style.opacity = x > 20 ? '1' : '0';
-      if (rightBgRef.current) rightBgRef.current.style.opacity = x < -20 ? '1' : '0';
-    },
-    onSwipedRight: (e) => {
-      if (e.deltaX > 60) {
-        haptic();
-        onPriorBalance(name);
-      }
-      resetSwipe();
-    },
-    onSwipedLeft: (e) => {
-      if (e.deltaX < -60) {
-        haptic();
-        onHide(name);
-      }
-      resetSwipe();
-    },
-    onSwiped: () => resetSwipe(),
-    preventScrollOnSwipe: false,
-    trackMouse: true,
-    delta: 20
-  });
-
+const LeaderboardSwipeRow = memo(({ name, i, onTap, onLongPressStart, onLongPressMove, onLongPressEnd, children }) => {
   return (
-    <div {...handlers}
-      onTouchStart={(e) => { e.stopPropagation(); handlers.onTouchStart?.(e); }}
-      onTouchMove={(e) => { e.stopPropagation(); handlers.onTouchMove?.(e); }}
-      className="relative group isolate overflow-hidden rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*40}ms`, touchAction: 'pan-y'}}>
-      <div ref={leftBgRef} className="absolute inset-y-0 left-0 w-1/2 bg-indigo-500/20 text-indigo-400 flex items-center pl-5 font-bold text-sm transition-opacity duration-200" style={{opacity: 0}}>
-        <History size={16} className="mr-2"/> Prior
-      </div>
-      <div ref={rightBgRef} className="absolute inset-y-0 right-0 w-1/2 bg-slate-500/20 text-slate-400 flex items-center justify-end pr-5 font-bold text-sm transition-opacity duration-200" style={{opacity: 0}}>
-        <EyeOff size={16} className="mr-2"/> Hide
-      </div>
-      <div ref={cardRef}
-        onClick={onTap}
-        onTouchStart={(e) => onLongPressStart(name, e)}
-        onTouchMove={(ev) => { onLongPressMove(ev); }}
-        onTouchEnd={onLongPressEnd}
-        onTouchCancel={onLongPressEnd}
-        onMouseDown={(e) => onLongPressStart(name, e)}
-        onMouseUp={onLongPressEnd}
-        onMouseLeave={onLongPressEnd}
-        onContextMenu={e => e.preventDefault()}
-        className="w-full glass-panel p-5 flex items-center gap-5 relative z-10 cursor-pointer transition-transform duration-300"
-      >
+    <div className="rounded-[1.5rem] animate-slide-up" style={{animationDelay:`${i*40}ms`}}
+      onTouchStart={(e) => { e.stopPropagation(); onLongPressStart(name, e); }}
+      onTouchMove={(e) => { e.stopPropagation(); onLongPressMove(e); }}
+      onTouchEnd={(e) => { e.stopPropagation(); onLongPressEnd(); }}
+      onTouchCancel={(e) => { e.stopPropagation(); onLongPressEnd(); }}
+      onMouseDown={(e) => onLongPressStart(name, e)}
+      onMouseUp={onLongPressEnd}
+      onMouseLeave={onLongPressEnd}
+      onContextMenu={e => e.preventDefault()}
+      onClick={onTap}
+    >
+      <div className="w-full glass-panel p-5 flex items-center gap-5 cursor-pointer">
         {children}
       </div>
     </div>
@@ -2104,6 +2047,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
     try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; }
   });
   const [hideConfirm, setHideConfirm] = useState(null); // name to hide
+  const [contextMenu, setContextMenu] = useState(null); // { name: string }
   const [priorBalances, setPriorBalances] = useState(() => {
     try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; }
   });
@@ -2142,9 +2086,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
     }
     longPressTimer.current = setTimeout(() => {
       haptic();
-      setRenameModal({ oldName: name });
-      setRenameValue(name);
-      setRenameErr("");
+      setContextMenu({ name });
     }, 600);
   };
   const handleLongPressMove = (e) => {
@@ -2321,7 +2263,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
         <div style={{ display: 'flex', width: '300%', willChange: 'transform', transform: `translateX(calc(${-tabIndex * (100 / 3)}% + ${tabDragX}px))`, transition: isDraggingTab ? 'none' : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}>
 
           {/* ── History panel ── */}
-          <div style={{ width: '33.333%', minWidth: 0 }}>
+          <div style={{ width: '33.333%', minWidth: 0, ...(tabIndex !== 0 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
           {history.length === 0 ? (
           <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
             <Clock size={40} className="mx-auto text-slate-600 mb-4" />
@@ -2415,7 +2357,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           </div>
 
           {/* ── Leaderboard panel ── */}
-          <div style={{ width: '33.333%', minWidth: 0 }}>
+          <div style={{ width: '33.333%', minWidth: 0, ...(tabIndex !== 1 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
           {visibleLeaderboard.length === 0 && hiddenLeaderboard.length === 0 ? (
             <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
               <Crown size={40} className="mx-auto text-slate-600 mb-4" />
@@ -2430,8 +2372,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
                 const isUp = p.net > 0;
                 const isEven = p.net === 0;
                 return (
-                  <LeaderboardSwipeRow key={p.name} name={p.name} i={i} onHide={(name) => setHideConfirm(name)}
-                    onPriorBalance={(name) => { setPriorBalanceModal({ name }); setPriorBalanceInput(priorBalances[name] != null ? String(priorBalances[name]) : ""); }}
+                  <LeaderboardSwipeRow key={p.name} name={p.name} i={i}
                     onTap={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
                     onLongPressStart={handleLongPressStart} onLongPressMove={handleLongPressMove} onLongPressEnd={handleLongPressEnd}>
                     <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
@@ -2484,7 +2425,7 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           </div>
 
           {/* ── Graph panel ── */}
-          <div style={{ width: '33.333%', minWidth: 0 }}>
+          <div style={{ width: '33.333%', minWidth: 0, ...(tabIndex !== 2 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
           {history.length < 2 ? (
             <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
               <Sparkles size={40} className="mx-auto text-slate-600 mb-4" />
@@ -2535,6 +2476,26 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
 
         </div>
       </div>
+
+      {/* Long-press context menu */}
+      <Modal open={!!contextMenu} onClose={() => setContextMenu(null)} title={contextMenu?.name ?? ""} icon={<Avatar name={contextMenu?.name ?? "?"} i={0} size="w-9 h-9" textSize="text-sm font-bold"/>}>
+        {contextMenu && (
+          <div className="space-y-2">
+            <button onClick={() => { setContextMenu(null); setRenameModal({ oldName: contextMenu.name }); setRenameValue(contextMenu.name); setRenameErr(""); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-slate-200 text-sm font-semibold transition-all text-left">
+              <Users size={18} className="text-blue-400 shrink-0"/> Rename
+            </button>
+            <button onClick={() => { setContextMenu(null); setPriorBalanceModal({ name: contextMenu.name }); setPriorBalanceInput(priorBalances[contextMenu.name] != null ? String(priorBalances[contextMenu.name]) : ""); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-slate-200 text-sm font-semibold transition-all text-left">
+              <History size={18} className="text-indigo-400 shrink-0"/> Set prior balance
+            </button>
+            <button onClick={() => { setContextMenu(null); setHideConfirm(contextMenu.name); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-slate-400 text-sm font-semibold transition-all text-left">
+              <EyeOff size={18} className="text-slate-500 shrink-0"/> Hide from leaderboard
+            </button>
+          </div>
+        )}
+      </Modal>
 
       {/* Hide Player Confirmation */}
       <Modal open={!!hideConfirm} onClose={() => setHideConfirm(null)} title="Hide Player?" icon={<div className="p-2 bg-slate-500/20 rounded-lg text-slate-400"><EyeOff size={20}/></div>}>
