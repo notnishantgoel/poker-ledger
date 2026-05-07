@@ -2627,10 +2627,16 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
           const key = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
           let group = groups.find(g => g.dateKey === key);
           if (!group) {
-            group = { dateKey: key, games: [] };
+            group = { dateKey: key, games: [], dailyNet: {} };
             groups.push(group);
           }
           group.games.push(h);
+
+          // Accumulate daily net for each player
+          (h.result?.balances || []).forEach(b => {
+            if (!b.name) return;
+            group.dailyNet[b.name] = (group.dailyNet[b.name] || 0) + b.balance;
+          });
         });
 
         return (
@@ -2639,17 +2645,29 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
               const isDayExpanded = expandedDay === group.dateKey;
               return (
                 <div key={group.dateKey} className="glass-panel rounded-[1.5rem] animate-slide-up overflow-hidden" style={{animationDelay:`${groupIdx*50}ms`}}>
-                  <button className="w-full p-4 sm:p-5 flex items-center justify-between text-left gap-3 bg-slate-900/40 hover:bg-slate-900/60 transition-colors" onClick={() => setExpandedDay(isDayExpanded ? null : group.dateKey)}>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 shadow-[inset_0_0_12px_rgba(168,85,247,0.15)]">
-                        <Calendar size={18} />
+                  <button className="w-full p-4 sm:p-5 flex items-start justify-between text-left gap-3 bg-slate-900/40 hover:bg-slate-900/60 transition-colors" onClick={() => setExpandedDay(isDayExpanded ? null : group.dateKey)}>
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 shadow-[inset_0_0_12px_rgba(168,85,247,0.15)] flex-shrink-0">
+                          <Calendar size={18} />
+                        </div>
+                        <div>
+                          <p className="text-slate-200 font-bold text-sm sm:text-base">{group.dateKey}</p>
+                          <p className="text-slate-500 text-xs mt-0.5 font-medium">{group.games.length} game{group.games.length !== 1 ? 's' : ''}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-slate-200 font-bold text-sm sm:text-base">{group.dateKey}</p>
-                        <p className="text-slate-500 text-xs mt-0.5 font-medium">{group.games.length} game{group.games.length !== 1 ? 's' : ''}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(group.dailyNet)
+                          .filter(([_, net]) => Math.abs(net) > 0.01)
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([name, net]) => (
+                            <span key={name} className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${net > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                              {name} {net > 0 ? '+' : ''}{CURRENCY}{Math.abs(round2(net)).toLocaleString()}
+                            </span>
+                        ))}
                       </div>
                     </div>
-                    <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 ${isDayExpanded ? "rotate-180" : ""}`} />
+                    <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 mt-2 flex-shrink-0 ${isDayExpanded ? "rotate-180" : ""}`} />
                   </button>
                   
                   <div className={`overflow-hidden transition-all duration-300 origin-top ${isDayExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
