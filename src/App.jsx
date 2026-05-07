@@ -16,7 +16,7 @@ import {
   createSession, joinSession, updateSessionGame,
   listenToSession, deleteSession, isFirebaseReady,
   getSessionUrl, getSessionIdFromUrl,
-  saveProfile, loadProfile, generateProfileId
+  saveProfile, loadProfile, generateProfileId, listenToProfile
 } from "./firebase.js";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from "recharts";
 import './App.css';
@@ -28,6 +28,15 @@ const NAMES_KEY = "poker-ledger-names";
 const HISTORY_KEY = "poker-ledger-history";
 const UNSETTLED_KEY = "poker-ledger-unsettled";
 const CURRENCY = "₹";
+
+const mergeHistory = (local, cloudRaw) => {
+  const cloudArr = cloudRaw
+    ? (Array.isArray(cloudRaw) ? cloudRaw : Object.values(cloudRaw)).filter(Boolean)
+    : [];
+  const byId = {};
+  [...cloudArr, ...local].forEach(h => { if (h?.id) byId[h.id] = h; });
+  return Object.values(byId).sort((a, b) => (a.id || 0) - (b.id || 0));
+};
 
 const store = {
   async get(key) {
@@ -2224,7 +2233,7 @@ function computeInsights(history) {
   return { players, streaks, momentum, dayStats, headToHead, tableSizeStats, consistency, timeStats };
 }
 
-function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "stats", onRenamePlayer, onDeleteHistory }) {
+function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "stats", onRenamePlayer, onDeleteHistory, priorBalances = {}, savePriorBalance }) {
   const [tab, setTab] = useState(defaultTab);
   const [expandedId, setExpandedId] = useState(null);
   const [insightPlayer, setInsightPlayer] = useState(null);
@@ -2263,9 +2272,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
   });
   const [hideConfirm, setHideConfirm] = useState(null); // name to hide
   const [contextMenu, setContextMenu] = useState(null); // { name: string }
-  const [priorBalances, setPriorBalances] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; }
-  });
   const [priorBalanceModal, setPriorBalanceModal] = useState(null); // { name: string }
   const [priorBalanceInput, setPriorBalanceInput] = useState("");
   const longPressTimer = useRef(null);
@@ -2275,19 +2281,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
     setHiddenPlayers(prev => {
       const next = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
       localStorage.setItem("poker-ledger-hidden-players", JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const savePriorBalance = (name, value) => {
-    setPriorBalances(prev => {
-      const next = { ...prev };
-      if (value === 0 || value === null || value === undefined || isNaN(value)) {
-        delete next[name];
-      } else {
-        next[name] = value;
-      }
-      localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(next));
       return next;
     });
   };
@@ -3063,6 +3056,17 @@ export default function App() {
   const [profileId, setProfileId] = useState(null);
   const [syncModal, setSyncModal] = useState(false);
   const [unsettledBalances, setUnsettledBalances] = useState([]);
+  const [priorBalances, setPriorBalances] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; }
+  });
+  const savePriorBalance = useCallback((name, value) => {
+    setPriorBalances(prev => {
+      const next = { ...prev };
+      if (value === 0 || value === null || value === undefined || isNaN(value)) { delete next[name]; } else { next[name] = value; }
+      localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   // ── Session state ──
   const [sessionId, setSessionId] = useState(null);
@@ -3074,6 +3078,8 @@ export default function App() {
   const [backToPlayersConfirm, setBackToPlayersConfirm] = useState(false);
   const unsubRef = useRef(null);
   const isRemoteUpdate = useRef(false);
+  const isRemoteProfileUpdate = useRef(false);
+  const remoteProfileTimer = useRef(null);
   const [backExitToast, setBackExitToast] = useState(false);
   const backPressedOnce = useRef(false);
   const backPressTimer = useRef(null);
@@ -3234,6 +3240,38 @@ export default function App() {
     };
   }, []); // empty deps — stable handler, reads live values via refs
 
+  // ── Real-time profile listener ──
+  useEffect(() => {
+    if (!profileId || !isFirebaseReady()) return;
+    const unsub = listenToProfile(profileId, (data) => {
+      if (!data) return;
+      clearTimeout(remoteProfileTimer.current);
+      isRemoteProfileUpdate.current = true;
+      if (data.history) setHistory(prev => mergeHistory(prev, data.history));
+      if (data.savedNames) setSavedNames(prev => [...new Set([...prev, ...data.savedNames])]);
+      if (data.priorBalances) setPriorBalances(prev => {
+        const merged = { ...prev, ...data.priorBalances };
+        localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(merged));
+        return merged;
+      });
+      if (data.games) setAllGames(prev => ({ ...data.games, ...prev }));
+      remoteProfileTimer.current = setTimeout(() => { isRemoteProfileUpdate.current = false; }, 1500);
+    });
+    return () => { unsub(); clearTimeout(remoteProfileTimer.current); };
+  }, [profileId]);
+
+  // ── Auto-save to Firebase on state changes ──
+  useEffect(() => {
+    if (phase === "loading" || !profileId || !isFirebaseReady() || isRemoteProfileUpdate.current) return;
+    const timer = setTimeout(async () => {
+      if (isRemoteProfileUpdate.current) return;
+      try {
+        await saveProfile(profileId, { history, savedNames, games: allGames, priorBalances });
+      } catch {}
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [history, savedNames, priorBalances, allGames, profileId, phase]);
+
   const handleStart=data=>{
     const gameId = String(Date.now());
     const newGame = { ...data, gameId, startedAt: Date.now() };
@@ -3337,7 +3375,7 @@ export default function App() {
     if (profileId) {
       (async () => {
         try {
-          await saveProfile(profileId, { history: updatedHistory, savedNames, games: allGames });
+          await saveProfile(profileId, { history: updatedHistory, savedNames, games: allGames, priorBalances });
         } catch {}
       })();
     }
@@ -3391,7 +3429,7 @@ export default function App() {
             const merged = mergeHistory(next, cloud?.history);
             setHistory(merged);
             await store.set(HISTORY_KEY, merged);
-            await saveProfile(profileId, { history: merged, savedNames, games: allGames });
+            await saveProfile(profileId, { history: merged, savedNames, games: allGames, priorBalances });
           } catch {}
         })();
       }
@@ -3569,17 +3607,6 @@ export default function App() {
     }
   };
 
-  // ── Profile sync ──
-  // Merge local + cloud history arrays by id, newest-first for storage
-  const mergeHistory = (local, cloudRaw) => {
-    const cloudArr = cloudRaw
-      ? (Array.isArray(cloudRaw) ? cloudRaw : Object.values(cloudRaw)).filter(Boolean)
-      : [];
-    const byId = {};
-    [...cloudArr, ...local].forEach(h => { if (h?.id) byId[h.id] = h; });
-    return Object.values(byId).sort((a, b) => (a.id || 0) - (b.id || 0));
-  };
-
   const handleBackup = async () => {
     let pid = profileId;
     if (!pid) {
@@ -3676,8 +3703,8 @@ export default function App() {
       <div className="relative">
         {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onStats={()=>{setHistoryReturnPhase("session");setPhase("stats");}} onSync={()=>setSyncModal(true)} history={history} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} history={history} />}
-        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="history" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} />}
-        {phase==="stats" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="stats" defaultTab="leaderboard" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} />}
+        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="history" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} priorBalances={priorBalances} savePriorBalance={savePriorBalance} />}
+        {phase==="stats" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="stats" defaultTab="leaderboard" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} priorBalances={priorBalances} savePriorBalance={savePriorBalance} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
         {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))} unsettledBalances={unsettledBalances}/>}
 

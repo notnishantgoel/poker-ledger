@@ -161,6 +161,16 @@ export async function loadProfile(profileId) {
 
 export { generateProfileId };
 
+// ── Real-time profile listener ──
+export function listenToProfile(profileId, callback) {
+  if (!isInitialized || !profileId) return () => {};
+  const profileRef = ref(db, `profiles/${profileId.trim().toLowerCase()}`);
+  const unsubscribe = onValue(profileRef, (snapshot) => {
+    if (snapshot.exists()) callback(snapshot.val());
+  });
+  return unsubscribe;
+}
+
 // ── Get the shareable URL for a session ──
 const PRODUCTION_URL = "https://notnishantgoel.github.io/poker-ledger/";
 export function getSessionUrl(sessionId) {
