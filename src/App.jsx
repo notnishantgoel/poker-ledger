@@ -2373,12 +2373,13 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
   const tabTouchStart = useRef(null);
 
   const handleTabTouchStart = (e) => {
+    if (e.target.closest('[data-no-tab-swipe]')) return;
     tabTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     setTabDragX(0);
     setIsDraggingTab(false);
   };
   const handleTabTouchMove = (e) => {
-    if (!tabTouchStart.current) return;
+    if (!tabTouchStart.current || e.target.closest('[data-no-tab-swipe]')) return;
     const dx = e.touches[0].clientX - tabTouchStart.current.x;
     const dy = e.touches[0].clientY - tabTouchStart.current.y;
     if (!isDraggingTab) {
@@ -2642,10 +2643,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
 
                 {/* Graph for selected player */}
                 {chartData.length > 0 && allChartPlayers.includes(ip) && (
-                  <div className="glass-panel p-4 rounded-[1.5rem]"
-                    onTouchStart={e => e.stopPropagation()}
-                    onTouchMove={e => e.stopPropagation()}
-                    onTouchEnd={e => e.stopPropagation()}>
+                  <div className="glass-panel p-4 rounded-[1.5rem]" data-no-tab-swipe="true">
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Performance</p>
                     <LineChart width={undefined} height={200} data={chartData} style={{ width: '100%' }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -3174,8 +3172,17 @@ export default function App() {
         }
       }
     };
-    document.addEventListener("backbutton", handleBackButton);
-    return () => document.removeEventListener("backbutton", handleBackButton);
+    // Capacitor 3+ uses the App plugin event system
+    const capApp = window.Capacitor?.Plugins?.App;
+    if (capApp) {
+      let handle = null;
+      capApp.addListener('backButton', handleBackButton).then(h => { handle = h; });
+      return () => { handle?.remove(); };
+    } else {
+      // Fallback: Cordova / browser
+      document.addEventListener("backbutton", handleBackButton);
+      return () => document.removeEventListener("backbutton", handleBackButton);
+    }
   }, [phase, historyReturnPhase]);
 
   const handleStart=data=>{
