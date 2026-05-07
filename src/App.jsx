@@ -1721,7 +1721,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 
 /* ─────────── SETTLEMENT GRAPH ─────────── */
 function SettlementGraph({ nodes, settlements, winner }) {
-  const W = 340, H = 360, CX = 170, CY = 160, RING_R = 108, NODE_R = 27;
+  const W = 380, H = 440, CX = 190, CY = 200, RING_R = 135, NODE_R = 34;
   const n = nodes.length;
   const positioned = nodes.map((b, i) => {
     const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
@@ -1730,45 +1730,47 @@ function SettlementGraph({ nodes, settlements, winner }) {
   const nodeMap = Object.fromEntries(positioned.map(p => [p.name, p]));
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-xs mx-auto select-none">
-      {/* Faint orbit ring */}
-      <circle cx={CX} cy={CY} r={RING_R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={1} strokeDasharray="4 7" />
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-sm mx-auto select-none">
+      <defs>
+        <filter id="sg-glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="sg-node-glow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
 
-      {/* Arrows */}
+      {/* Orbit ring */}
+      <circle cx={CX} cy={CY} r={RING_R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} strokeDasharray="5 9" />
+
+      {/* Arrows — drawn before nodes so nodes sit on top */}
       {settlements.map((s, i) => {
         const from = nodeMap[s.from], to = nodeMap[s.to];
         if (!from || !to) return null;
         const dx = to.x - from.x, dy = to.y - from.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const ux = dx / dist, uy = dy / dist;
-        const x1 = from.x + ux * (NODE_R + 4), y1 = from.y + uy * (NODE_R + 4);
-        const x2 = to.x - ux * (NODE_R + 10), y2 = to.y - uy * (NODE_R + 10);
+        const x1 = from.x + ux * (NODE_R + 5), y1 = from.y + uy * (NODE_R + 5);
+        const x2 = to.x  - ux * (NODE_R + 12), y2 = to.y  - uy * (NODE_R + 12);
         const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
         const angle = Math.atan2(dy, dx);
-        const AS = 8;
-        const ax = to.x - ux * (NODE_R + 3), ay = to.y - uy * (NODE_R + 3);
-        const a1x = ax - AS * Math.cos(angle - 0.45), a1y = ay - AS * Math.sin(angle - 0.45);
-        const a2x = ax - AS * Math.cos(angle + 0.45), a2y = ay - AS * Math.sin(angle + 0.45);
-        const lineDelay = 0.1 + i * 0.22;
+        const AS = 10;
+        const ax = to.x - ux * (NODE_R + 4), ay = to.y - uy * (NODE_R + 4);
+        const a1x = ax - AS * Math.cos(angle - 0.42), a1y = ay - AS * Math.sin(angle - 0.42);
+        const a2x = ax - AS * Math.cos(angle + 0.42), a2y = ay - AS * Math.sin(angle + 0.42);
+        const lineDelay = 0.12 + i * 0.2;
         return (
-          <g key={i}>
+          <g key={i} filter="url(#sg-glow)">
             <line x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke="#10b981" strokeWidth={2.5} strokeLinecap="round"
+              stroke="#10b981" strokeWidth={3} strokeLinecap="round"
               strokeDasharray={len} strokeDashoffset={len}
-              style={{ animation: `sg-draw 0.45s ease forwards ${lineDelay}s` }}
+              style={{ animation: `sg-draw 0.5s ease forwards ${lineDelay}s` }}
             />
             <polygon points={`${ax},${ay} ${a1x},${a1y} ${a2x},${a2y}`} fill="#10b981"
-              style={{ animation: `sg-fade 0.15s ease forwards ${lineDelay + 0.42}s`, opacity: 0 }}
+              style={{ animation: `sg-fade 0.15s ease forwards ${lineDelay + 0.46}s`, opacity: 0 }}
             />
-            {/* Amount pill at midpoint */}
-            <g style={{ animation: `sg-fade 0.2s ease forwards ${lineDelay + 0.5}s`, opacity: 0 }}>
-              <rect x={(x1+x2)/2 - 20} y={(y1+y2)/2 - 8} width={40} height={16} rx={8}
-                fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.35)" strokeWidth={0.8} />
-              <text x={(x1+x2)/2} y={(y1+y2)/2 + 4.5} textAnchor="middle" fontSize={7.5} fontWeight="700"
-                fill="#34d399" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                {CURRENCY}{s.amount.toLocaleString()}
-              </text>
-            </g>
           </g>
         );
       })}
@@ -1778,26 +1780,27 @@ function SettlementGraph({ nodes, settlements, winner }) {
         const isWinner = node.name === winner;
         const isPos = node.balance > 0;
         const ring = isWinner ? '#f59e0b' : isPos ? '#10b981' : '#f43f5e';
-        const glow = isWinner ? 'rgba(245,158,11,0.18)' : isPos ? 'rgba(16,185,129,0.13)' : 'rgba(244,63,94,0.13)';
+        const glow = isWinner ? 'rgba(245,158,11,0.25)' : isPos ? 'rgba(16,185,129,0.18)' : 'rgba(244,63,94,0.18)';
         const txt  = isWinner ? '#fbbf24' : isPos ? '#34d399' : '#fb7185';
-        const shortName = node.name.length > 7 ? node.name.slice(0, 6) + '…' : node.name;
+        const sign = isPos ? '+' : node.balance < 0 ? '-' : '';
+        const shortName = node.name.length > 8 ? node.name.slice(0, 7) + '…' : node.name;
         return (
           <g key={node.name}
-            style={{ transformOrigin: `${node.x}px ${node.y}px`, animation: `sg-pop 0.32s cubic-bezier(0.16,1,0.3,1) forwards ${i * 0.07}s`, opacity: 0 }}>
-            <circle cx={node.x} cy={node.y} r={NODE_R + 11} fill={glow} />
-            <circle cx={node.x} cy={node.y} r={NODE_R + 3}  fill={ring} opacity={0.9} />
+            style={{ transformOrigin: `${node.x}px ${node.y}px`, animation: `sg-pop 0.35s cubic-bezier(0.16,1,0.3,1) forwards ${i * 0.07}s`, opacity: 0 }}>
+            <circle cx={node.x} cy={node.y} r={NODE_R + 14} fill={glow} />
+            <circle cx={node.x} cy={node.y} r={NODE_R + 4}  fill={ring} opacity={0.88} />
             <circle cx={node.x} cy={node.y} r={NODE_R}      fill="#0f172a" />
             <text x={node.x} y={node.y} textAnchor="middle" dominantBaseline="central"
-              fontSize={11} fontWeight="800" fill={ring} style={{ fontFamily: 'DM Sans, sans-serif' }}>
+              fontSize={13} fontWeight="800" fill={ring} style={{ fontFamily: 'DM Sans, sans-serif' }}>
               {node.name.slice(0, 2).toUpperCase()}
             </text>
-            <text x={node.x} y={node.y + NODE_R + 13} textAnchor="middle"
-              fontSize={9.5} fontWeight="700" fill="#f1f5f9" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            <text x={node.x} y={node.y + NODE_R + 16} textAnchor="middle"
+              fontSize={12} fontWeight="700" fill="#f1f5f9" style={{ fontFamily: 'DM Sans, sans-serif' }}>
               {shortName}
             </text>
-            <text x={node.x} y={node.y + NODE_R + 25} textAnchor="middle"
-              fontSize={8.5} fontWeight="700" fill={txt} style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              {isPos ? '+' : ''}{CURRENCY}{Math.abs(round2(node.balance)).toLocaleString()}
+            <text x={node.x} y={node.y + NODE_R + 30} textAnchor="middle"
+              fontSize={11} fontWeight="700" fill={txt} style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              {sign}{CURRENCY}{Math.abs(round2(node.balance)).toLocaleString()}
             </text>
           </g>
         );
