@@ -543,10 +543,11 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
 
   const top3 = (() => {
     const priorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
+    const hidden = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; } })();
     const map = {};
     for (const h of history) {
       for (const b of (h.result?.balances || [])) {
-        if (!b.name) continue;
+        if (!b.name || hidden.includes(b.name)) continue;
         if (!map[b.name]) map[b.name] = { name: b.name, net: 0 };
         map[b.name].net = round2(map[b.name].net + round2(b.balance ?? 0));
       }
