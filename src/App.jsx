@@ -445,6 +445,8 @@ function SyncModal({ open, onClose, profileId, masterCode, onBackup, onRestore, 
   const [backupErrMsg, setBackupErrMsg] = useState("");
   const [shownId, setShownId] = useState(profileId);
   const [copied, setCopied] = useState(false);
+  
+  const [masterTime, setMasterTime] = useState(() => localStorage.getItem("poker-ledger-master-time"));
 
   const [snapshotStatus, setSnapshotStatus] = useState(null); // null | "saving" | "saved" | "error"
   const [snapshotErrMsg, setSnapshotErrMsg] = useState("");
@@ -503,6 +505,9 @@ function SyncModal({ open, onClose, profileId, masterCode, onBackup, onRestore, 
       const mc = await onSaveSnapshot();
       setShownMaster(mc);
       setSnapshotStatus("saved");
+      const nowStr = Date.now().toString();
+      setMasterTime(nowStr);
+      localStorage.setItem("poker-ledger-master-time", nowStr);
     } catch(e) {
       setSnapshotErrMsg(e?.message || "Unknown error");
       setSnapshotStatus("error");
@@ -591,13 +596,20 @@ function SyncModal({ open, onClose, profileId, masterCode, onBackup, onRestore, 
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">Save a frozen copy of your data right now. If a synced device corrupts your history, restore from this code to get back to this exact state.</p>
           {shownMaster ? (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 font-mono text-base font-bold tracking-[0.18em] text-amber-300 bg-slate-950/60 border border-amber-500/20 rounded-xl px-4 py-2.5 text-center select-all">
-                {shownMaster}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 font-mono text-base font-bold tracking-[0.18em] text-amber-300 bg-slate-950/60 border border-amber-500/20 rounded-xl px-4 py-2.5 text-center select-all">
+                  {shownMaster}
+                </div>
+                <button onClick={copyMaster} className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all shrink-0">
+                  {masterCopied ? <Check size={16}/> : <Copy size={16}/>}
+                </button>
               </div>
-              <button onClick={copyMaster} className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all shrink-0">
-                {masterCopied ? <Check size={16}/> : <Copy size={16}/>}
-              </button>
+              {masterTime && (
+                <p className="text-center text-[10px] text-amber-500/70 font-medium">
+                  Last backup: {new Date(parseInt(masterTime)).toLocaleString()}
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-slate-600 text-xs italic">No master backup yet.</p>
@@ -3563,6 +3575,16 @@ export default function App() {
   };
 
   const handleReset=async(completedResult = null)=>{
+    let nextGames = { ...allGames };
+    if (activeGameId) {
+      delete nextGames[activeGameId];
+      setAllGames(nextGames);
+      store.set(GAMES_KEY, nextGames);
+      if (profileId && isFirebaseReady()) {
+        deleteProfileGame(profileId, activeGameId).catch(console.warn);
+      }
+    }
+
     if (completedResult) {
       const record = { id: Date.now(), gameData: { ...game }, result: completedResult };
       const next = [record, ...history].slice(0, 50);
@@ -3610,7 +3632,7 @@ export default function App() {
             const merged = mergeHistory(next, cloud?.history);
             setHistory(merged);
             await store.set(HISTORY_KEY, merged);
-            await saveProfile(profileId, { history: merged, savedNames, games: allGames, priorBalances });
+            await saveProfile(profileId, { history: merged, savedNames, games: nextGames, priorBalances });
           } catch {}
         })();
       }
@@ -3623,18 +3645,6 @@ export default function App() {
       window.location.hash = '';
     }
 
-    // Remove this session from allGames and sync deletion to other devices
-    if (activeGameId) {
-      setAllGames(prev => {
-        const next = { ...prev };
-        delete next[activeGameId];
-        store.set(GAMES_KEY, next);
-        return next;
-      });
-      if (profileId && isFirebaseReady()) {
-        deleteProfileGame(profileId, activeGameId).catch(console.warn);
-      }
-    }
     setActiveGameId(null);
     setGame(null);
     setPhase("session");
