@@ -2387,6 +2387,7 @@ function computeInsights(history) {
 function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "stats", onRenamePlayer, onDeleteHistory, priorBalances = {}, savePriorBalance }) {
   const [tab, setTab] = useState(defaultTab);
   const [expandedId, setExpandedId] = useState(null);
+  const [expandedDay, setExpandedDay] = useState(null);
   const [insightPlayer, setInsightPlayer] = useState(null);
 
   // Delete confirmation state — 2-step flow
@@ -2609,100 +2610,137 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
         </div>
       )}
 
-      {mode === "history" && (
-        <>
-          {history.length === 0 ? (
-          <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
-            <Clock size={40} className="mx-auto text-slate-600 mb-4" />
-            <p className="text-base font-medium text-slate-400">No game history yet.</p>
-            <p className="text-sm text-slate-500 mt-2">Completed games will appear here.</p>
-          </div>
-          ) : (
-          <div className="space-y-4">
-            {[...history].sort((a, b) => (b.id || 0) - (a.id || 0)).map((h, i) => {
-              const date = new Date(h.id).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-              const winnerNet = h.result?.winner ? (h.result.balances?.find(p => p.name === h.result.winner)?.balance ?? 0) : 0;
-              const isExpanded = expandedId === h.id;
+      {mode === "history" && (() => {
+        if (history.length === 0) {
+          return (
+            <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
+              <Clock size={40} className="mx-auto text-slate-600 mb-4" />
+              <p className="text-base font-medium text-slate-400">No game history yet.</p>
+              <p className="text-sm text-slate-500 mt-2">Completed games will appear here.</p>
+            </div>
+          );
+        }
+
+        const groups = [];
+        [...history].sort((a, b) => (b.id || 0) - (a.id || 0)).forEach(h => {
+          const d = new Date(h.id);
+          const key = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+          let group = groups.find(g => g.dateKey === key);
+          if (!group) {
+            group = { dateKey: key, games: [] };
+            groups.push(group);
+          }
+          group.games.push(h);
+        });
+
+        return (
+          <div className="space-y-5">
+            {groups.map((group, groupIdx) => {
+              const isDayExpanded = expandedDay === group.dateKey;
               return (
-                <div key={h.id} className="glass-panel rounded-[1.5rem] animate-slide-up overflow-hidden group/hist" style={{animationDelay:`${i*50}ms`}}>
-                  {/* Collapsed header — always visible, click to expand */}
-                  <div className="relative">
-                    <button
-                      className="w-full p-5 flex items-start justify-between text-left gap-3"
-                      onClick={() => setExpandedId(isExpanded ? null : h.id)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Clock size={14} className="text-purple-400 flex-shrink-0" />
-                          <span className="text-slate-400 font-medium text-xs">{date}</span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {[...(h.result?.balances || [])].sort((a, b) => b.balance - a.balance).map(b => (
-                            <div key={b.name} className="flex items-center justify-between gap-4">
-                              <span className={`text-sm font-semibold flex items-center gap-1 ${b.name === h.result?.winner ? 'text-amber-400' : 'text-slate-300'}`}>
-                                {b.name === h.result?.winner && <Crown size={11}/>}
-                                {b.name}
-                              </span>
-                              <span className={`text-sm font-mono font-bold ${b.balance > 0 ? 'text-emerald-400' : b.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                                {b.balance > 0 ? '+' : b.balance < 0 ? '-' : ''}{CURRENCY}{Math.abs(round2(b.balance)).toLocaleString()}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                <div key={group.dateKey} className="glass-panel rounded-[1.5rem] animate-slide-up overflow-hidden" style={{animationDelay:`${groupIdx*50}ms`}}>
+                  <button className="w-full p-4 sm:p-5 flex items-center justify-between text-left gap-3 bg-slate-900/40 hover:bg-slate-900/60 transition-colors" onClick={() => setExpandedDay(isDayExpanded ? null : group.dateKey)}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 shadow-[inset_0_0_12px_rgba(168,85,247,0.15)]">
+                        <Calendar size={18} />
                       </div>
-                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 flex-shrink-0 mt-1 ${isExpanded ? "rotate-180" : ""}`} />
-                    </button>
-                    {/* Delete button — visible on hover/tap */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); initiateDelete(h.id); }}
-                      className="absolute top-3 right-12 p-2 rounded-xl text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all opacity-0 group-hover/hist:opacity-100 sm:opacity-0 active:opacity-100"
-                      title="Delete this game"
-                    >
-                      <Trash2 size={15}/>
-                    </button>
-                  </div>
-                  {/* Expanded settlement detail — recompute from balances for optimal transactions */}
-                  {isExpanded && (() => {
-                    const recomputedSettlements = h.result?.balances?.length > 0
-                      ? computeSettlements(h.result.balances)
-                      : (h.result?.settlements || []);
-                    return (
-                    <div className="px-5 pb-5 border-t border-white/5 pt-3">
-                      {recomputedSettlements.length > 0 ? (
-                        <div className="space-y-2">
-                          {recomputedSettlements.map((s, j) => (
-                            <div key={j} className="flex justify-between items-center text-sm">
-                              <span className="text-rose-400 font-medium truncate max-w-[80px] sm:max-w-[120px]">{s.from}</span>
-                              <div className="flex items-center gap-2 flex-1 mx-2">
-                                <div className="h-px flex-1 bg-white/5" />
-                                <span className="text-amber-400 font-mono text-xs font-bold">{CURRENCY}{s.amount.toLocaleString()}</span>
-                                <ArrowRight size={12} className="text-slate-500" />
-                                <div className="h-px flex-1 bg-white/5" />
-                              </div>
-                              <span className="text-theme-400 font-medium truncate max-w-[80px] sm:max-w-[120px] text-right">{s.to}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
-                      )}
-                      {/* Delete this game — always visible in expanded view */}
-                      <button
-                        onClick={() => initiateDelete(h.id)}
-                        className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-500/15 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 text-xs font-semibold transition-all"
-                      >
-                        <Trash2 size={13}/> Delete this game
-                      </button>
+                      <div>
+                        <p className="text-slate-200 font-bold text-sm sm:text-base">{group.dateKey}</p>
+                        <p className="text-slate-500 text-xs mt-0.5 font-medium">{group.games.length} game{group.games.length !== 1 ? 's' : ''}</p>
+                      </div>
                     </div>
-                  );
-                  })()}
+                    <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 ${isDayExpanded ? "rotate-180" : ""}`} />
+                  </button>
+                  
+                  <div className={`overflow-hidden transition-all duration-300 origin-top ${isDayExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="p-3 sm:p-4 space-y-4 bg-slate-950/30 border-t border-white/5">
+                      {group.games.map((h, i) => {
+                        const date = new Date(h.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const isExpanded = expandedId === h.id;
+                        return (
+                          <div key={h.id} className="glass-panel rounded-2xl overflow-hidden group/hist bg-slate-900/80 border border-white/5 shadow-lg">
+                            {/* Collapsed header — always visible, click to expand */}
+                            <div className="relative">
+                              <button
+                                className="w-full p-4 flex items-start justify-between text-left gap-3 hover:bg-white/[0.02] transition-colors"
+                                onClick={() => setExpandedId(isExpanded ? null : h.id)}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Clock size={13} className="text-purple-400 flex-shrink-0" />
+                                    <span className="text-slate-400 font-medium text-[11px] tracking-wider uppercase">{date}</span>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {[...(h.result?.balances || [])].sort((a, b) => b.balance - a.balance).map(b => (
+                                      <div key={b.name} className="flex items-center justify-between gap-4">
+                                        <span className={`text-sm font-semibold flex items-center gap-1.5 ${b.name === h.result?.winner ? 'text-amber-400' : 'text-slate-300'}`}>
+                                          {b.name === h.result?.winner && <Crown size={11}/>}
+                                          {b.name}
+                                        </span>
+                                        <span className={`text-sm font-mono font-bold ${b.balance > 0 ? 'text-emerald-400' : b.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                          {b.balance > 0 ? '+' : b.balance < 0 ? '-' : ''}{CURRENCY}{Math.abs(round2(b.balance)).toLocaleString()}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 flex-shrink-0 mt-1 ${isExpanded ? "rotate-180" : ""}`} />
+                              </button>
+                              {/* Delete button — visible on hover/tap */}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); initiateDelete(h.id); }}
+                                className="absolute top-3 right-10 p-2 rounded-xl text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all opacity-0 group-hover/hist:opacity-100 sm:opacity-0 active:opacity-100"
+                                title="Delete this game"
+                              >
+                                <Trash2 size={15}/>
+                              </button>
+                            </div>
+                            {/* Expanded settlement detail — recompute from balances for optimal transactions */}
+                            {isExpanded && (() => {
+                              const recomputedSettlements = h.result?.balances?.length > 0
+                                ? computeSettlements(h.result.balances)
+                                : (h.result?.settlements || []);
+                              return (
+                              <div className="px-4 pb-4 border-t border-white/5 pt-3 bg-slate-950/20">
+                                {recomputedSettlements.length > 0 ? (
+                                  <div className="space-y-2.5">
+                                    {recomputedSettlements.map((s, j) => (
+                                      <div key={j} className="flex justify-between items-center text-sm">
+                                        <span className="text-rose-400 font-medium truncate max-w-[80px] sm:max-w-[120px]">{s.from}</span>
+                                        <div className="flex items-center gap-2 flex-1 mx-2">
+                                          <div className="h-px flex-1 bg-white/5" />
+                                          <span className="text-amber-400 font-mono text-xs font-bold">{CURRENCY}{s.amount.toLocaleString()}</span>
+                                          <ArrowRight size={12} className="text-slate-500" />
+                                          <div className="h-px flex-1 bg-white/5" />
+                                        </div>
+                                        <span className="text-theme-400 font-medium truncate max-w-[80px] sm:max-w-[120px] text-right">{s.to}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-center text-sm font-medium text-theme-400 py-2">Everyone was even! 🎉</p>
+                                )}
+                                {/* Delete this game — always visible in expanded view */}
+                                <button
+                                  onClick={() => initiateDelete(h.id)}
+                                  className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-500/15 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 text-xs font-semibold transition-all"
+                                >
+                                  <Trash2 size={13}/> Delete this game
+                                </button>
+                              </div>
+                            );
+                            })()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               );
             })}
           </div>
-          )}
-        </>
-      )}
+        );
+      })()}
 
       {mode !== "history" && (
         <div style={{ overflow: 'hidden' }} onTouchStart={handleTabTouchStart} onTouchMove={handleTabTouchMove} onTouchEnd={handleTabTouchEnd}>
