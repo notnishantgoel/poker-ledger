@@ -2656,22 +2656,25 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                           <p className="text-slate-500 text-xs mt-0.5 font-medium">{group.games.length} game{group.games.length !== 1 ? 's' : ''}</p>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="mt-3 pt-3 border-t border-white/5 space-y-1.5 w-full pr-4">
                         {Object.entries(group.dailyNet)
                           .filter(([_, net]) => Math.abs(net) > 0.01)
                           .sort((a, b) => b[1] - a[1])
                           .map(([name, net]) => (
-                            <span key={name} className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${net > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                              {name} {net > 0 ? '+' : ''}{CURRENCY}{Math.abs(round2(net)).toLocaleString()}
-                            </span>
+                            <div key={name} className="flex justify-between items-center text-xs">
+                              <span className="text-slate-300 font-medium tracking-wide">• {name}</span>
+                              <span className={`font-mono font-bold ${net > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {net > 0 ? '+' : ''}{CURRENCY}{Math.abs(round2(net)).toLocaleString()}
+                              </span>
+                            </div>
                         ))}
                       </div>
                     </div>
-                    <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 mt-2 flex-shrink-0 ${isDayExpanded ? "rotate-180" : ""}`} />
+                    <ChevronDown size={18} className={`text-slate-500 transition-transform duration-200 mt-2 flex-shrink-0 ${isDayExpanded ? "rotate-180" : ""}`} />
                   </button>
                   
-                  <div className={`overflow-hidden transition-all duration-300 origin-top ${isDayExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="p-3 sm:p-4 space-y-4 bg-slate-950/30 border-t border-white/5">
+                  {isDayExpanded && (
+                    <div className="p-3 sm:p-4 space-y-4 bg-slate-950/30 border-t border-white/5 animate-slide-down origin-top">
                       {group.games.map((h, i) => {
                         const date = new Date(h.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         const isExpanded = expandedId === h.id;
@@ -2752,7 +2755,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                         );
                       })}
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
