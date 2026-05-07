@@ -10,14 +10,15 @@ import {
   History, Clock, ChevronRight, BarChart2,
   TrendingUp, TrendingDown, Flame, Star, Activity, Calendar,
   CloudUpload, CloudDownload, RefreshCw, KeyRound,
-  EyeOff
+  EyeOff, Shield
 } from "lucide-react";
 import {
   createSession, joinSession, updateSessionGame,
   listenToSession, deleteSession, isFirebaseReady,
   getSessionUrl, getSessionIdFromUrl,
   saveProfile, loadProfile, generateProfileId, listenToProfile,
-  updateProfileGame, deleteProfileGame
+  updateProfileGame, deleteProfileGame,
+  saveSnapshot, loadSnapshot, generateSnapshotId
 } from "./firebase.js";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from "recharts";
 import './App.css';
@@ -436,22 +437,33 @@ const LeaderboardSwipeRow = memo(({ name, i, onTap, onLongPressStart, onLongPres
 });
 
 /* ─────────── SYNC MODAL ─────────── */
-function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
+function SyncModal({ open, onClose, profileId, masterCode, onBackup, onRestore, onSaveSnapshot, onLoadSnapshot }) {
   const [restoreCode, setRestoreCode] = useState("");
-  const [backupStatus, setBackupStatus] = useState(null); // null | "backing-up" | "backed-up" | "error"
-  const [restoreStatus, setRestoreStatus] = useState(null); // null | "restoring" | "restored" | "not-found" | "error"
+  const [backupStatus, setBackupStatus] = useState(null);
+  const [restoreStatus, setRestoreStatus] = useState(null);
   const [restoreErrMsg, setRestoreErrMsg] = useState("");
   const [backupErrMsg, setBackupErrMsg] = useState("");
   const [shownId, setShownId] = useState(profileId);
   const [copied, setCopied] = useState(false);
+
+  const [snapshotStatus, setSnapshotStatus] = useState(null); // null | "saving" | "saved" | "error"
+  const [snapshotErrMsg, setSnapshotErrMsg] = useState("");
+  const [shownMaster, setShownMaster] = useState(masterCode);
+  const [masterCopied, setMasterCopied] = useState(false);
+  const [snapRestoreCode, setSnapRestoreCode] = useState("");
+  const [snapRestoreStatus, setSnapRestoreStatus] = useState(null); // null | "restoring" | "restored" | "not-found" | "error"
+  const [snapRestoreErrMsg, setSnapRestoreErrMsg] = useState("");
 
   useEffect(() => {
     if (open) {
       setBackupStatus(null); setRestoreStatus(null);
       setRestoreCode(""); setRestoreErrMsg(""); setBackupErrMsg("");
       setShownId(profileId);
+      setSnapshotStatus(null); setSnapshotErrMsg("");
+      setShownMaster(masterCode);
+      setSnapRestoreCode(""); setSnapRestoreStatus(null); setSnapRestoreErrMsg("");
     }
-  }, [open, profileId]);
+  }, [open, profileId, masterCode]);
 
   const doBackup = async () => {
     setBackupStatus("backing-up");
@@ -484,20 +496,57 @@ function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
     }
   };
 
+  const doSaveSnapshot = async () => {
+    setSnapshotStatus("saving");
+    setSnapshotErrMsg("");
+    try {
+      const mc = await onSaveSnapshot();
+      setShownMaster(mc);
+      setSnapshotStatus("saved");
+    } catch(e) {
+      setSnapshotErrMsg(e?.message || "Unknown error");
+      setSnapshotStatus("error");
+    }
+  };
+
+  const doLoadSnapshot = async () => {
+    if (!snapRestoreCode.trim()) return;
+    setSnapRestoreStatus("restoring");
+    setSnapRestoreErrMsg("");
+    try {
+      const ok = await onLoadSnapshot(snapRestoreCode.trim());
+      if (ok) {
+        setShownMaster(snapRestoreCode.trim());
+        setSnapRestoreStatus("restored");
+      } else {
+        setSnapRestoreStatus("not-found");
+      }
+    } catch(e) {
+      setSnapRestoreErrMsg(e?.message || "Unknown error");
+      setSnapRestoreStatus("error");
+    }
+  };
+
   const copyCode = () => {
     if (!shownId) return;
     navigator.clipboard.writeText(shownId).catch(()=>{});
     setCopied(true); setTimeout(()=>setCopied(false), 2000);
   };
 
+  const copyMaster = () => {
+    if (!shownMaster) return;
+    navigator.clipboard.writeText(shownMaster).catch(()=>{});
+    setMasterCopied(true); setTimeout(()=>setMasterCopied(false), 2000);
+  };
+
   return (
-    <Modal open={open} onClose={onClose} title="Sync Data" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><RefreshCw size={20}/></div>}>
+    <Modal open={open} onClose={onClose} title="Sync & Backup" icon={<div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><RefreshCw size={20}/></div>}>
       <div className="space-y-5">
-        <p className="text-slate-400 text-sm leading-relaxed">Back up your history, names, and settings to the cloud. Use your sync code to restore on any device.</p>
+        <p className="text-slate-400 text-sm leading-relaxed">Back up your history to the cloud. Share your sync code to keep two devices in sync.</p>
 
         {/* Backup section */}
         <div className="rounded-2xl bg-white/3 border border-white/8 p-4 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Your Sync Code</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Sync Code</p>
           {shownId ? (
             <div className="flex items-center gap-2">
               <div className="flex-1 font-mono text-lg font-bold tracking-[0.2em] text-blue-300 bg-slate-950/60 border border-blue-500/20 rounded-xl px-4 py-2.5 text-center select-all">
@@ -520,18 +569,58 @@ function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
 
         {/* Restore section */}
         <div className="rounded-2xl bg-white/3 border border-white/8 p-4 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Restore from Code</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Restore from Sync Code</p>
           <input
             type="text" value={restoreCode} onChange={e => { setRestoreCode(e.target.value.toLowerCase()); setRestoreStatus(null); }}
-            placeholder="Enter your sync code"
+            placeholder="Enter sync code"
             className="w-full rounded-xl px-4 py-3 glass-input font-mono text-center text-base tracking-widest text-slate-200 placeholder:text-slate-600 placeholder:tracking-normal"
           />
-          {restoreStatus === "not-found" && <p className="text-rose-400 text-xs">Code not found. Double-check the code and try again.</p>}
+          {restoreStatus === "not-found" && <p className="text-rose-400 text-xs">Code not found. Double-check and try again.</p>}
           {restoreStatus === "error" && <p className="text-rose-400 text-xs">Connection error: {restoreErrMsg || "check your internet and try again."}</p>}
           {restoreStatus === "restored" && <p className="text-emerald-400 text-xs">Data restored successfully!</p>}
           <Btn onClick={doRestore} variant="secondary" full disabled={!restoreCode.trim() || restoreStatus === "restoring"}>
             {restoreStatus === "restoring" ? <><RefreshCw size={16} className="animate-spin"/> Restoring…</> : <><CloudDownload size={16}/> Restore Data</>}
           </Btn>
+        </div>
+
+        {/* Master Backup section */}
+        <div className="rounded-2xl bg-amber-500/5 border border-amber-500/15 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-600">Master Backup</p>
+            <span className="text-[10px] text-amber-700/70 bg-amber-500/10 rounded-full px-2 py-0.5">Point-in-time snapshot</span>
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">Save a frozen copy of your data right now. If a synced device corrupts your history, restore from this code to get back to this exact state.</p>
+          {shownMaster ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 font-mono text-base font-bold tracking-[0.18em] text-amber-300 bg-slate-950/60 border border-amber-500/20 rounded-xl px-4 py-2.5 text-center select-all">
+                {shownMaster}
+              </div>
+              <button onClick={copyMaster} className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all shrink-0">
+                {masterCopied ? <Check size={16}/> : <Copy size={16}/>}
+              </button>
+            </div>
+          ) : (
+            <p className="text-slate-600 text-xs italic">No master backup yet.</p>
+          )}
+          {snapshotStatus === "error" && <p className="text-rose-400 text-xs">Snapshot failed: {snapshotErrMsg || "check your internet connection."}</p>}
+          {snapshotStatus === "saved" && <p className="text-amber-400 text-xs">Snapshot saved! Copy the code above and keep it safe.</p>}
+          <Btn onClick={doSaveSnapshot} variant="amber" full disabled={snapshotStatus === "saving"}>
+            {snapshotStatus === "saving" ? <><RefreshCw size={16} className="animate-spin"/> Saving snapshot…</> : snapshotStatus === "saved" ? <><Check size={16}/> Snapshot saved!</> : <><Shield size={16}/> {shownMaster ? "Update Snapshot" : "Create Master Backup"}</>}
+          </Btn>
+          <div className="border-t border-amber-500/10 pt-3 space-y-2">
+            <p className="text-xs font-semibold text-slate-500">Restore from master backup</p>
+            <input
+              type="text" value={snapRestoreCode} onChange={e => { setSnapRestoreCode(e.target.value.toLowerCase()); setSnapRestoreStatus(null); }}
+              placeholder="Enter master backup code"
+              className="w-full rounded-xl px-4 py-3 glass-input font-mono text-center text-sm tracking-widest text-slate-200 placeholder:text-slate-600 placeholder:tracking-normal"
+            />
+            {snapRestoreStatus === "not-found" && <p className="text-rose-400 text-xs">Code not found. Double-check and try again.</p>}
+            {snapRestoreStatus === "error" && <p className="text-rose-400 text-xs">Connection error: {snapRestoreErrMsg || "check your internet and try again."}</p>}
+            {snapRestoreStatus === "restored" && <p className="text-emerald-400 text-xs">Snapshot restored! Your data is back to that saved point.</p>}
+            <Btn onClick={doLoadSnapshot} variant="danger" full disabled={!snapRestoreCode.trim() || snapRestoreStatus === "restoring"}>
+              {snapRestoreStatus === "restoring" ? <><RefreshCw size={16} className="animate-spin"/> Restoring…</> : <><RotateCcw size={16}/> Restore Snapshot</>}
+            </Btn>
+          </div>
         </div>
 
         <div className="pt-4 border-t border-white/5">
@@ -540,7 +629,7 @@ function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
             <CloudDownload size={14}/> Force Refresh App Code
           </Btn>
         </div>
-        <p className="text-center text-xs text-slate-600">Save your sync code somewhere safe — it's the only way to access your backup.</p>
+        <p className="text-center text-xs text-slate-600">Keep your sync code and master backup code somewhere safe.</p>
       </div>
     </Modal>
   );
@@ -3055,6 +3144,9 @@ export default function App() {
   const [allGames, setAllGames] = useState({});
   const [activeGameId, setActiveGameId] = useState(null);
   const [profileId, setProfileId] = useState(null);
+  const [masterCode, setMasterCode] = useState(() => {
+    try { return localStorage.getItem("poker-ledger-master-code") || null; } catch { return null; }
+  });
   const [syncModal, setSyncModal] = useState(false);
   const [unsettledBalances, setUnsettledBalances] = useState([]);
   const [priorBalances, setPriorBalances] = useState(() => {
@@ -3685,6 +3777,36 @@ export default function App() {
     return true;
   };
 
+  const handleSaveSnapshot = async () => {
+    let mc = masterCode;
+    if (!mc) {
+      mc = generateSnapshotId();
+      setMasterCode(mc);
+      localStorage.setItem("poker-ledger-master-code", mc);
+    }
+    const localPriorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
+    await saveSnapshot(mc, { history, savedNames, priorBalances: localPriorBals });
+    return mc;
+  };
+
+  const handleLoadSnapshot = async (code) => {
+    const data = await loadSnapshot(code);
+    if (!data) return false;
+    if (data.history) {
+      setHistory(data.history);
+      await store.set(HISTORY_KEY, data.history);
+    }
+    if (data.savedNames) { setSavedNames(data.savedNames); await store.set(NAMES_KEY, data.savedNames); }
+    if (data.priorBalances) {
+      setPriorBalances(data.priorBalances);
+      localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(data.priorBalances));
+    }
+    // Persist master code for future use
+    setMasterCode(code);
+    localStorage.setItem("poker-ledger-master-code", code);
+    return true;
+  };
+
   if(phase==="loading") return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-theme-500 z-50">
       <Coins size={48} className="animate-bounce" />
@@ -3762,8 +3884,11 @@ export default function App() {
           open={syncModal}
           onClose={()=>setSyncModal(false)}
           profileId={profileId}
+          masterCode={masterCode}
           onBackup={handleBackup}
           onRestore={handleRestore}
+          onSaveSnapshot={handleSaveSnapshot}
+          onLoadSnapshot={handleLoadSnapshot}
         />
 
         {/* Share Session Modal */}

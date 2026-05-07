@@ -146,6 +146,41 @@ function generateProfileId() {
   return id;
 }
 
+// ── Master Snapshot ──
+export function generateSnapshotId() {
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+  let id = "";
+  for (let i = 0; i < 10; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+export async function saveSnapshot(snapshotId, data) {
+  if (!isInitialized) throw new Error("Firebase not configured. Check your internet connection.");
+  try {
+    const snapRef = ref(db, `snapshots/${snapshotId}`);
+    await set(snapRef, { ...data, savedAt: Date.now() });
+  } catch(e) {
+    if (e.code === "PERMISSION_DENIED" || e.message?.includes("permission")) {
+      throw new Error("Access denied — check your Firebase database rules allow writes on /snapshots.");
+    }
+    throw new Error(e.message || "Network error while saving snapshot.");
+  }
+}
+
+export async function loadSnapshot(snapshotId) {
+  if (!isInitialized) throw new Error("Firebase not configured. Check your internet connection.");
+  try {
+    const snapRef = ref(db, `snapshots/${snapshotId.trim().toLowerCase()}`);
+    const snapshot = await get(snapRef);
+    return snapshot.exists() ? snapshot.val() : null;
+  } catch(e) {
+    if (e.code === "PERMISSION_DENIED" || e.message?.includes("permission")) {
+      throw new Error("Access denied — check your Firebase database rules allow reads on /snapshots.");
+    }
+    throw new Error(e.message || "Network error while loading snapshot.");
+  }
+}
+
 export async function saveProfile(profileId, data) {
   if (!isInitialized) throw new Error("Firebase not configured. Check your internet connection.");
   try {
