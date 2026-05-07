@@ -28,7 +28,6 @@ const PROFILE_KEY = "poker-ledger-profile";
 const GAMES_KEY = "poker-ledger-games";
 const NAMES_KEY = "poker-ledger-names";
 const HISTORY_KEY = "poker-ledger-history";
-const UNSETTLED_KEY = "poker-ledger-unsettled";
 const CURRENCY = "₹";
 
 const mergeHistory = (local, cloudRaw) => {
@@ -1721,7 +1720,7 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
 }
 
 /* ─────────── SETTLE ─────────── */
-function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unsettledBalances }) {
+function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
   const [fc, setFc] = useState(() => {
     if (game.fc) return game.fc;
     const m = {};
@@ -1746,161 +1745,32 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
     if (onFcChange) onFcChange(newFc);
   };
   const [warning, setWarning] = useState("");
-  const [adj, setAdj] = useState([]); // {id, from, to, amount}
-  const [newAdj, setNewAdj] = useState({from:"", to:"", amount:""});
-  const [mergeUnsettled, setMergeUnsettled] = useState(false);
 
-  // Filter unsettled balances to only include players relevant to this game
-  const prevUnsettled = unsettledBalances || [];
-  
   const tb = game.totalBankChips;
   const tf = Object.values(fc).reduce((s,v)=>s+(parseFloat(v)||0),0);
   const remaining = round2(tb - tf);
 
-  const addAdj = () => {
-    if (!newAdj.from || !newAdj.to || !newAdj.amount) return;
-    if (newAdj.from === newAdj.to) return;
-    setAdj([...adj, { ...newAdj, id: Date.now(), amount: parseFloat(newAdj.amount)||0 }]);
-    setNewAdj({from:"", to:"", amount:""});
-    haptic();
-  };
-  const rmAdj = (id) => setAdj(adj.filter(a=>a.id!==id));
-
   const calc = () => {
     setWarning("");
     if(Math.abs(tf-tb)>0.5) setWarning(`Chip mismatch! Final (${round2(tf)}) ≠ bank (${round2(tb)}). Diff: ${round2(Math.abs(tf-tb))}`);
-    
-    // 1. Current players
     const bal = game.players.map(p=>{
       const f=parseFloat(fc[p.id])||0;
       return{name:p.name,balance:round2(f*game.chipValue-p.cashInvested),finalChips:f,invested:p.cashInvested};
     });
-
-    // 2. Add non-settled left players to the debt pool
     const lpBalances = (game.leftPlayers||[])
-      .filter(p => !p.settledWith) // Those who chose "Settle at End"
-      .map(p => ({
-        name: p.name,
-        balance: p.net,
-        finalChips: p.finalChips,
-        invested: p.cashInvested,
-        isLeft: true
-      }));
-
+      .filter(p => !p.settledWith)
+      .map(p => ({ name:p.name, balance:p.net, finalChips:p.finalChips, invested:p.cashInvested, isLeft:true }));
     const combined = [...bal, ...lpBalances];
-    
-    // 3. Apply external adjustments
-    const finalBalances = combined.map(p => {
-      let totalAdj = 0;
-      adj.forEach(a => {
-        if (a.from === p.name) totalAdj -= a.amount;
-        if (a.to === p.name) totalAdj += a.amount;
-      });
-      return { ...p, balance: round2(p.balance + totalAdj) };
-    });
-
-    // 4. Merge previous unsettled balances if enabled
-    if (mergeUnsettled && prevUnsettled.length > 0) {
-      prevUnsettled.forEach(u => {
-        const existing = finalBalances.find(p => p.name === u.name);
-        if (existing) {
-          existing.balance = round2(existing.balance + u.balance);
-        } else {
-          finalBalances.push({ name: u.name, balance: u.balance, finalChips: 0, invested: 0 });
-        }
-      });
-    }
-
     const winnerName = bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0])?.balance > 0 ? bal.reduce((m,x)=>x.balance>m.balance?x:m, bal[0]).name : null;
-    
     const finalResult = {
-      balances: finalBalances.filter(p => !p.isLeft), // Display only on-table players in the balance list
-      settlements: computeSettlements(finalBalances).map(s => ({ ...s, payments: [] })),
+      balances: combined.filter(p => !p.isLeft),
+      settlements: computeSettlements(combined),
       winner: winnerName
     };
     if (onSettleResult) onSettleResult(finalResult);
     setResult(finalResult);
-    setPayments({}); // Reset payment tracking
   };
-  const lpData=game.leftPlayers||[];
-
-  // ── Payment tracking state ──
-  const [payments, setPayments] = useState({}); // { settlementIndex: [{ to, amount, time }] }
-  const [payModal, setPayModal] = useState(null); // settlement index or null
-  const [payEntries, setPayEntries] = useState([{ to: "", amount: "" }]);
-
-  // All player names for recipient dropdown
-  const allPlayerNames = [...new Set([
-    ...game.players.map(p => p.name),
-    ...(game.leftPlayers || []).map(p => p.name)
-  ])];
-
-  // Get status for a settlement
-  const getSettleStatus = (idx) => {
-    const s = result?.settlements?.[idx];
-    if (!s) return { status: "pending", paid: 0, remaining: s?.amount || 0 };
-    const pList = payments[idx] || [];
-    const paid = round2(pList.reduce((sum, p) => sum + p.amount, 0));
-    const remaining = round2(s.amount - paid);
-    if (paid === 0) return { status: "pending", paid, remaining: s.amount };
-    if (remaining <= 0.01 && remaining >= -0.01) return { status: "settled", paid, remaining: 0 };
-    if (remaining < -0.01) return { status: "overpaid", paid, remaining };
-    return { status: "partial", paid, remaining };
-  };
-
-  // Compute remaining adjustments from redirected / partial payments
-  const computeRemainingAdjustments = () => {
-    if (!result?.settlements) return [];
-    // Build net balance: for each person, track what they should still receive vs pay
-    const net = {};
-    // Step 1: Start with original obligations from all settlements
-    result.settlements.forEach(s => {
-      net[s.from] = round2((net[s.from] || 0) - s.amount); // debtor owes
-      net[s.to] = round2((net[s.to] || 0) + s.amount);     // creditor is owed
-    });
-    // Step 2: Subtract actual payments made
-    result.settlements.forEach((s, idx) => {
-      const pList = payments[idx] || [];
-      pList.forEach(p => {
-        net[s.from] = round2((net[s.from] || 0) + p.amount); // debtor paid, reduces their debt
-        net[p.to] = round2((net[p.to] || 0) - p.amount);     // actual recipient received, reduces what they're owed
-      });
-    });
-    // Filter out zero balances and compute remaining settlements
-    const remaining = Object.entries(net)
-      .filter(([_, bal]) => Math.abs(bal) > 0.01)
-      .map(([name, balance]) => ({ name, balance }));
-    if (remaining.length === 0) return [];
-    return computeSettlements(remaining);
-  };
-
-  const openPayModal = (idx) => {
-    const s = result.settlements[idx];
-    setPayModal(idx);
-    setPayEntries([{ to: s.to, amount: String(getSettleStatus(idx).remaining) }]);
-  };
-
-  const submitPayment = () => {
-    if (payModal === null) return;
-    const valid = payEntries.filter(e => e.amount && parseFloat(e.amount) > 0 && e.to);
-    if (valid.length === 0) return;
-    const newPayments = { ...payments };
-    const existing = newPayments[payModal] || [];
-    newPayments[payModal] = [...existing, ...valid.map(e => ({ to: e.to, amount: round2(parseFloat(e.amount)), time: Date.now() }))];
-    setPayments(newPayments);
-    // Also update result settlements with payments for history persistence
-    if (result) {
-      const updatedSettlements = result.settlements.map((s, i) => ({
-        ...s,
-        payments: newPayments[i] || []
-      }));
-      const updatedResult = { ...result, settlements: updatedSettlements };
-      setResult(updatedResult);
-      if (onSettleResult) onSettleResult(updatedResult);
-    }
-    setPayModal(null);
-    haptic();
-  };
+  const lpData = game.leftPlayers || [];
 
   const receiptRef = useRef(null);
   const shareReceipt = async () => {
@@ -1960,82 +1830,6 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
             </div>
           )}
 
-          {/* Previous Unsettled Balances */}
-          {prevUnsettled.length > 0 && (
-            <div className="glass-panel p-5 sm:p-6 rounded-[2rem] space-y-4">
-              <button onClick={() => setMergeUnsettled(!mergeUnsettled)} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border transition-all ${mergeUnsettled ? 'bg-purple-500/10 border-purple-500/30' : 'bg-white/[0.02] border-white/10 hover:border-purple-500/20'}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${mergeUnsettled ? 'bg-purple-500 border-purple-500' : 'border-slate-600'}`}>
-                    {mergeUnsettled && <Check size={12} className="text-white" />}
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-slate-200">Include previous dues</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{prevUnsettled.length} player{prevUnsettled.length !== 1 ? 's' : ''} carry-forward</p>
-                  </div>
-                </div>
-                <History size={16} className="text-purple-400/60" />
-              </button>
-              {mergeUnsettled && (
-                <div className="space-y-1.5 px-1">
-                  {prevUnsettled.map((u, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-500/5 border border-purple-500/10 text-xs sm:text-sm">
-                      <span className="font-semibold text-slate-300">{u.name}</span>
-                      <span className={`font-mono font-bold ${u.balance > 0 ? 'text-emerald-400' : u.balance < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                        {u.balance > 0 ? '+' : u.balance < 0 ? '-' : ''}{CURRENCY}{Math.abs(round2(u.balance)).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* External Adjustments Section */}
-          <div className="glass-panel p-5 sm:p-6 rounded-[2rem] space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1">
-              <ArrowRightLeft size={14} className="text-blue-400" /> External Dues (Optional)
-            </h3>
-
-            {adj.length > 0 && (
-              <div className="space-y-2">
-                {adj.map(a => (
-                  <div key={a.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-slate-950/40 border border-white/5 text-xs sm:text-sm">
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <span className="font-bold text-rose-400/80">{a.from}</span>
-                      <ArrowRight size={12} className="text-slate-600" />
-                      <span className="font-bold text-theme-400/80">{a.to}</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="font-mono font-bold text-slate-200">{CURRENCY}{a.amount.toLocaleString()}</span>
-                      <button onClick={() => rmAdj(a.id)} className="text-slate-600 hover:text-rose-400 transition-colors"><X size={14} /></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
-              <select value={newAdj.from} onChange={e => setNewAdj({ ...newAdj, from: e.target.value })} className="rounded-xl px-4 py-3 text-sm glass-input">
-                <option value="">From...</option>
-                {[...game.players, ...(game.leftPlayers || [])].map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-              </select>
-              <select value={newAdj.to} onChange={e => setNewAdj({ ...newAdj, to: e.target.value })} className="rounded-xl px-4 py-3 text-sm glass-input">
-                <option value="">To...</option>
-                {[...game.players, ...(game.leftPlayers || [])].map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm">{CURRENCY}</span>
-                <input type="number" value={newAdj.amount} onChange={e => setNewAdj({ ...newAdj, amount: e.target.value })} placeholder="Amount owed"
-                  className="w-full rounded-xl pl-8 pr-4 py-3 text-sm glass-input font-mono" />
-              </div>
-              <button onClick={addAdj} className="px-5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all font-semibold text-sm">
-                Add
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-500 italic px-1 leading-relaxed">Note: These dues are one-off for this settlement and won't be saved to history.</p>
-          </div>
 
           <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 sm:pb-8 px-4 pointer-events-none">
             <div className="flex gap-2 sm:gap-4 max-w-2xl mx-auto pointer-events-auto">
@@ -2044,9 +1838,10 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
           </div>
         </div>
       ) : (
-        <div className="space-y-8 animate-slide-up pb-24">
+        <div className="space-y-6 animate-slide-up pb-24">
+          {/* Player balances */}
           <div ref={receiptRef} className="glass-panel p-5 sm:p-8 rounded-[2rem]">
-            <h2 className="text-sm font-semibold mb-5 tracking-wider uppercase text-slate-400">Player balances</h2>
+            <h2 className="text-sm font-semibold mb-5 tracking-wider uppercase text-slate-400">Player Balances</h2>
             <div className="space-y-3">{result.balances.map((b,i)=>(
               <div key={b.name} className={`flex items-center gap-4 rounded-[1.5rem] px-5 py-4 animate-slide-up border relative overflow-hidden ${b.name===result.winner?'bg-amber-500/10 border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/30':b.balance>0?'bg-theme-500/5 border-theme-500/20':b.balance<0?'bg-rose-500/5 border-rose-500/20':'bg-white/5 border-white/10'}`} style={{animationDelay:`${i*60}ms`}}>
                 {b.name===result.winner && <div className="absolute top-0 right-0 p-1.5 bg-amber-500/20 text-amber-400 rounded-bl-[0.75rem] backdrop-blur-md border-b border-l border-amber-500/30"><Crown size={14} /></div>}
@@ -2061,9 +1856,10 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
             ))}</div>
           </div>
 
-          {warning&&<div className="flex items-start gap-3 px-5 py-4 rounded-xl text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-300"><AlertTriangle size={18} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
+          {warning && <div className="flex items-start gap-3 px-5 py-4 rounded-xl text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-300"><AlertTriangle size={18} className="shrink-0 mt-0.5"/><span>{warning}</span></div>}
 
-          {lpData.length>0&&(
+          {/* Left-early players */}
+          {lpData.length > 0 && (
             <div className="glass-panel p-5 sm:p-8 rounded-[2rem]">
               <h2 className="text-sm font-semibold mb-4 tracking-wider uppercase text-slate-400">Already settled (left earlier)</h2>
               <div className="space-y-2">{lpData.map((p,i)=>(
@@ -2076,192 +1872,38 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
             </div>
           )}
 
-          <div className="glass-panel p-5 sm:p-8 rounded-[2rem] bg-gradient-to-b from-indigo-950/40 to-slate-900/60 shadow-[0_0_40px_rgba(79,70,229,0.1)] border-indigo-500/20">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-base font-bold flex items-center gap-3 text-indigo-200">
-                <Sparkles size={20} className="text-amber-400"/> Settlements ({result.settlements.length} transaction{result.settlements.length!==1?"s":""})
-              </h2>
-              {result.settlements.length > 0 && result.settlements.some((_, i) => getSettleStatus(i).status !== "settled") && (
-                <button onClick={() => {
-                  const newPayments = { ...payments };
-                  result.settlements.forEach((s, i) => {
-                    const st = getSettleStatus(i);
-                    if (st.status !== "settled" && st.remaining > 0.01) {
-                      newPayments[i] = [...(newPayments[i] || []), { to: s.to, amount: round2(st.remaining), time: Date.now() }];
-                    }
-                  });
-                  setPayments(newPayments);
-                  const updatedSettlements = result.settlements.map((s, i) => ({ ...s, payments: newPayments[i] || [] }));
-                  const updatedResult = { ...result, settlements: updatedSettlements };
-                  setResult(updatedResult);
-                  if (onSettleResult) onSettleResult(updatedResult);
-                  haptic();
-                }} className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5">
-                  <Check size={12}/> All Settled
-                </button>
-              )}
-            </div>
-            {result.settlements.length===0?<div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>:(
-              <div className="space-y-3">{result.settlements.map((s,i)=>{
-                const st = getSettleStatus(i);
-                const pList = payments[i] || [];
-                const statusColors = {
-                  pending: "bg-slate-500/20 text-slate-400 border-slate-500/30",
-                  partial: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-                  settled: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-                  overpaid: "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                };
-                const statusLabel = {
-                  pending: "Pending",
-                  partial: `₹${st.remaining} left`,
-                  settled: "Settled ✓",
-                  overpaid: `Overpaid ₹${Math.abs(st.remaining)}`
-                };
-                return (
-                 <div key={i} className={`rounded-2xl animate-slide-up bg-slate-900/80 border shadow-lg overflow-hidden ${st.status === "settled" ? "border-emerald-500/20" : "border-indigo-500/30"}`} style={{animationDelay:`${i*80}ms`}}>
-                  <button onClick={() => openPayModal(i)} className="w-full px-5 py-4 flex flex-col gap-2 text-left active:bg-white/5 transition-colors">
-                   <div className="flex items-center gap-3 sm:gap-4">
-                     <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
-                     <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
-                       <div className="h-px flex-1 bg-indigo-500/30"/>
-                       <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono shadow-[inset_0_0_10px_rgba(245,158,11,0.1)]">
-                         {CURRENCY}{s.amount.toLocaleString()}
-                       </span>
-                       <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
-                       <div className="h-px flex-1 bg-indigo-500/30"/>
-                     </div>
-                     <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
-                   </div>
-                   <div className="flex items-center justify-between">
-                     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${statusColors[st.status]}`}>
-                       {statusLabel[st.status]}
-                     </span>
-                     <span className="text-[10px] text-slate-500 italic">Tap to log payment</span>
-                   </div>
-                  </button>
-                  {/* Logged payments */}
-                  {pList.length > 0 && (
-                    <div className="px-5 pb-4 pt-1 border-t border-white/5 space-y-1.5">
-                      {pList.map((p, j) => (
-                        <div key={j} className="flex items-center gap-2 text-xs">
-                          <Check size={12} className="text-emerald-400 shrink-0"/>
-                          <span className="text-slate-400">
-                            {CURRENCY}{p.amount.toLocaleString()} → <span className={`font-semibold ${p.to === s.to ? "text-theme-400" : "text-blue-400"}`}>{p.to}</span>
-                            {p.to !== s.to && <span className="text-blue-400/60 ml-1">(redirected)</span>}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                 </div>
-                );
-              })}</div>
-            )}
-          </div>
-
-          {/* Remaining Adjustments */}
-          {(() => {
-            const remaining = computeRemainingAdjustments();
-            const hasAnyPayments = Object.values(payments).some(p => p.length > 0);
-            if (!hasAnyPayments || remaining.length === 0) return null;
-            return (
-              <div className="glass-panel p-5 sm:p-8 rounded-[2rem] bg-gradient-to-b from-amber-950/30 to-slate-900/60 border-amber-500/20">
-                <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-amber-300 uppercase tracking-wider">
-                  <AlertTriangle size={16} className="text-amber-400"/> Remaining Adjustments
-                </h2>
-                <p className="text-xs text-slate-400 mb-4">Based on actual payments logged, these additional transfers are needed:</p>
-                <div className="space-y-2">{remaining.map((r, i) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-900/60 border border-amber-500/15">
-                    <span className="text-sm font-bold text-rose-400 truncate w-20 sm:w-28 shrink-0">{r.from}</span>
+          {/* Settlements */}
+          <div className="glass-panel p-5 sm:p-8 rounded-[2rem] bg-gradient-to-b from-indigo-950/40 to-slate-900/60 border-indigo-500/20">
+            <h2 className="text-base font-bold flex items-center gap-3 text-indigo-200 mb-5">
+              <Sparkles size={20} className="text-amber-400"/> Who Pays Whom ({result.settlements.length} transfer{result.settlements.length!==1?"s":""})
+            </h2>
+            {result.settlements.length === 0
+              ? <div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>
+              : <div className="space-y-3">{result.settlements.map((s,i)=>(
+                  <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-2xl px-5 py-4 bg-slate-900/80 border border-indigo-500/20 animate-slide-up" style={{animationDelay:`${i*60}ms`}}>
+                    <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
                     <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
-                      <div className="h-px flex-1 bg-amber-500/20"/>
-                      <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
-                        {CURRENCY}{r.amount.toLocaleString()}
-                      </span>
-                      <ArrowRight size={12} className="text-amber-400/60 shrink-0"/>
-                      <div className="h-px flex-1 bg-amber-500/20"/>
+                      <div className="h-px flex-1 bg-indigo-500/30"/>
+                      <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">{CURRENCY}{s.amount.toLocaleString()}</span>
+                      <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
+                      <div className="h-px flex-1 bg-indigo-500/30"/>
                     </div>
-                    <span className="text-sm font-bold text-theme-400 truncate w-20 sm:w-28 shrink-0 text-right">{r.to}</span>
+                    <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
                   </div>
                 ))}</div>
-              </div>
-            );
-          })()}
-          
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-4">
-            <Btn onClick={()=>{
-              setResult(null);
-              setPayments({});
-              if (onSettleResult) onSettleResult(null);
-            }} variant="secondary" className="flex-1 py-3 text-sm sm:text-base"><RotateCcw size={18}/> Re-enter</Btn>
+            }
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-2">
+            <Btn onClick={()=>{ setResult(null); if (onSettleResult) onSettleResult(null); }} variant="secondary" className="flex-1 py-3 text-sm sm:text-base"><RotateCcw size={18}/> Re-enter</Btn>
             <Btn onClick={()=>{haptic(); shareReceipt();}} variant="primary" className="flex-1 py-3 text-sm sm:text-base"><Download size={18}/> Share Receipt</Btn>
             <Btn onClick={()=>onReset(result)} variant="danger" className="flex-1 py-3 text-sm sm:text-base"><Trash2 size={18}/> New Game</Btn>
           </div>
-
-          {/* Payment Modal */}
-          <Modal open={payModal !== null} onClose={() => setPayModal(null)}
-            title={payModal !== null ? `Log Payment — ${result?.settlements?.[payModal]?.from}` : ""}
-            icon={<div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><ArrowRightLeft size={20}/></div>}>
-            {payModal !== null && result?.settlements?.[payModal] && (() => {
-              const s = result.settlements[payModal];
-              const st = getSettleStatus(payModal);
-              return (
-                <div className="space-y-5">
-                  <div className="px-4 py-3 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
-                    <p className="text-sm text-slate-300">
-                      <span className="font-bold text-rose-400">{s.from}</span> owes <span className="font-bold font-mono text-amber-400">{CURRENCY}{s.amount.toLocaleString()}</span> to <span className="font-bold text-theme-400">{s.to}</span>
-                    </p>
-                    {st.paid > 0 && <p className="text-xs text-slate-500 mt-1">Already paid: <span className="text-emerald-400 font-mono">{CURRENCY}{st.paid}</span> · Remaining: <span className="text-amber-400 font-mono">{CURRENCY}{Math.max(0, st.remaining)}</span></p>}
-                  </div>
-
-                  {payEntries.map((entry, idx) => (
-                    <div key={idx} className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                      {payEntries.length > 1 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Payment {idx + 1}</span>
-                          <button onClick={() => setPayEntries(prev => prev.filter((_, i) => i !== idx))} className="text-slate-600 hover:text-rose-400 transition-colors"><X size={14}/></button>
-                        </div>
-                      )}
-                      <div>
-                        <label className="text-xs font-semibold mb-2 block tracking-wider uppercase text-slate-400">Paid to</label>
-                        <select value={entry.to} onChange={e => setPayEntries(prev => prev.map((x, i) => i === idx ? { ...x, to: e.target.value } : x))}
-                          className="w-full rounded-xl px-4 py-3 text-sm glass-input text-slate-200 cursor-pointer">
-                          <option value="" className="bg-slate-900 text-slate-400">Select recipient...</option>
-                          {allPlayerNames.map(n => <option key={n} value={n} className="bg-slate-800 text-slate-100">{n}{n !== s.to ? " (redirect)" : ""}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold mb-2 block tracking-wider uppercase text-slate-400">Amount</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm">{CURRENCY}</span>
-                          <input type="number" value={entry.amount}
-                            onChange={e => setPayEntries(prev => prev.map((x, i) => i === idx ? { ...x, amount: e.target.value } : x))}
-                            placeholder="0" className="w-full rounded-xl pl-7 pr-4 py-3 text-sm glass-input font-mono text-amber-400"/>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  <button onClick={() => setPayEntries(prev => [...prev, { to: "", amount: "" }])}
-                    className="w-full flex items-center justify-center gap-2 text-xs font-semibold py-2.5 rounded-xl border border-dashed border-white/10 hover:border-blue-500/30 hover:bg-blue-500/5 text-slate-500 hover:text-blue-400 transition-all">
-                    <Plus size={14}/> Split payment to multiple players
-                  </button>
-
-                  <div className="flex gap-3">
-                    <Btn onClick={() => setPayModal(null)} variant="secondary" className="flex-1">Cancel</Btn>
-                    <Btn onClick={submitPayment} variant="primary" className="flex-1"><Check size={16}/> Confirm</Btn>
-                  </div>
-                </div>
-              );
-            })()}
-          </Modal>
         </div>
       )}
     </div>
   );
 }
-
-
 
 /* ─────────── HISTORY ─────────── */
 function computeInsights(history) {
@@ -2481,7 +2123,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
       return;
     }
     onRenamePlayer(renameModal.oldName, newName);
-    // Migrate prior balance to the new name
     if (priorBalances[renameModal.oldName] != null) {
       savePriorBalance(newName, priorBalances[renameModal.oldName]);
       savePriorBalance(renameModal.oldName, 0);
@@ -2493,7 +2134,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
       setMergeStep(2);
     } else if (mergeStep === 2) {
       if (!mergeConfirm) return;
-      // When merging, combine prior balances
       const oldPrior = priorBalances[mergeConfirm.oldName] ?? 0;
       const newPrior = priorBalances[mergeConfirm.newName] ?? 0;
       if (oldPrior !== 0 || newPrior !== 0) {
@@ -2530,7 +2170,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
       }
     }
     const result = Object.values(map);
-    // Apply prior balances — offset that existed before app tracking started
     for (const p of result) {
       if (priorBalances[p.name]) {
         p.priorBalance = priorBalances[p.name];
@@ -3271,7 +2910,6 @@ export default function App() {
     try { return localStorage.getItem("poker-ledger-master-code") || null; } catch { return null; }
   });
   const [syncModal, setSyncModal] = useState(false);
-  const [unsettledBalances, setUnsettledBalances] = useState([]);
   const [priorBalances, setPriorBalances] = useState(() => {
     try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; }
   });
@@ -3334,9 +2972,6 @@ export default function App() {
     setSavedNames(n||[]);
     setHistory(h||[]);
     if (pid) setProfileId(pid);
-    const unsettled = await store.get(UNSETTLED_KEY);
-    if (unsettled) setUnsettledBalances(unsettled);
-
     // Load all running sessions
     let games = await store.get(GAMES_KEY) || {};
     // Migrate old single-game format
@@ -3509,7 +3144,7 @@ export default function App() {
       } catch {}
     }, 2000);
     return () => clearTimeout(timer);
-  }, [history, savedNames, priorBalances, allGames, profileId, phase]);
+  }, [history, savedNames, allGames, priorBalances, profileId, phase]);
 
   const handleStart=data=>{
     const gameId = String(Date.now());
@@ -3589,14 +3224,10 @@ export default function App() {
     setSavedNames(updatedNames);
     await store.set(NAMES_KEY, updatedNames);
 
-    // Migrate prior balance to new name
-    setPriorBalances(prev => {
-      if (!(oldName in prev)) return prev;
-      const next = { ...prev, [newName]: prev[oldName] };
-      delete next[oldName];
-      localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(next));
-      return next;
-    });
+    if (priorBalances[oldName] != null) {
+      savePriorBalance(newName, priorBalances[oldName]);
+      savePriorBalance(oldName, 0);
+    }
   };
 
   // Delete a single history entry or all history
@@ -3653,39 +3284,6 @@ export default function App() {
       setHistory(next);
       await store.set(HISTORY_KEY, next);
 
-      // Compute unsettled amounts from settlement payments
-      const settlements = completedResult.settlements || [];
-      const net = {};
-      settlements.forEach(s => {
-        net[s.from] = round2((net[s.from] || 0) - s.amount);
-        net[s.to] = round2((net[s.to] || 0) + s.amount);
-      });
-      settlements.forEach(s => {
-        const pList = s.payments || [];
-        pList.forEach(p => {
-          net[s.from] = round2((net[s.from] || 0) + p.amount);
-          net[p.to] = round2((net[p.to] || 0) - p.amount);
-        });
-      });
-      const unsettled = Object.entries(net)
-        .filter(([_, bal]) => Math.abs(bal) > 0.01)
-        .map(([name, balance]) => ({ name, balance }));
-      if (unsettled.length > 0) {
-        // Merge with existing unsettled balances
-        const existing = [...unsettledBalances];
-        unsettled.forEach(u => {
-          const ex = existing.find(e => e.name === u.name);
-          if (ex) ex.balance = round2(ex.balance + u.balance);
-          else existing.push({ ...u });
-        });
-        const merged = existing.filter(e => Math.abs(e.balance) > 0.01);
-        setUnsettledBalances(merged);
-        await store.set(UNSETTLED_KEY, merged);
-      } else {
-        // All settled — clear unsettled balances
-        setUnsettledBalances([]);
-        await store.delete(UNSETTLED_KEY);
-      }
       // Auto-push merged history to cloud if this device has a profile linked
       if (profileId) {
         (async () => {
@@ -3694,7 +3292,7 @@ export default function App() {
             const merged = mergeHistory(next, cloud?.history);
             setHistory(merged);
             await store.set(HISTORY_KEY, merged);
-            await saveProfile(profileId, { history: merged, savedNames, games: nextGames, priorBalances });
+            await saveProfile(profileId, { history: merged, savedNames, games: nextGames });
           } catch {}
         })();
       }
@@ -3871,7 +3469,6 @@ export default function App() {
       await store.set(PROFILE_KEY, pid);
     }
     const localPriorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
-    // Merge with existing cloud data so neither device loses anything
     let mergedHist = history;
     let mergedPriorBals = localPriorBals;
     try {
@@ -3882,7 +3479,7 @@ export default function App() {
         await store.set(HISTORY_KEY, mergedHist);
       }
       if (cloud?.priorBalances) {
-        mergedPriorBals = { ...cloud.priorBalances, ...localPriorBals }; // local wins
+        mergedPriorBals = { ...cloud.priorBalances, ...localPriorBals };
         localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(mergedPriorBals));
       }
     } catch {}
@@ -3902,7 +3499,7 @@ export default function App() {
     if (data.games) { setAllGames(data.games); await store.set(GAMES_KEY, data.games); }
     if (data.priorBalances) {
       const localPriorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
-      const merged = { ...localPriorBals, ...data.priorBalances }; // cloud wins on restore
+      const merged = { ...localPriorBals, ...data.priorBalances };
       localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(merged));
     }
     setProfileId(code);
@@ -3992,7 +3589,7 @@ export default function App() {
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="history" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} priorBalances={priorBalances} savePriorBalance={savePriorBalance} />}
         {phase==="stats" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="stats" defaultTab="leaderboard" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} priorBalances={priorBalances} savePriorBalance={savePriorBalance} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
-        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))} unsettledBalances={unsettledBalances}/>}
+        {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))}/>}
 
         {/* Exit Confirmation */}
         <Modal open={exitPrompt} onClose={()=>setExitPrompt(false)} title="End Game?" icon={<div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><AlertTriangle size={20}/></div>}>
