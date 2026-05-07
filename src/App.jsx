@@ -623,6 +623,23 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, history }) {
   const listRef = useRef(null);
   const [removingIds, setRemovingIds] = useState(new Set());
 
+  // Per-player default buy-in from most recent initial transaction in history
+  const playerDefaultBuyin = (() => {
+    const result = {};
+    const sorted = [...(history || [])].sort((a, b) => (b.id || 0) - (a.id || 0));
+    for (const h of sorted) {
+      for (const t of (h.gameData?.transactions || [])) {
+        if (t.type === 'initial' && t.player && t.money > 0) {
+          const key = t.player.toLowerCase();
+          if (!result[key]) result[key] = t.money;
+        }
+      }
+    }
+    return result;
+  })();
+
+  const defaultBuyinFor = (name) => playerDefaultBuyin[name.trim().toLowerCase()] || 150;
+
   const addP = () => {
     setError("");
     setPlayers(p => [...p, {id:String(nid.current++),name:"",chips:0,money:0}]);
@@ -630,7 +647,6 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, history }) {
   };
   const quickFill = () => {
     setError("");
-    // Count games played per player from history
     const gameCount = {};
     for (const h of (history || [])) {
       for (const b of (h.result?.balances || [])) {
@@ -641,9 +657,11 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, history }) {
       .sort(([, a], [, b]) => b - a)
       .slice(0, 6)
       .map(([name]) => name);
-    const chips = cv > 0 ? round2(150 / cv) : 30;
-    const filled = top6.map((name, i) => ({ id: String(i + 1), name, chips, money: round2(chips * cv) }));
-    // Pad to at least 3 empty rows if fewer than 3 players found
+    const filled = top6.map((name, i) => {
+      const buyin = defaultBuyinFor(name);
+      const chips = cv > 0 ? round2(buyin / cv) : 30;
+      return { id: String(i + 1), name, chips, money: round2(chips * cv) };
+    });
     while (filled.length < 3) filled.push({ id: String(filled.length + 1), name: "", chips: 0, money: 0 });
     setPlayers(filled);
     nid.current = filled.length + 1;
@@ -666,9 +684,9 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames, history }) {
     if(x.id!==id) return x;
     const nx={...x,[f]:v};
     if(f==="name"&&!x.name&&v.trim()&&nx.chips===0){
-      const name = v.trim().toLowerCase();
-      const dc = (name==="nishant") ? 40 : (["agrim","parth","monty"].includes(name)) ? 30 : 20;
-      nx.chips=dc;nx.money=round2(dc*cv);
+      const buyin = defaultBuyinFor(v);
+      nx.chips = cv > 0 ? round2(buyin / cv) : 30;
+      nx.money = round2(nx.chips * cv);
     }
     return nx;
   }));};
