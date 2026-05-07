@@ -3076,6 +3076,10 @@ export default function App() {
   const [backExitToast, setBackExitToast] = useState(false);
   const backPressedOnce = useRef(false);
   const backPressTimer = useRef(null);
+  const phaseRef = useRef(phase);
+  const historyReturnPhaseRef = useRef(historyReturnPhase);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { historyReturnPhaseRef.current = historyReturnPhase; }, [historyReturnPhase]);
 
   // ── Initial load: check URL for session, or load from localStorage ──
   useEffect(()=>{(async()=>{
@@ -3168,25 +3172,33 @@ export default function App() {
     isRemoteUpdate.current = false;
   },[game,phase,sessionId,activeGameId]);
 
-  // Android hardware back button
+  // Android hardware back button — registered once, reads phase via ref
   useEffect(() => {
     const handleBackButton = () => {
+      const p = phaseRef.current;
+      const returnPhase = historyReturnPhaseRef.current;
       haptic();
-      if (phase === "history" || phase === "stats") {
-        setPhase(historyReturnPhase || "session");
-      } else if (phase === "players") {
+      if (p === "history" || p === "stats") {
+        setPhase(returnPhase || "session");
+      } else if (p === "players") {
         setPhase("session");
-      } else if (phase === "settle") {
+      } else if (p === "settle") {
         setPhase("game");
-      } else if (phase === "game") {
+      } else if (p === "game") {
         setExitPrompt(true);
-      } else if (phase === "session") {
+      } else if (p === "session") {
         if (backPressedOnce.current) {
           clearTimeout(backPressTimer.current);
           backPressedOnce.current = false;
-          // Exit app via Capacitor or Cordova
-          if (window.Capacitor?.Plugins?.App) window.Capacitor.Plugins.App.exitApp();
-          else if (navigator.app?.exitApp) navigator.app.exitApp();
+          // exit via Capacitor registerPlugin approach
+          try {
+            const { registerPlugin } = window.Capacitor || {};
+            if (registerPlugin) {
+              registerPlugin('App').exitApp();
+            } else if (navigator.app?.exitApp) {
+              navigator.app.exitApp();
+            }
+          } catch {}
         } else {
           backPressedOnce.current = true;
           setBackExitToast(true);
@@ -3197,18 +3209,29 @@ export default function App() {
         }
       }
     };
-    // Capacitor 3+ uses the App plugin event system
-    const capApp = window.Capacitor?.Plugins?.App;
-    if (capApp) {
-      let handle = null;
-      capApp.addListener('backButton', handleBackButton).then(h => { handle = h; });
-      return () => { handle?.remove(); };
-    } else {
-      // Fallback: Cordova / browser
-      document.addEventListener("backbutton", handleBackButton);
-      return () => document.removeEventListener("backbutton", handleBackButton);
-    }
-  }, [phase, historyReturnPhase]);
+
+    // Use @capacitor/core registerPlugin — works without @capacitor/app package
+    let listenerHandle = null;
+    const setup = async () => {
+      try {
+        const { registerPlugin } = await import('@capacitor/core');
+        const App = registerPlugin('App');
+        listenerHandle = await App.addListener('backButton', handleBackButton);
+      } catch {
+        // Non-native / web fallback
+        document.addEventListener('backbutton', handleBackButton);
+      }
+    };
+    setup();
+
+    return () => {
+      if (listenerHandle) {
+        listenerHandle.remove();
+      } else {
+        document.removeEventListener('backbutton', handleBackButton);
+      }
+    };
+  }, []); // empty deps — stable handler, reads live values via refs
 
   const handleStart=data=>{
     const gameId = String(Date.now());
