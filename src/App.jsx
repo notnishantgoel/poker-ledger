@@ -2642,7 +2642,10 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
 
                 {/* Graph for selected player */}
                 {chartData.length > 0 && allChartPlayers.includes(ip) && (
-                  <div className="glass-panel p-4 rounded-[1.5rem]">
+                  <div className="glass-panel p-4 rounded-[1.5rem]"
+                    onTouchStart={e => e.stopPropagation()}
+                    onTouchMove={e => e.stopPropagation()}
+                    onTouchEnd={e => e.stopPropagation()}>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Performance</p>
                     <LineChart width={undefined} height={200} data={chartData} style={{ width: '100%' }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -3047,6 +3050,9 @@ export default function App() {
   const [backToPlayersConfirm, setBackToPlayersConfirm] = useState(false);
   const unsubRef = useRef(null);
   const isRemoteUpdate = useRef(false);
+  const [backExitToast, setBackExitToast] = useState(false);
+  const backPressedOnce = useRef(false);
+  const backPressTimer = useRef(null);
 
   // ── Initial load: check URL for session, or load from localStorage ──
   useEffect(()=>{(async()=>{
@@ -3142,9 +3148,30 @@ export default function App() {
   // Android hardware back button
   useEffect(() => {
     const handleBackButton = () => {
+      haptic();
       if (phase === "history" || phase === "stats") {
-        haptic();
         setPhase(historyReturnPhase || "session");
+      } else if (phase === "players") {
+        setPhase("session");
+      } else if (phase === "settle") {
+        setPhase("game");
+      } else if (phase === "game") {
+        setExitPrompt(true);
+      } else if (phase === "session") {
+        if (backPressedOnce.current) {
+          clearTimeout(backPressTimer.current);
+          backPressedOnce.current = false;
+          // Exit app via Capacitor or Cordova
+          if (window.Capacitor?.Plugins?.App) window.Capacitor.Plugins.App.exitApp();
+          else if (navigator.app?.exitApp) navigator.app.exitApp();
+        } else {
+          backPressedOnce.current = true;
+          setBackExitToast(true);
+          backPressTimer.current = setTimeout(() => {
+            backPressedOnce.current = false;
+            setBackExitToast(false);
+          }, 2000);
+        }
       }
     };
     document.addEventListener("backbutton", handleBackButton);
@@ -3688,6 +3715,13 @@ export default function App() {
           </div>
         </Modal>
       </div>
+
+      {/* Double-back-to-exit toast */}
+      {backExitToast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-2xl bg-slate-800/95 border border-white/10 shadow-2xl backdrop-blur-md">
+          <p className="text-sm font-semibold text-slate-200 whitespace-nowrap">Press back again to exit</p>
+        </div>
+      )}
     </div>
   );
 }
