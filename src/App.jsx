@@ -517,6 +517,7 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
   const [exiting, setExiting] = useState(false);
 
   const top3 = (() => {
+    const priorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
     const map = {};
     for (const h of history) {
       for (const b of (h.result?.balances || [])) {
@@ -524,6 +525,9 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
         if (!map[b.name]) map[b.name] = { name: b.name, net: 0 };
         map[b.name].net = round2(map[b.name].net + round2(b.balance ?? 0));
       }
+    }
+    for (const p of Object.values(map)) {
+      if (priorBals[p.name]) p.net = round2(p.net + priorBals[p.name]);
     }
     return Object.values(map).sort((a, b) => b.net - a.net).slice(0, 3);
   })();
@@ -2365,7 +2369,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
     return result.sort((a, b) => b.net - a.net);
   })();
 
-  const STATS_TABS = ["leaderboard", "insights", "graph"];
+  const STATS_TABS = ["leaderboard", "insights"];
   const statTabIndex = STATS_TABS.indexOf(tab);
   const [tabDragX, setTabDragX] = useState(0);
   const [isDraggingTab, setIsDraggingTab] = useState(false);
@@ -2422,10 +2426,10 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
       <div className="flex items-center gap-4 sm:gap-5 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">
-            {mode === "history" ? "Game History" : tab === "insights" ? "Insights" : tab === "graph" ? "Performance Graph" : "Leaderboard"}
+            {mode === "history" ? "Game History" : tab === "insights" ? "Insights" : "Leaderboard"}
           </h1>
           <p className="text-sm font-medium mt-1 text-slate-400">
-            {mode === "history" ? "Past sessions and settlements" : tab === "insights" ? "Data-driven player patterns" : tab === "graph" ? "Cumulative P&L over time" : "All-time stats across sessions"}
+            {mode === "history" ? "Past sessions and settlements" : tab === "insights" ? "Data-driven player analytics" : "All-time stats across sessions"}
           </p>
         </div>
       </div>
@@ -2435,7 +2439,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
         <div className="flex gap-1 p-1 glass-panel rounded-xl mb-6">
           <button onClick={() => setTab("leaderboard")} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "leaderboard" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}>Leaderboard</button>
           <button onClick={() => setTab("insights")} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "insights" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}>Insights</button>
-          <button onClick={() => setTab("graph")} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "graph" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}>Graph</button>
         </div>
       )}
 
@@ -2536,10 +2539,10 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
 
       {mode !== "history" && (
         <div style={{ overflow: 'hidden' }} onTouchStart={handleTabTouchStart} onTouchMove={handleTabTouchMove} onTouchEnd={handleTabTouchEnd}>
-          <div style={{ display: 'flex', width: '300%', willChange: 'transform', transform: `translateX(calc(${-statTabIndex * (100 / 3)}% + ${tabDragX}px))`, transition: isDraggingTab ? 'none' : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div style={{ display: 'flex', width: '200%', willChange: 'transform', transform: `translateX(calc(${-statTabIndex * 50}% + ${tabDragX}px))`, transition: isDraggingTab ? 'none' : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}>
 
           {/* ── Leaderboard panel (stats tab 0) ── */}
-          <div style={{ width: '33.333%', minWidth: 0, ...(statTabIndex !== 0 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
+          <div style={{ width: '50%', minWidth: 0, ...(statTabIndex !== 0 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
           {visibleLeaderboard.length === 0 && hiddenLeaderboard.length === 0 ? (
             <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
               <Crown size={40} className="mx-auto text-slate-600 mb-4" />
@@ -2555,7 +2558,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                 const isEven = p.net === 0;
                 return (
                   <LeaderboardSwipeRow key={p.name} name={p.name} i={i}
-                    onTap={() => { setTab("graph"); setSelectedPlayers([p.name]); }}
+                    onTap={() => { setTab("insights"); setInsightPlayer(p.name); }}
                     onLongPressStart={handleLongPressStart} onLongPressMove={handleLongPressMove} onLongPressEnd={handleLongPressEnd}>
                     <div className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-bold text-sm ${isTop ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"}`}>
                       {isTop ? <Crown size={16}/> : `#${i+1}`}
@@ -2607,7 +2610,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
           </div>
 
           {/* ── Insights panel (stats tab 1) ── */}
-          <div style={{ width: '33.333%', minWidth: 0, ...(statTabIndex !== 1 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
+          <div style={{ width: '50%', minWidth: 0, ...(statTabIndex !== 1 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
           {!insights ? (
             <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
               <Activity size={40} className="mx-auto text-slate-600 mb-4" />
@@ -2741,23 +2744,9 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                     </div>
                   </div>
                 )}
-              </div>
-            );
-          })()}
-          </div>
-
-          {/* ── Graph panel (stats tab 2) ── */}
-          <div style={{ width: '33.333%', minWidth: 0, ...(statTabIndex !== 2 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
-          {history.length < 2 ? (
-            <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
-              <Sparkles size={40} className="mx-auto text-slate-600 mb-4" />
-              <p className="text-base font-medium text-slate-400">Not enough data yet.</p>
-              <p className="text-sm text-slate-500 mt-2">Play at least 2 games to see performance graphs.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
+              {/* ── Performance Graph — embedded in insights ── */}
               <div className="glass-panel p-4 rounded-[1.5rem]">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Select players to display</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Performance Graph</p>
                 <div className="flex flex-wrap gap-2">
                   {allChartPlayers.map((name, i) => {
                     const isOn = selectedPlayers.includes(name);
@@ -2771,29 +2760,25 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                     );
                   })}
                 </div>
-              </div>
-              <div className="glass-panel p-4 rounded-[1.5rem]">
-                <p className="text-sm font-semibold text-slate-300 mb-4">Cumulative Net P&L over time</p>
-                {visiblePlayers.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <p className="text-sm text-slate-500">Tap a player above to show their graph.</p>
+                {visiblePlayers.length > 0 && (
+                  <div className="mt-4">
+                    <LineChart width={undefined} height={220} data={chartData} style={{ width: '100%' }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
+                      <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
+                      <RechartsTooltip formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]} contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: '#94a3b8', marginBottom: 4 }} />
+                      <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+                      {visiblePlayers.map((name) => {
+                        const i = allChartPlayers.indexOf(name);
+                        return <Line key={name} type="monotone" dataKey={name} stroke={CHART_COLORS[i % CHART_COLORS.length]} dot={{ r: 3 }} strokeWidth={2} activeDot={{ r: 5 }} />;
+                      })}
+                    </LineChart>
                   </div>
-                ) : (
-                  <LineChart width={undefined} height={260} data={chartData} style={{ width: '100%' }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
-                    <RechartsTooltip formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]} contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: '#94a3b8', marginBottom: 4 }} />
-                    <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                    {visiblePlayers.map((name) => {
-                      const i = allChartPlayers.indexOf(name);
-                      return <Line key={name} type="monotone" dataKey={name} stroke={CHART_COLORS[i % CHART_COLORS.length]} dot={{ r: 3 }} strokeWidth={2} activeDot={{ r: 5 }} />;
-                    })}
-                  </LineChart>
                 )}
               </div>
-            </div>
-          )}
+              </div>
+            );
+          })()}
           </div>
 
           </div>
