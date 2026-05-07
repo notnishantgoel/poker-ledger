@@ -83,6 +83,20 @@ export async function updateSessionGame(sessionId, gameState) {
   await set(gameRef, gameState);
 }
 
+// ── Update a single game inside a profile (real-time sync) ──
+export async function updateProfileGame(profileId, gameId, gameState) {
+  if (!isInitialized || !profileId || !gameId) return;
+  const gameRef = ref(db, `profiles/${profileId}/games/${gameId}`);
+  await set(gameRef, gameState);
+}
+
+// ── Delete a single game from a profile (on exit) ──
+export async function deleteProfileGame(profileId, gameId) {
+  if (!isInitialized || !profileId || !gameId) return;
+  const gameRef = ref(db, `profiles/${profileId}/games/${gameId}`);
+  await remove(gameRef);
+}
+
 // ── Listen for real-time changes ──
 export function listenToSession(sessionId, callback) {
   if (!isInitialized || !sessionId) return () => {};

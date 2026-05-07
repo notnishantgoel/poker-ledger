@@ -16,7 +16,8 @@ import {
   createSession, joinSession, updateSessionGame,
   listenToSession, deleteSession, isFirebaseReady,
   getSessionUrl, getSessionIdFromUrl,
-  saveProfile, loadProfile, generateProfileId, listenToProfile
+  saveProfile, loadProfile, generateProfileId, listenToProfile,
+  updateProfileGame, deleteProfileGame
 } from "./firebase.js";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from "recharts";
 import './App.css';
@@ -3085,8 +3086,10 @@ export default function App() {
   const backPressTimer = useRef(null);
   const phaseRef = useRef(phase);
   const historyReturnPhaseRef = useRef(historyReturnPhase);
+  const activeGameIdRef = useRef(activeGameId);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { historyReturnPhaseRef.current = historyReturnPhase; }, [historyReturnPhase]);
+  useEffect(() => { activeGameIdRef.current = activeGameId; }, [activeGameId]);
 
   // ── Initial load: check URL for session, or load from localStorage ──
   useEffect(()=>{(async()=>{
@@ -3177,6 +3180,11 @@ export default function App() {
       updateSessionGame(sessionId, {...game, phase}).catch(console.warn);
     }
     isRemoteUpdate.current = false;
+
+    // Sync game state to profile in real-time (for cross-device sync)
+    if (profileId && isFirebaseReady() && !isRemoteProfileUpdate.current) {
+      updateProfileGame(profileId, activeGameId, {...game, phase, gameId: activeGameId}).catch(console.warn);
+    }
   },[game,phase,sessionId,activeGameId]);
 
   // Android hardware back button — registered once, reads phase via ref
@@ -3254,7 +3262,27 @@ export default function App() {
         localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(merged));
         return merged;
       });
-      if (data.games) setAllGames(prev => ({ ...data.games, ...prev }));
+      if (data.games) {
+        // Remote wins for the active game; local wins for all others
+        setAllGames(prev => {
+          const gid = activeGameIdRef.current;
+          const merged = { ...prev, ...data.games };
+          if (gid && data.games[gid]) merged[gid] = data.games[gid];
+          return merged;
+        });
+        // Sync the active game into game/phase state
+        const gid = activeGameIdRef.current;
+        if (gid && data.games[gid]) {
+          const remote = data.games[gid];
+          setGame(remote);
+          if (remote.phase) setPhase(remote.phase);
+        } else if (gid && !data.games[gid] && phaseRef.current === "game") {
+          // Game was closed on another device — exit to home
+          setGame(null);
+          setActiveGameId(null);
+          setPhase("session");
+        }
+      }
       remoteProfileTimer.current = setTimeout(() => { isRemoteProfileUpdate.current = false; }, 1500);
     });
     return () => { unsub(); clearTimeout(remoteProfileTimer.current); };
@@ -3442,7 +3470,7 @@ export default function App() {
       window.location.hash = '';
     }
 
-    // Remove this session from allGames
+    // Remove this session from allGames and sync deletion to other devices
     if (activeGameId) {
       setAllGames(prev => {
         const next = { ...prev };
@@ -3450,6 +3478,9 @@ export default function App() {
         store.set(GAMES_KEY, next);
         return next;
       });
+      if (profileId && isFirebaseReady()) {
+        deleteProfileGame(profileId, activeGameId).catch(console.warn);
+      }
     }
     setActiveGameId(null);
     setGame(null);
