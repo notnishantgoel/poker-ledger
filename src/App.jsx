@@ -783,6 +783,32 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
         </div>
       )}
 
+      {/* Leaderboard preview */}
+      {onStats && top3.length > 0 && (
+        <button onClick={() => { haptic(); onStats(); }}
+          className="mb-6 w-full glass-panel p-4 rounded-2xl text-left border border-white/5 hover:border-theme-500/20 hover:bg-theme-500/5 transition-all group">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Leaderboard</p>
+            <BarChart2 size={13} className="text-slate-600 group-hover:text-theme-400 transition-colors"/>
+          </div>
+          <div className="space-y-2.5">
+            {top3.map((p, i) => (
+              <div key={p.name} className="flex items-center gap-2.5">
+                <span className="text-[10px] font-bold text-slate-600 w-3">{i + 1}</span>
+                <span className="flex-1 text-sm font-semibold text-slate-300 truncate">{p.name}</span>
+                <span className={`text-sm font-mono font-bold ${p.net >= 0 ? 'text-theme-400' : 'text-rose-400'}`}>
+                  {p.net > 0 ? '+' : ''}{CURRENCY}{Math.abs(p.net).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">View full stats</span>
+            <ChevronRight size={13} className="text-slate-600 group-hover:text-theme-400 transition-colors"/>
+          </div>
+        </button>
+      )}
+
       {/* New session */}
       <div className="glass-panel p-6 sm:p-8 rounded-[2rem] space-y-6 shadow-[0_0_60px_rgba(0,0,0,0.4)]">
         <div>
@@ -810,30 +836,7 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
         </Btn>
       </div>
 
-      {onStats && top3.length > 0 && (
-        <button onClick={() => { haptic(); onStats(); }}
-          className="mt-4 w-full glass-panel p-4 rounded-2xl text-left border border-white/5 hover:border-theme-500/20 hover:bg-theme-500/5 transition-all group">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Leaderboard</p>
-            <BarChart2 size={13} className="text-slate-600 group-hover:text-theme-400 transition-colors"/>
-          </div>
-          <div className="space-y-2.5">
-            {top3.map((p, i) => (
-              <div key={p.name} className="flex items-center gap-2.5">
-                <span className="text-[10px] font-bold text-slate-600 w-3">{i + 1}</span>
-                <span className="flex-1 text-sm font-semibold text-slate-300 truncate">{p.name}</span>
-                <span className={`text-sm font-mono font-bold ${p.net >= 0 ? 'text-theme-400' : 'text-rose-400'}`}>
-                  {p.net > 0 ? '+' : ''}{CURRENCY}{Math.abs(p.net).toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">View full stats</span>
-            <ChevronRight size={13} className="text-slate-600 group-hover:text-theme-400 transition-colors"/>
-          </div>
-        </button>
-      )}
+
 
       <p className="text-center text-[10px] sm:text-xs text-slate-600 mt-8 font-medium tracking-wider uppercase">Built for the felt · No signup required</p>
     </div>
