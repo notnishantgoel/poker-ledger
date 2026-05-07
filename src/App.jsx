@@ -636,7 +636,7 @@ function SyncModal({ open, onClose, profileId, masterCode, onBackup, onRestore, 
 }
 
 /* ─────────── SESSION SCREEN (step 1) ─────────── */
-function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, onStats, onSync, history = [] }) {
+function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, onStats, onSync, history = [], onDeleteSession }) {
   const [chipValue, setChipValue] = useState("");
   const [exiting, setExiting] = useState(false);
 
@@ -664,6 +664,20 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
   };
 
   const sessions = Object.values(runningSessions).sort((a,b) => (b.startedAt||0) - (a.startedAt||0));
+
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const lpTimer = useRef(null);
+  const isLp = useRef(false);
+
+  const startLp = (id) => {
+    isLp.current = false;
+    lpTimer.current = setTimeout(() => {
+      isLp.current = true;
+      haptic();
+      setDeleteConfirmId(id);
+    }, 500);
+  };
+  const cancelLp = () => clearTimeout(lpTimer.current);
 
   return (
     <div className={`${exiting ? 'animate-fade-out' : 'animate-fade-in'} relative w-full max-w-md mx-auto px-4 py-12 sm:py-20 flex flex-col`}>
@@ -705,18 +719,53 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
               return mins < 60 ? `${mins}m ago` : `${Math.floor(mins/60)}h ago`;
             })() : "";
             return (
-              <button key={g.gameId} onClick={() => onResume(g.gameId)}
-                className="w-full glass-panel rounded-2xl p-4 text-left hover:border-theme-500/30 hover:bg-theme-500/5 transition-all border border-white/10 group">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-theme-400 animate-pulse shrink-0"/>
-                    <span className="text-xs font-semibold text-theme-400 uppercase tracking-wider">Live · {timeAgo}</span>
+              <div key={g.gameId} className="relative w-full">
+                <button
+                  onTouchStart={() => startLp(g.gameId)}
+                  onTouchMove={cancelLp}
+                  onTouchEnd={cancelLp}
+                  onTouchCancel={cancelLp}
+                  onMouseDown={() => startLp(g.gameId)}
+                  onMouseUp={cancelLp}
+                  onMouseLeave={cancelLp}
+                  onContextMenu={e => e.preventDefault()}
+                  onClick={(e) => {
+                    if (isLp.current) {
+                      e.preventDefault();
+                      return;
+                    }
+                    onResume(g.gameId);
+                  }}
+                  className={`w-full glass-panel rounded-2xl p-4 text-left hover:border-theme-500/30 hover:bg-theme-500/5 transition-all border border-white/10 group select-none ${deleteConfirmId === g.gameId ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-theme-400 animate-pulse shrink-0"/>
+                      <span className="text-xs font-semibold text-theme-400 uppercase tracking-wider">Live · {timeAgo}</span>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-amber-400">{CURRENCY}{total.toLocaleString()}</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-amber-400">{CURRENCY}{total.toLocaleString()}</span>
-                </div>
-                <p className="text-sm font-semibold text-slate-200 truncate">{names || "No players"}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{(g.players||[]).length} players · {CURRENCY}{g.chipValue}/chip</p>
-              </button>
+                  <p className="text-sm font-semibold text-slate-200 truncate">{names || "No players"}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{(g.players||[]).length} players · {CURRENCY}{g.chipValue}/chip</p>
+                </button>
+                
+                {deleteConfirmId === g.gameId && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-between glass-panel rounded-2xl p-4 bg-slate-900 border border-rose-500/30 animate-fade-in shadow-[0_0_20px_rgba(225,29,72,0.15)]">
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-rose-400">Delete Session?</p>
+                      <p className="text-xs text-slate-400">This action cannot be undone.</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => setDeleteConfirmId(null)} className="p-2 rounded-xl text-slate-400 hover:text-slate-200 bg-white/5 hover:bg-white/10 transition-colors">
+                        <X size={18}/>
+                      </button>
+                      <button onClick={() => { haptic(); onDeleteSession(g.gameId); setDeleteConfirmId(null); }} className="p-2 rounded-xl text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-colors">
+                        <Trash2 size={18}/>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -3354,25 +3403,21 @@ export default function App() {
         localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(merged));
         return merged;
       });
-      if (data.games) {
-        // Remote wins for the active game; local wins for all others
-        setAllGames(prev => {
-          const gid = activeGameIdRef.current;
-          const merged = { ...prev, ...data.games };
-          if (gid && data.games[gid]) merged[gid] = data.games[gid];
-          return merged;
-        });
-        // Sync the active game into game/phase state
-        const gid = activeGameIdRef.current;
-        if (gid && data.games[gid]) {
-          const remote = data.games[gid];
-          setGame(remote);
-          if (remote.phase) setPhase(remote.phase);
-        } else if (gid && !data.games[gid] && phaseRef.current === "game") {
-          // Game was closed on another device — exit to home
+      const remoteGames = data.games || {};
+      const gid = activeGameIdRef.current;
+      
+      setAllGames(remoteGames);
+      
+      if (gid) {
+        if (!remoteGames[gid]) {
+          // The active game was deleted by another device!
           setGame(null);
           setActiveGameId(null);
           setPhase("session");
+        } else {
+          const remote = remoteGames[gid];
+          setGame(remote);
+          if (remote.phase) setPhase(remote.phase);
         }
       }
       remoteProfileTimer.current = setTimeout(() => { isRemoteProfileUpdate.current = false; }, 1500);
@@ -3498,6 +3543,22 @@ export default function App() {
           await saveProfile(profileId, { history: updatedHistory, savedNames, games: allGames, priorBalances });
         } catch {}
       })();
+    }
+  };
+
+  const handleDeleteSession = (gameId) => {
+    const g = allGames[gameId];
+    if (g && g.sessionId && g.isHost) {
+      deleteSession(g.sessionId).catch(console.warn);
+    }
+    setAllGames(prev => {
+      const next = { ...prev };
+      delete next[gameId];
+      store.set(GAMES_KEY, next);
+      return next;
+    });
+    if (profileId && isFirebaseReady()) {
+      deleteProfileGame(profileId, gameId).catch(console.warn);
     }
   };
 
@@ -3854,7 +3915,7 @@ export default function App() {
         </div>
       )}
       <div className="relative">
-        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onStats={()=>{setHistoryReturnPhase("session");setPhase("stats");}} onSync={()=>setSyncModal(true)} history={history} />}
+        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onStats={()=>{setHistoryReturnPhase("session");setPhase("stats");}} onSync={()=>setSyncModal(true)} history={history} onDeleteSession={handleDeleteSession} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} history={history} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="history" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} priorBalances={priorBalances} savePriorBalance={savePriorBalance} />}
         {phase==="stats" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="stats" defaultTab="leaderboard" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} priorBalances={priorBalances} savePriorBalance={savePriorBalance} />}
