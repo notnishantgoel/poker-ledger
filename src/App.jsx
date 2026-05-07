@@ -7,7 +7,8 @@ import {
   RotateCcw, ArrowRight, ArrowLeft, Sparkles, Search, UserPlus, MoreVertical,
   LogOut, Building2, Users, Palette, Crown, Download, Share2,
   Link2, Wifi, WifiOff, Copy, ExternalLink,
-  History, Clock, ChevronRight,
+  History, Clock, ChevronRight, BarChart2,
+  TrendingUp, TrendingDown, Flame, Star, Activity, Calendar,
   CloudUpload, CloudDownload, RefreshCw, KeyRound,
   EyeOff
 } from "lucide-react";
@@ -511,9 +512,21 @@ function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
 }
 
 /* ─────────── SESSION SCREEN (step 1) ─────────── */
-function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, onSync }) {
+function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, onStats, onSync, history = [] }) {
   const [chipValue, setChipValue] = useState("");
   const [exiting, setExiting] = useState(false);
+
+  const top3 = (() => {
+    const map = {};
+    for (const h of history) {
+      for (const b of (h.result?.balances || [])) {
+        if (!b.name) continue;
+        if (!map[b.name]) map[b.name] = { name: b.name, net: 0 };
+        map[b.name].net = round2(map[b.name].net + round2(b.balance ?? 0));
+      }
+    }
+    return Object.values(map).sort((a, b) => b.net - a.net).slice(0, 3);
+  })();
 
   const handleContinue = () => {
     const cv = parseFloat(chipValue) || 5;
@@ -537,7 +550,7 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
         )}
         {onHistory && (
           <button onClick={()=>{haptic(); onHistory();}} className="p-3 rounded-xl text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-all">
-            <History size={22}/>
+            <Clock size={22}/>
           </button>
         )}
       </div>
@@ -606,6 +619,31 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
           Add Players <ArrowRight size={18} />
         </Btn>
       </div>
+
+      {onStats && top3.length > 0 && (
+        <button onClick={() => { haptic(); onStats(); }}
+          className="mt-4 w-full glass-panel p-4 rounded-2xl text-left border border-white/5 hover:border-theme-500/20 hover:bg-theme-500/5 transition-all group">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Leaderboard</p>
+            <BarChart2 size={13} className="text-slate-600 group-hover:text-theme-400 transition-colors"/>
+          </div>
+          <div className="space-y-2.5">
+            {top3.map((p, i) => (
+              <div key={p.name} className="flex items-center gap-2.5">
+                <span className="text-[10px] font-bold text-slate-600 w-3">{i + 1}</span>
+                <span className="flex-1 text-sm font-semibold text-slate-300 truncate">{p.name}</span>
+                <span className={`text-sm font-mono font-bold ${p.net >= 0 ? 'text-theme-400' : 'text-rose-400'}`}>
+                  {p.net > 0 ? '+' : ''}{CURRENCY}{Math.abs(p.net).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">View full stats</span>
+            <ChevronRight size={13} className="text-slate-600 group-hover:text-theme-400 transition-colors"/>
+          </div>
+        </button>
+      )}
 
       <p className="text-center text-[10px] sm:text-xs text-slate-600 mt-8 font-medium tracking-wider uppercase">Built for the felt · No signup required</p>
     </div>
@@ -2033,10 +2071,134 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange, unset
 
 
 /* ─────────── HISTORY ─────────── */
-function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer, onDeleteHistory }) {
+function computeInsights(history) {
+  if (!history || history.length < 2) return null;
+  const playerGames = {};
+  for (const h of history) {
+    const balances = h.result?.balances || [];
+    const playerCount = balances.length;
+    const date = new Date(h.id);
+    const dayOfWeek = date.getDay();
+    const hour = date.getHours();
+    const names = balances.map(b => b.name).filter(Boolean);
+    for (const b of balances) {
+      if (!b.name) continue;
+      if (!playerGames[b.name]) playerGames[b.name] = [];
+      playerGames[b.name].push({ date, balance: round2(b.balance ?? 0), opponents: names.filter(n => n !== b.name), playerCount, dayOfWeek, hour });
+    }
+  }
+  const players = Object.keys(playerGames);
+  if (players.length === 0) return null;
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const streaks = {};
+  for (const name of players) {
+    const games = [...playerGames[name]].sort((a, b) => a.date - b.date);
+    let longestWin = 0, longestLoss = 0, cur = 0, curType = null;
+    for (const g of games) {
+      const t = g.balance > 0 ? 'W' : g.balance < 0 ? 'L' : null;
+      if (t && t === curType) { cur++; } else { curType = t; cur = t ? 1 : 0; }
+      if (curType === 'W' && cur > longestWin) longestWin = cur;
+      if (curType === 'L' && cur > longestLoss) longestLoss = cur;
+    }
+    const last = games[games.length - 1];
+    const lastType = last ? (last.balance > 0 ? 'W' : last.balance < 0 ? 'L' : null) : null;
+    let streak = 0;
+    if (lastType) { for (let i = games.length - 1; i >= 0; i--) { if ((lastType === 'W' && games[i].balance > 0) || (lastType === 'L' && games[i].balance < 0)) streak++; else break; } }
+    streaks[name] = { current: streak, type: lastType, longestWin, longestLoss };
+  }
+
+  const momentum = {};
+  for (const name of players) {
+    const games = [...playerGames[name]].sort((a, b) => a.date - b.date);
+    if (games.length < 3) continue;
+    const allAvg = round2(games.reduce((s, g) => s + g.balance, 0) / games.length);
+    const last5 = games.slice(-5);
+    const last5Avg = round2(last5.reduce((s, g) => s + g.balance, 0) / last5.length);
+    momentum[name] = { last5Avg, allAvg, trend: round2(last5Avg - allAvg) };
+  }
+
+  const dayStats = {};
+  for (const name of players) {
+    const byDay = {};
+    for (const g of playerGames[name]) {
+      const d = g.dayOfWeek;
+      if (!byDay[d]) byDay[d] = { total: 0, games: 0 };
+      byDay[d].total += g.balance; byDay[d].games++;
+    }
+    const entries = Object.entries(byDay).map(([d, v]) => [DAYS[d], round2(v.total / v.games)]).filter(([, avg], _, arr) => arr.length >= 2);
+    if (entries.length < 2) continue;
+    const best = entries.reduce((b, e) => e[1] > b[1] ? e : b);
+    const worst = entries.reduce((b, e) => e[1] < b[1] ? e : b);
+    dayStats[name] = { bestDay: best[0], bestAvg: best[1], worstDay: worst[0], worstAvg: worst[1] };
+  }
+
+  const headToHead = {};
+  for (const name of players) {
+    const vsStats = {};
+    for (const g of playerGames[name]) {
+      for (const opp of g.opponents) {
+        if (!vsStats[opp]) vsStats[opp] = { total: 0, games: 0 };
+        vsStats[opp].total += g.balance; vsStats[opp].games++;
+      }
+    }
+    const entries = Object.entries(vsStats).filter(([, v]) => v.games >= 2).map(([n, v]) => [n, round2(v.total / v.games), v.games]);
+    if (entries.length < 1) continue;
+    const nemesis = entries.reduce((b, e) => e[1] < b[1] ? e : b);
+    const guardian = entries.reduce((b, e) => e[1] > b[1] ? e : b);
+    headToHead[name] = {
+      nemesis: { name: nemesis[0], avg: nemesis[1], games: nemesis[2] },
+      guardian: nemesis[0] !== guardian[0] ? { name: guardian[0], avg: guardian[1], games: guardian[2] } : null
+    };
+  }
+
+  const tableSizeStats = {};
+  for (const name of players) {
+    const byCount = {};
+    for (const g of playerGames[name]) {
+      const pc = g.playerCount;
+      if (!byCount[pc]) byCount[pc] = { total: 0, games: 0, wins: 0 };
+      byCount[pc].total += g.balance; byCount[pc].games++;
+      if (g.balance > 0) byCount[pc].wins++;
+    }
+    const sizes = Object.entries(byCount).filter(([, v]) => v.games >= 2)
+      .map(([count, v]) => ({ count: Number(count), avg: round2(v.total / v.games), winRate: Math.round((v.wins / v.games) * 100), games: v.games }))
+      .sort((a, b) => a.count - b.count);
+    if (sizes.length >= 2) tableSizeStats[name] = sizes;
+  }
+
+  const consistency = {};
+  for (const name of players) {
+    const bals = playerGames[name].map(g => g.balance);
+    if (bals.length < 3) continue;
+    const mean = bals.reduce((s, b) => s + b, 0) / bals.length;
+    const stdDev = round2(Math.sqrt(bals.reduce((s, b) => s + (b - mean) ** 2, 0) / bals.length));
+    consistency[name] = { stdDev, mean: round2(mean) };
+  }
+
+  const timeStats = {};
+  for (const name of players) {
+    const byTime = {};
+    for (const g of playerGames[name]) {
+      const h = g.hour;
+      const slot = h >= 6 && h < 12 ? 'Morning' : h >= 12 && h < 17 ? 'Afternoon' : h >= 17 && h < 21 ? 'Evening' : 'Late Night';
+      if (!byTime[slot]) byTime[slot] = { total: 0, games: 0 };
+      byTime[slot].total += g.balance; byTime[slot].games++;
+    }
+    const entries = Object.entries(byTime).filter(([, v]) => v.games > 0).map(([slot, v]) => [slot, round2(v.total / v.games), v.games]);
+    if (entries.length < 2) continue;
+    const best = entries.reduce((b, e) => e[1] > b[1] ? e : b);
+    timeStats[name] = { bestTime: best[0], bestAvg: best[1], all: entries };
+  }
+
+  return { players, streaks, momentum, dayStats, headToHead, tableSizeStats, consistency, timeStats };
+}
+
+function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "stats", onRenamePlayer, onDeleteHistory }) {
   const [tab, setTab] = useState(defaultTab);
   const [expandedId, setExpandedId] = useState(null);
   const [selectedPlayers, setSelectedPlayers] = useState([]);
+  const [insightPlayer, setInsightPlayer] = useState(null);
 
   // Delete confirmation state — 2-step flow
   const [deleteTarget, setDeleteTarget] = useState(null); // id of history entry to delete, or "all"
@@ -2203,8 +2365,8 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
     return result.sort((a, b) => b.net - a.net);
   })();
 
-  const TABS = ["history", "leaderboard", "graph"];
-  const tabIndex = TABS.indexOf(tab);
+  const STATS_TABS = ["leaderboard", "insights", "graph"];
+  const statTabIndex = STATS_TABS.indexOf(tab);
   const [tabDragX, setTabDragX] = useState(0);
   const [isDraggingTab, setIsDraggingTab] = useState(false);
   const tabTouchStart = useRef(null);
@@ -2222,13 +2384,13 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
       if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 8) return;
       setIsDraggingTab(true);
     }
-    const clamped = tabIndex === 0 ? Math.min(0, dx) : tabIndex === TABS.length - 1 ? Math.max(0, dx) : dx;
+    const clamped = statTabIndex === 0 ? Math.min(0, dx) : statTabIndex === STATS_TABS.length - 1 ? Math.max(0, dx) : dx;
     setTabDragX(clamped);
   };
   const handleTabTouchEnd = () => {
     if (isDraggingTab && Math.abs(tabDragX) > 60) {
-      if (tabDragX < 0 && tabIndex < TABS.length - 1) setTab(TABS[tabIndex + 1]);
-      else if (tabDragX > 0 && tabIndex > 0) setTab(TABS[tabIndex - 1]);
+      if (tabDragX < 0 && statTabIndex < STATS_TABS.length - 1) setTab(STATS_TABS[statTabIndex + 1]);
+      else if (tabDragX > 0 && statTabIndex > 0) setTab(STATS_TABS[statTabIndex - 1]);
     }
     setTabDragX(0);
     setIsDraggingTab(false);
@@ -2253,43 +2415,32 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
     return acc;
   }, []);
   const visiblePlayers = selectedPlayers.length > 0 ? selectedPlayers : [];
+  const insights = mode === "stats" ? computeInsights(history) : null;
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto px-4 py-8 sm:py-16">
       <div className="flex items-center gap-4 sm:gap-5 mb-8">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">{tab === "leaderboard" ? "Leaderboard" : "Game History"}</h1>
-          <p className="text-sm font-medium mt-1 text-slate-400">{tab === "leaderboard" ? "All-time stats across sessions" : "Past sessions and settlements"}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">
+            {mode === "history" ? "Game History" : tab === "insights" ? "Insights" : tab === "graph" ? "Performance Graph" : "Leaderboard"}
+          </h1>
+          <p className="text-sm font-medium mt-1 text-slate-400">
+            {mode === "history" ? "Past sessions and settlements" : tab === "insights" ? "Data-driven player patterns" : tab === "graph" ? "Cumulative P&L over time" : "All-time stats across sessions"}
+          </p>
         </div>
       </div>
 
-      {/* Tab Toggle */}
-      <div className="flex gap-1 p-1 glass-panel rounded-xl mb-6">
-        <button
-          onClick={() => setTab("history")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "history" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
-        >
-          History
-        </button>
-        <button
-          onClick={() => setTab("leaderboard")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "leaderboard" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
-        >
-          Leaderboard
-        </button>
-        <button
-          onClick={() => setTab("graph")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "graph" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
-        >
-          Graph
-        </button>
-      </div>
+      {/* Tab Toggle — stats mode only */}
+      {mode === "stats" && (
+        <div className="flex gap-1 p-1 glass-panel rounded-xl mb-6">
+          <button onClick={() => setTab("leaderboard")} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "leaderboard" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}>Leaderboard</button>
+          <button onClick={() => setTab("insights")} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "insights" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}>Insights</button>
+          <button onClick={() => setTab("graph")} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === "graph" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}>Graph</button>
+        </div>
+      )}
 
-      <div style={{ overflow: 'hidden' }} onTouchStart={handleTabTouchStart} onTouchMove={handleTabTouchMove} onTouchEnd={handleTabTouchEnd}>
-        <div style={{ display: 'flex', width: '300%', willChange: 'transform', transform: `translateX(calc(${-tabIndex * (100 / 3)}% + ${tabDragX}px))`, transition: isDraggingTab ? 'none' : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-
-          {/* ── History panel ── */}
-          <div style={{ width: '33.333%', minWidth: 0, ...(tabIndex !== 0 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
+      {mode === "history" && (
+        <>
           {history.length === 0 ? (
           <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
             <Clock size={40} className="mx-auto text-slate-600 mb-4" />
@@ -2380,10 +2531,15 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
             })}
           </div>
           )}
-          </div>
+        </>
+      )}
 
-          {/* ── Leaderboard panel ── */}
-          <div style={{ width: '33.333%', minWidth: 0, ...(tabIndex !== 1 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
+      {mode !== "history" && (
+        <div style={{ overflow: 'hidden' }} onTouchStart={handleTabTouchStart} onTouchMove={handleTabTouchMove} onTouchEnd={handleTabTouchEnd}>
+          <div style={{ display: 'flex', width: '300%', willChange: 'transform', transform: `translateX(calc(${-statTabIndex * (100 / 3)}% + ${tabDragX}px))`, transition: isDraggingTab ? 'none' : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+
+          {/* ── Leaderboard panel (stats tab 0) ── */}
+          <div style={{ width: '33.333%', minWidth: 0, ...(statTabIndex !== 0 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
           {visibleLeaderboard.length === 0 && hiddenLeaderboard.length === 0 ? (
             <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
               <Crown size={40} className="mx-auto text-slate-600 mb-4" />
@@ -2450,8 +2606,148 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           )}
           </div>
 
-          {/* ── Graph panel ── */}
-          <div style={{ width: '33.333%', minWidth: 0, ...(tabIndex !== 2 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
+          {/* ── Insights panel (stats tab 1) ── */}
+          <div style={{ width: '33.333%', minWidth: 0, ...(statTabIndex !== 1 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
+          {!insights ? (
+            <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
+              <Activity size={40} className="mx-auto text-slate-600 mb-4" />
+              <p className="text-base font-medium text-slate-400">Not enough data yet.</p>
+              <p className="text-sm text-slate-500 mt-2">Play at least 2 games to see insights.</p>
+            </div>
+          ) : (() => {
+            const visibleIPlayers = insights.players.filter(p => !hiddenPlayers.includes(p));
+            const ip = (insightPlayer && visibleIPlayers.includes(insightPlayer)) ? insightPlayer : visibleIPlayers[0];
+            if (!ip) return null;
+            const streak = insights.streaks[ip];
+            const mom = insights.momentum[ip];
+            const day = insights.dayStats[ip];
+            const h2h = insights.headToHead[ip];
+            const tableSize = insights.tableSizeStats[ip];
+            const cons = insights.consistency[ip];
+            const time = insights.timeStats[ip];
+            return (
+              <div className="space-y-4">
+                <div className="glass-panel p-3 rounded-[1.5rem]">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">Select player</p>
+                  <div className="flex flex-wrap gap-2">
+                    {visibleIPlayers.map(name => (
+                      <button key={name} onClick={() => setInsightPlayer(name)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${ip === name ? 'bg-theme-500/20 border-theme-500/40 text-theme-400' : 'text-slate-400 bg-white/5 border-white/10 hover:border-white/20'}`}>
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {streak && (
+                  <div className="glass-panel p-5 rounded-[1.5rem]">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Flame size={16} className={streak.type === 'W' ? 'text-amber-400' : 'text-rose-400'} />
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Current Form</p>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className={`text-3xl font-black ${streak.type === 'W' ? 'text-emerald-400' : streak.type === 'L' ? 'text-rose-400' : 'text-slate-400'}`}>{streak.current}</span>
+                      <span className={`text-sm font-bold ${streak.type === 'W' ? 'text-emerald-500' : streak.type === 'L' ? 'text-rose-500' : 'text-slate-500'}`}>game {streak.type === 'W' ? 'winning' : 'losing'} streak</span>
+                    </div>
+                    <div className="flex gap-4 mt-3 text-xs text-slate-500">
+                      <span>Best: <span className="text-emerald-400 font-bold">{streak.longestWin}W</span></span>
+                      <span>Worst: <span className="text-rose-400 font-bold">{streak.longestLoss}L</span></span>
+                    </div>
+                  </div>
+                )}
+                {mom && (
+                  <div className="glass-panel p-5 rounded-[1.5rem]">
+                    <div className="flex items-center gap-2 mb-3">
+                      {mom.trend >= 0 ? <TrendingUp size={16} className="text-emerald-400"/> : <TrendingDown size={16} className="text-rose-400"/>}
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Momentum</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Last 5 avg</p>
+                        <p className={`text-xl font-bold ${mom.last5Avg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{mom.last5Avg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(mom.last5Avg).toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500 mb-1">All-time avg</p>
+                        <p className={`text-xl font-bold ${mom.allAvg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{mom.allAvg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(mom.allAvg).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <p className={`mt-3 text-xs font-semibold ${mom.trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{mom.trend >= 0 ? '↑ Hot right now' : '↓ Below average recently'} ({mom.trend >= 0 ? '+' : ''}{CURRENCY}{Math.abs(mom.trend).toLocaleString()} vs avg)</p>
+                  </div>
+                )}
+                {h2h && (
+                  <div className="glass-panel p-5 rounded-[1.5rem]">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Head to Head</p>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400"><AlertTriangle size={15}/></div>
+                        <div className="flex-1"><p className="text-xs text-slate-500">Nemesis</p><p className="text-sm font-bold text-slate-200">{h2h.nemesis.name}</p></div>
+                        <p className={`text-sm font-mono font-bold ${h2h.nemesis.avg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{h2h.nemesis.avg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(h2h.nemesis.avg).toLocaleString()}/g</p>
+                      </div>
+                      {h2h.guardian && (
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400"><Star size={15}/></div>
+                          <div className="flex-1"><p className="text-xs text-slate-500">Lucky with</p><p className="text-sm font-bold text-slate-200">{h2h.guardian.name}</p></div>
+                          <p className={`text-sm font-mono font-bold ${h2h.guardian.avg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{h2h.guardian.avg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(h2h.guardian.avg).toLocaleString()}/g</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {day && (
+                  <div className="glass-panel p-5 rounded-[1.5rem]">
+                    <div className="flex items-center gap-2 mb-3"><Calendar size={16} className="text-blue-400"/><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Day of Week</p></div>
+                    <div className="flex justify-between">
+                      <div><p className="text-xs text-slate-500 mb-1">Lucky day</p><p className="text-base font-bold text-slate-100">{day.bestDay}</p><p className={`text-xs font-mono font-bold ${day.bestAvg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{day.bestAvg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(day.bestAvg).toLocaleString()} avg</p></div>
+                      <div className="text-right"><p className="text-xs text-slate-500 mb-1">Unlucky day</p><p className="text-base font-bold text-slate-100">{day.worstDay}</p><p className={`text-xs font-mono font-bold ${day.worstAvg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{day.worstAvg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(day.worstAvg).toLocaleString()} avg</p></div>
+                    </div>
+                  </div>
+                )}
+                {tableSize && tableSize.length >= 2 && (
+                  <div className="glass-panel p-5 rounded-[1.5rem]">
+                    <div className="flex items-center gap-2 mb-3"><Users size={16} className="text-purple-400"/><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Table Size</p></div>
+                    <div className="space-y-2">
+                      {tableSize.map(t => (
+                        <div key={t.count} className="flex items-center gap-3">
+                          <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 text-xs font-bold text-slate-400">{t.count}P</div>
+                          <div className="flex-1 flex items-center justify-between">
+                            <span className="text-xs text-slate-500">{t.games}g · {t.winRate}%W</span>
+                            <span className={`text-sm font-mono font-bold ${t.avg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{t.avg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(t.avg).toLocaleString()}/g</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {cons && (
+                  <div className="glass-panel p-5 rounded-[1.5rem]">
+                    <div className="flex items-center gap-2 mb-3"><Activity size={16} className="text-slate-400"/><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Consistency</p></div>
+                    <div className="flex justify-between items-center">
+                      <div><p className="text-xs text-slate-500 mb-1">Avg/game</p><p className={`text-xl font-bold ${cons.mean >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{cons.mean >= 0 ? '+' : ''}{CURRENCY}{Math.abs(cons.mean).toLocaleString()}</p></div>
+                      <div className="text-right"><p className="text-xs text-slate-500 mb-1">Variance (σ)</p><p className="text-xl font-bold text-slate-300">{CURRENCY}{cons.stdDev.toLocaleString()}</p><p className="text-xs text-slate-600">{cons.stdDev < 300 ? 'Consistent' : cons.stdDev < 700 ? 'Variable' : 'High variance'}</p></div>
+                    </div>
+                  </div>
+                )}
+                {time && (
+                  <div className="glass-panel p-5 rounded-[1.5rem]">
+                    <div className="flex items-center gap-2 mb-3"><Clock size={16} className="text-indigo-400"/><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Time of Day</p></div>
+                    <p className="text-sm text-slate-300 mb-3">Best during <span className="font-bold text-theme-400">{time.bestTime}</span> <span className={`font-mono text-xs ${time.bestAvg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>({time.bestAvg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(time.bestAvg).toLocaleString()} avg)</span></p>
+                    <div className="space-y-1.5">
+                      {time.all.map(([slot, avg, games]) => (
+                        <div key={slot} className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 w-24">{slot}</span>
+                          <span className="text-slate-600">{games}g</span>
+                          <span className={`font-mono font-bold ${avg >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{avg >= 0 ? '+' : ''}{CURRENCY}{Math.abs(avg).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          </div>
+
+          {/* ── Graph panel (stats tab 2) ── */}
+          <div style={{ width: '33.333%', minWidth: 0, ...(statTabIndex !== 2 && !isDraggingTab ? { height: 0, overflow: 'hidden' } : {}) }}>
           {history.length < 2 ? (
             <div className="py-12 text-center border border-dashed border-white/10 rounded-[2rem] glass-panel">
               <Sparkles size={40} className="mx-auto text-slate-600 mb-4" />
@@ -2500,8 +2796,9 @@ function HistoryScreen({ history, onBack, defaultTab = "history", onRenamePlayer
           )}
           </div>
 
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Long-press context menu */}
       <Modal open={!!contextMenu} onClose={() => setContextMenu(null)} title={contextMenu?.name ?? ""} icon={<Avatar name={contextMenu?.name ?? "?"} i={0} size="w-9 h-9" textSize="text-sm font-bold"/>}>
@@ -2874,6 +3171,18 @@ export default function App() {
     }
     isRemoteUpdate.current = false;
   },[game,phase,sessionId,activeGameId]);
+
+  // Android hardware back button
+  useEffect(() => {
+    const handleBackButton = () => {
+      if (phase === "history" || phase === "stats") {
+        haptic();
+        setPhase(historyReturnPhase || "session");
+      }
+    };
+    document.addEventListener("backbutton", handleBackButton);
+    return () => document.removeEventListener("backbutton", handleBackButton);
+  }, [phase, historyReturnPhase]);
 
   const handleStart=data=>{
     const gameId = String(Date.now());
@@ -3275,6 +3584,7 @@ export default function App() {
             else if (phase==="game") setPhase("session");
             else if (phase==="settle") setPhase("game");
             else if (phase==="history") setPhase(historyReturnPhase||"session");
+            else if (phase==="stats") setPhase(historyReturnPhase||"session");
             else setPhase("session");
           }} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-all">
             <ArrowLeft size={22}/>
@@ -3304,9 +3614,10 @@ export default function App() {
         </div>
       )}
       <div className="relative">
-        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onSync={()=>setSyncModal(true)} />}
+        {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onStats={()=>{setHistoryReturnPhase("session");setPhase("stats");}} onSync={()=>setSyncModal(true)} history={history} />}
         {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} history={history} />}
-        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} />}
+        {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="history" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} />}
+        {phase==="stats" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} mode="stats" defaultTab="leaderboard" onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
         {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))} unsettledBalances={unsettledBalances}/>}
 
