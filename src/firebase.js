@@ -133,16 +133,30 @@ function generateProfileId() {
 }
 
 export async function saveProfile(profileId, data) {
-  if (!isInitialized) throw new Error("Firebase not configured");
-  const profileRef = ref(db, `profiles/${profileId}`);
-  await set(profileRef, { ...data, updatedAt: Date.now() });
+  if (!isInitialized) throw new Error("Firebase not configured. Check your internet connection.");
+  try {
+    const profileRef = ref(db, `profiles/${profileId}`);
+    await set(profileRef, { ...data, updatedAt: Date.now() });
+  } catch(e) {
+    if (e.code === "PERMISSION_DENIED" || e.message?.includes("permission")) {
+      throw new Error("Access denied — check your Firebase database rules allow writes on /profiles.");
+    }
+    throw new Error(e.message || "Network error while saving profile.");
+  }
 }
 
 export async function loadProfile(profileId) {
-  if (!isInitialized) throw new Error("Firebase not configured");
-  const profileRef = ref(db, `profiles/${profileId.trim().toLowerCase()}`);
-  const snapshot = await get(profileRef);
-  return snapshot.exists() ? snapshot.val() : null;
+  if (!isInitialized) throw new Error("Firebase not configured. Check your internet connection.");
+  try {
+    const profileRef = ref(db, `profiles/${profileId.trim().toLowerCase()}`);
+    const snapshot = await get(profileRef);
+    return snapshot.exists() ? snapshot.val() : null;
+  } catch(e) {
+    if (e.code === "PERMISSION_DENIED" || e.message?.includes("permission")) {
+      throw new Error("Access denied — check your Firebase database rules allow reads on /profiles.");
+    }
+    throw new Error(e.message || "Network error while loading profile.");
+  }
 }
 
 export { generateProfileId };

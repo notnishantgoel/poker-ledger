@@ -428,29 +428,50 @@ const LeaderboardSwipeRow = memo(({ name, i, onTap, onLongPressStart, onLongPres
 /* ─────────── SYNC MODAL ─────────── */
 function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
   const [restoreCode, setRestoreCode] = useState("");
-  const [status, setStatus] = useState(null); // null | "backing-up" | "backed-up" | "restoring" | "restored" | "error"
+  const [backupStatus, setBackupStatus] = useState(null); // null | "backing-up" | "backed-up" | "error"
+  const [restoreStatus, setRestoreStatus] = useState(null); // null | "restoring" | "restored" | "not-found" | "error"
+  const [restoreErrMsg, setRestoreErrMsg] = useState("");
+  const [backupErrMsg, setBackupErrMsg] = useState("");
   const [shownId, setShownId] = useState(profileId);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => { if (open) { setStatus(null); setRestoreCode(""); setShownId(profileId); } }, [open, profileId]);
+  useEffect(() => {
+    if (open) {
+      setBackupStatus(null); setRestoreStatus(null);
+      setRestoreCode(""); setRestoreErrMsg(""); setBackupErrMsg("");
+      setShownId(profileId);
+    }
+  }, [open, profileId]);
 
   const doBackup = async () => {
-    setStatus("backing-up");
+    setBackupStatus("backing-up");
+    setBackupErrMsg("");
     try {
       const pid = await onBackup();
       setShownId(pid);
-      setStatus("backed-up");
-    } catch { setStatus("error"); }
+      setBackupStatus("backed-up");
+    } catch(e) {
+      setBackupErrMsg(e?.message || "Unknown error");
+      setBackupStatus("error");
+    }
   };
 
   const doRestore = async () => {
     if (!restoreCode.trim()) return;
-    setStatus("restoring");
+    setRestoreStatus("restoring");
+    setRestoreErrMsg("");
     try {
       const ok = await onRestore(restoreCode.trim());
-      setStatus(ok ? "restored" : "error");
-      if (ok) setShownId(restoreCode.trim());
-    } catch { setStatus("error"); }
+      if (ok) {
+        setShownId(restoreCode.trim());
+        setRestoreStatus("restored");
+      } else {
+        setRestoreStatus("not-found");
+      }
+    } catch(e) {
+      setRestoreErrMsg(e?.message || "Unknown error");
+      setRestoreStatus("error");
+    }
   };
 
   const copyCode = () => {
@@ -479,8 +500,11 @@ function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
           ) : (
             <p className="text-slate-500 text-sm italic">No sync code yet — create one by backing up.</p>
           )}
-          <Btn onClick={doBackup} variant="primary" full disabled={status==="backing-up"}>
-            {status==="backing-up" ? <><RefreshCw size={16} className="animate-spin"/> Backing up…</> : status==="backed-up" ? <><Check size={16}/> Backed up!</> : <><CloudUpload size={16}/> {shownId ? "Backup Now" : "Create Sync Code"}</>}
+          {backupStatus === "error" && (
+            <p className="text-rose-400 text-xs">Backup failed: {backupErrMsg || "check your internet connection and try again."}</p>
+          )}
+          <Btn onClick={doBackup} variant="primary" full disabled={backupStatus === "backing-up"}>
+            {backupStatus === "backing-up" ? <><RefreshCw size={16} className="animate-spin"/> Backing up…</> : backupStatus === "backed-up" ? <><Check size={16}/> Backed up!</> : <><CloudUpload size={16}/> {shownId ? "Backup Now" : "Create Sync Code"}</>}
           </Btn>
         </div>
 
@@ -488,14 +512,15 @@ function SyncModal({ open, onClose, profileId, onBackup, onRestore }) {
         <div className="rounded-2xl bg-white/3 border border-white/8 p-4 space-y-3">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Restore from Code</p>
           <input
-            type="text" value={restoreCode} onChange={e=>setRestoreCode(e.target.value.toLowerCase())}
+            type="text" value={restoreCode} onChange={e => { setRestoreCode(e.target.value.toLowerCase()); setRestoreStatus(null); }}
             placeholder="Enter your sync code"
             className="w-full rounded-xl px-4 py-3 glass-input font-mono text-center text-base tracking-widest text-slate-200 placeholder:text-slate-600 placeholder:tracking-normal"
           />
-          {status==="error" && <p className="text-rose-400 text-xs">Code not found or error. Check and try again.</p>}
-          {status==="restored" && <p className="text-emerald-400 text-xs">Data restored successfully!</p>}
-          <Btn onClick={doRestore} variant="secondary" full disabled={!restoreCode.trim() || status==="restoring"}>
-            {status==="restoring" ? <><RefreshCw size={16} className="animate-spin"/> Restoring…</> : <><CloudDownload size={16}/> Restore Data</>}
+          {restoreStatus === "not-found" && <p className="text-rose-400 text-xs">Code not found. Double-check the code and try again.</p>}
+          {restoreStatus === "error" && <p className="text-rose-400 text-xs">Connection error: {restoreErrMsg || "check your internet and try again."}</p>}
+          {restoreStatus === "restored" && <p className="text-emerald-400 text-xs">Data restored successfully!</p>}
+          <Btn onClick={doRestore} variant="secondary" full disabled={!restoreCode.trim() || restoreStatus === "restoring"}>
+            {restoreStatus === "restoring" ? <><RefreshCw size={16} className="animate-spin"/> Restoring…</> : <><CloudDownload size={16}/> Restore Data</>}
           </Btn>
         </div>
 
