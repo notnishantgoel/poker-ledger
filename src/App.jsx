@@ -3586,8 +3586,10 @@ export default function App() {
       setProfileId(pid);
       await store.set(PROFILE_KEY, pid);
     }
-    // Merge with existing cloud history so neither device loses its games
+    const localPriorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
+    // Merge with existing cloud data so neither device loses anything
     let mergedHist = history;
+    let mergedPriorBals = localPriorBals;
     try {
       const cloud = await loadProfile(pid);
       if (cloud?.history) {
@@ -3595,8 +3597,12 @@ export default function App() {
         setHistory(mergedHist);
         await store.set(HISTORY_KEY, mergedHist);
       }
+      if (cloud?.priorBalances) {
+        mergedPriorBals = { ...cloud.priorBalances, ...localPriorBals }; // local wins
+        localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(mergedPriorBals));
+      }
     } catch {}
-    await saveProfile(pid, { history: mergedHist, savedNames, games: allGames });
+    await saveProfile(pid, { history: mergedHist, savedNames, games: allGames, priorBalances: mergedPriorBals });
     return pid;
   };
 
@@ -3604,13 +3610,17 @@ export default function App() {
     const data = await loadProfile(code);
     if (!data) return false;
     if (data.history) {
-      // Merge cloud history with local — both devices keep all their games
       const merged = mergeHistory(history, data.history);
       setHistory(merged);
       await store.set(HISTORY_KEY, merged);
     }
     if (data.savedNames) { setSavedNames(data.savedNames); await store.set(NAMES_KEY, data.savedNames); }
     if (data.games) { setAllGames(data.games); await store.set(GAMES_KEY, data.games); }
+    if (data.priorBalances) {
+      const localPriorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
+      const merged = { ...localPriorBals, ...data.priorBalances }; // cloud wins on restore
+      localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(merged));
+    }
     setProfileId(code);
     await store.set(PROFILE_KEY, code);
     return true;
