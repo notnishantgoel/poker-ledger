@@ -18,7 +18,7 @@ import {
   getSessionUrl, getSessionIdFromUrl,
   saveProfile, loadProfile, generateProfileId
 } from "./firebase.js";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from "recharts";
 import './App.css';
 
 const GAME_KEY = "poker-ledger-game";
@@ -2201,7 +2201,6 @@ function computeInsights(history) {
 function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "stats", onRenamePlayer, onDeleteHistory }) {
   const [tab, setTab] = useState(defaultTab);
   const [expandedId, setExpandedId] = useState(null);
-  const [selectedPlayers, setSelectedPlayers] = useState([]);
   const [insightPlayer, setInsightPlayer] = useState(null);
 
   // Delete confirmation state — 2-step flow
@@ -2227,8 +2226,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
     setDeleteTarget(null);
     setDeleteStep(0);
   };
-  const togglePlayer = (name) => setSelectedPlayers(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
-
   // Rename modal state
   const [renameModal, setRenameModal] = useState(null); // { oldName: string }
   const [renameValue, setRenameValue] = useState("");
@@ -2418,7 +2415,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
     acc.push(point);
     return acc;
   }, []);
-  const visiblePlayers = selectedPlayers.length > 0 ? selectedPlayers : [];
   const insights = mode === "stats" ? computeInsights(history) : null;
 
   return (
@@ -2628,8 +2624,10 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
             const tableSize = insights.tableSizeStats[ip];
             const cons = insights.consistency[ip];
             const time = insights.timeStats[ip];
+            const ipColor = CHART_COLORS[allChartPlayers.indexOf(ip) % CHART_COLORS.length];
             return (
               <div className="space-y-4">
+                {/* Player selector */}
                 <div className="glass-panel p-3 rounded-[1.5rem]">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">Select player</p>
                   <div className="flex flex-wrap gap-2">
@@ -2641,6 +2639,22 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                     ))}
                   </div>
                 </div>
+
+                {/* Graph for selected player */}
+                {chartData.length > 0 && allChartPlayers.includes(ip) && (
+                  <div className="glass-panel p-4 rounded-[1.5rem]">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Performance</p>
+                    <LineChart width={undefined} height={200} data={chartData} style={{ width: '100%' }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
+                      <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
+                      <RechartsTooltip formatter={(v) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, ip]} contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: '#94a3b8', marginBottom: 4 }} />
+                      <Line type="monotone" dataKey={ip} stroke={ipColor} dot={{ r: 3, fill: ipColor }} strokeWidth={2.5} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </div>
+                )}
+
+                {/* Insight cards */}
                 {streak && (
                   <div className="glass-panel p-5 rounded-[1.5rem]">
                     <div className="flex items-center gap-2 mb-3">
@@ -2744,38 +2758,6 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                     </div>
                   </div>
                 )}
-              {/* ── Performance Graph — embedded in insights ── */}
-              <div className="glass-panel p-4 rounded-[1.5rem]">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Performance Graph</p>
-                <div className="flex flex-wrap gap-2">
-                  {allChartPlayers.map((name, i) => {
-                    const isOn = selectedPlayers.includes(name);
-                    const color = CHART_COLORS[i % CHART_COLORS.length];
-                    return (
-                      <button key={name} onClick={() => togglePlayer(name)}
-                        className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${isOn ? 'text-white border-transparent' : 'text-slate-400 bg-white/5 border-white/10 hover:border-white/20'}`}
-                        style={isOn ? { background: color + '33', borderColor: color, color: color } : {}}>
-                        {name}
-                      </button>
-                    );
-                  })}
-                </div>
-                {visiblePlayers.length > 0 && (
-                  <div className="mt-4">
-                    <LineChart width={undefined} height={220} data={chartData} style={{ width: '100%' }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                      <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
-                      <YAxis tickFormatter={v => `${CURRENCY}${Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
-                      <RechartsTooltip formatter={(v, name) => [`${v >= 0 ? '+' : ''}${CURRENCY}${v.toLocaleString()}`, name]} contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: '#94a3b8', marginBottom: 4 }} />
-                      <RechartsLegend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                      {visiblePlayers.map((name) => {
-                        const i = allChartPlayers.indexOf(name);
-                        return <Line key={name} type="monotone" dataKey={name} stroke={CHART_COLORS[i % CHART_COLORS.length]} dot={{ r: 3 }} strokeWidth={2} activeDot={{ r: 5 }} />;
-                      })}
-                    </LineChart>
-                  </div>
-                )}
-              </div>
               </div>
             );
           })()}
