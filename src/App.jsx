@@ -613,7 +613,7 @@ function SessionScreen({ onContinue, runningSessions = {}, onResume, onHistory, 
 }
 
 /* ─────────── PLAYERS SCREEN (step 2) ─────────── */
-function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
+function PlayersScreen({ chipValue, onStart, onBack, savedNames, history }) {
   const cv = chipValue;
   const [players, setPlayers] = useState([{id:"1",name:"",chips:0,money:0},{id:"2",name:"",chips:0,money:0},{id:"3",name:"",chips:0,money:0}]);
   const [error, setError] = useState("");
@@ -630,15 +630,23 @@ function PlayersScreen({ chipValue, onStart, onBack, savedNames }) {
   };
   const quickFill = () => {
     setError("");
-    setPlayers([
-      {id:"1",name:"Nishant",chips:40,money:round2(40*cv)},
-      {id:"2",name:"Agrim",chips:30,money:round2(30*cv)},
-      {id:"3",name:"Nema",chips:20,money:round2(20*cv)},
-      {id:"4",name:"Parth",chips:30,money:round2(30*cv)},
-      {id:"5",name:"Monty",chips:30,money:round2(30*cv)},
-      {id:"6",name:"Ritabrata",chips:20,money:round2(20*cv)}
-    ]);
-    nid.current = 7;
+    // Count games played per player from history
+    const gameCount = {};
+    for (const h of (history || [])) {
+      for (const b of (h.result?.balances || [])) {
+        if (b.name) gameCount[b.name] = (gameCount[b.name] || 0) + 1;
+      }
+    }
+    const top6 = Object.entries(gameCount)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 6)
+      .map(([name]) => name);
+    const chips = cv > 0 ? round2(150 / cv) : 30;
+    const filled = top6.map((name, i) => ({ id: String(i + 1), name, chips, money: round2(chips * cv) }));
+    // Pad to at least 3 empty rows if fewer than 3 players found
+    while (filled.length < 3) filled.push({ id: String(filled.length + 1), name: "", chips: 0, money: 0 });
+    setPlayers(filled);
+    nid.current = filled.length + 1;
   };
   const rmP = id => {
     if (players.length <= 2) return;
@@ -3279,7 +3287,7 @@ export default function App() {
       )}
       <div className="relative">
         {phase==="session"&&<SessionScreen onContinue={cv=>{setSessionChipValue(cv);setPhase("players");}} runningSessions={allGames} onResume={handleResume} onHistory={()=>{setHistoryReturnPhase("session");setPhase("history");}} onSync={()=>setSyncModal(true)} />}
-        {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} />}
+        {phase==="players"&&<PlayersScreen chipValue={sessionChipValue} onStart={handleStart} onBack={()=>{ if(game) setPhase("game"); else setPhase("session"); }} savedNames={savedNames} history={history} />}
         {phase==="history" && <HistoryScreen history={history} onBack={()=>setPhase(historyReturnPhase)} defaultTab={historyReturnPhase==="game"?"leaderboard":"history"} onRenamePlayer={handleRenamePlayer} onDeleteHistory={handleDeleteHistory} />}
         {phase==="game"&&game&&<DashboardScreen game={game} setGame={setGame} onSettle={()=>setPhase("settle")} savedNames={savedNames} sessionId={sessionId} viewerCount={viewerCount} onShare={handleShare} onReverse={setRevConfirm} />}
         {phase==="settle"&&game&&<SettleScreen game={game} onBack={()=>setPhase("game")} onReset={(res)=>setExitPrompt(res || true)} onSettleResult={(res)=>setGame(prev=>({...prev, settleResult: res}))} onFcChange={(fc)=>setGame(prev=>({...prev, fc: fc}))} unsettledBalances={unsettledBalances}/>}
