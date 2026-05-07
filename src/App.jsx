@@ -1719,96 +1719,6 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   );
 }
 
-/* ─────────── SETTLEMENT GRAPH ─────────── */
-function SettlementGraph({ nodes, settlements, winner }) {
-  const W = 380, H = 440, CX = 190, CY = 200, RING_R = 135, NODE_R = 34;
-  const n = nodes.length;
-  const positioned = nodes.map((b, i) => {
-    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
-    return { ...b, x: CX + RING_R * Math.cos(angle), y: CY + RING_R * Math.sin(angle) };
-  });
-  const nodeMap = Object.fromEntries(positioned.map(p => [p.name, p]));
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-sm mx-auto select-none">
-      <defs>
-        <filter id="sg-glow" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="3" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-        <filter id="sg-node-glow" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="5" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-
-      {/* Orbit ring */}
-      <circle cx={CX} cy={CY} r={RING_R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} strokeDasharray="5 9" />
-
-      {/* Arrows — drawn before nodes so nodes sit on top */}
-      {settlements.map((s, i) => {
-        const from = nodeMap[s.from], to = nodeMap[s.to];
-        if (!from || !to) return null;
-        const dx = to.x - from.x, dy = to.y - from.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const ux = dx / dist, uy = dy / dist;
-        const x1 = from.x + ux * (NODE_R + 5), y1 = from.y + uy * (NODE_R + 5);
-        const x2 = to.x  - ux * (NODE_R + 12), y2 = to.y  - uy * (NODE_R + 12);
-        const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        const angle = Math.atan2(dy, dx);
-        const AS = 10;
-        const ax = to.x - ux * (NODE_R + 4), ay = to.y - uy * (NODE_R + 4);
-        const a1x = ax - AS * Math.cos(angle - 0.42), a1y = ay - AS * Math.sin(angle - 0.42);
-        const a2x = ax - AS * Math.cos(angle + 0.42), a2y = ay - AS * Math.sin(angle + 0.42);
-        const lineDelay = 0.12 + i * 0.2;
-        return (
-          <g key={i} filter="url(#sg-glow)">
-            <line x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke="#10b981" strokeWidth={3} strokeLinecap="round"
-              strokeDasharray={len} strokeDashoffset={len}
-              style={{ animation: `sg-draw 0.5s ease forwards ${lineDelay}s` }}
-            />
-            <polygon points={`${ax},${ay} ${a1x},${a1y} ${a2x},${a2y}`} fill="#10b981"
-              style={{ animation: `sg-fade 0.15s ease forwards ${lineDelay + 0.46}s`, opacity: 0 }}
-            />
-          </g>
-        );
-      })}
-
-      {/* Nodes */}
-      {positioned.map((node, i) => {
-        const isWinner = node.name === winner;
-        const isPos = node.balance > 0;
-        const ring = isWinner ? '#f59e0b' : isPos ? '#10b981' : '#f43f5e';
-        const glow = isWinner ? 'rgba(245,158,11,0.25)' : isPos ? 'rgba(16,185,129,0.18)' : 'rgba(244,63,94,0.18)';
-        const txt  = isWinner ? '#fbbf24' : isPos ? '#34d399' : '#fb7185';
-        const sign = isPos ? '+' : node.balance < 0 ? '-' : '';
-        const shortName = node.name.length > 8 ? node.name.slice(0, 7) + '…' : node.name;
-        return (
-          <g key={node.name}
-            style={{ transformOrigin: `${node.x}px ${node.y}px`, animation: `sg-pop 0.35s cubic-bezier(0.16,1,0.3,1) forwards ${i * 0.07}s`, opacity: 0 }}>
-            <circle cx={node.x} cy={node.y} r={NODE_R + 14} fill={glow} />
-            <circle cx={node.x} cy={node.y} r={NODE_R + 4}  fill={ring} opacity={0.88} />
-            <circle cx={node.x} cy={node.y} r={NODE_R}      fill="#0f172a" />
-            <text x={node.x} y={node.y} textAnchor="middle" dominantBaseline="central"
-              fontSize={13} fontWeight="800" fill={ring} style={{ fontFamily: 'DM Sans, sans-serif' }}>
-              {node.name.slice(0, 2).toUpperCase()}
-            </text>
-            <text x={node.x} y={node.y + NODE_R + 16} textAnchor="middle"
-              fontSize={12} fontWeight="700" fill="#f1f5f9" style={{ fontFamily: 'DM Sans, sans-serif' }}>
-              {shortName}
-            </text>
-            <text x={node.x} y={node.y + NODE_R + 30} textAnchor="middle"
-              fontSize={11} fontWeight="700" fill={txt} style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              {sign}{CURRENCY}{Math.abs(round2(node.balance)).toLocaleString()}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
 /* ─────────── SETTLE ─────────── */
 function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
   const [fc, setFc] = useState(() => {
@@ -1835,7 +1745,6 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
     if (onFcChange) onFcChange(newFc);
   };
   const [warning, setWarning] = useState("");
-  const [settleView, setSettleView] = useState("graph");
 
   const tb = game.totalBankChips;
   const tf = Object.values(fc).reduce((s,v)=>s+(parseFloat(v)||0),0);
@@ -1965,46 +1874,23 @@ function SettleScreen({ game, onBack, onReset, onSettleResult, onFcChange }) {
 
           {/* Settlements */}
           <div className="glass-panel p-5 sm:p-8 rounded-[2rem] bg-gradient-to-b from-indigo-950/40 to-slate-900/60 border-indigo-500/20">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-bold flex items-center gap-3 text-indigo-200">
-                <Sparkles size={20} className="text-amber-400"/> Who Pays Whom
-                <span className="text-xs font-medium text-slate-500">({result.settlements.length} transfer{result.settlements.length!==1?"s":""})</span>
-              </h2>
-              {result.settlements.length > 0 && (
-                <div className="flex gap-0.5 p-1 bg-slate-900/60 rounded-xl border border-white/8">
-                  <button onClick={()=>setSettleView("graph")} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${settleView==="graph"?"bg-white/10 text-white":"text-slate-500 hover:text-slate-300"}`}>Graph</button>
-                  <button onClick={()=>setSettleView("list")}  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${settleView==="list" ?"bg-white/10 text-white":"text-slate-500 hover:text-slate-300"}`}>List</button>
-                </div>
-              )}
-            </div>
+            <h2 className="text-base font-bold flex items-center gap-3 text-indigo-200 mb-5">
+              <Sparkles size={20} className="text-amber-400"/> Who Pays Whom ({result.settlements.length} transfer{result.settlements.length!==1?"s":""})
+            </h2>
             {result.settlements.length === 0
               ? <div className="py-8 text-center border border-dashed border-white/10 rounded-2xl"><p className="text-base font-medium text-theme-400">Everyone is even! 🎉</p></div>
-              : settleView === "graph"
-                ? <SettlementGraph
-                    nodes={(() => {
-                      const map = {};
-                      result.balances.forEach(b => { map[b.name] = b; });
-                      result.settlements.forEach(s => {
-                        if (!map[s.from]) map[s.from] = { name: s.from, balance: 0 };
-                        if (!map[s.to])   map[s.to]   = { name: s.to,   balance: 0 };
-                      });
-                      return Object.values(map);
-                    })()}
-                    settlements={result.settlements}
-                    winner={result.winner}
-                  />
-                : <div className="space-y-3">{result.settlements.map((s,i)=>(
-                    <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-2xl px-5 py-4 bg-slate-900/80 border border-indigo-500/20 animate-slide-up" style={{animationDelay:`${i*60}ms`}}>
-                      <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
-                      <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
-                        <div className="h-px flex-1 bg-indigo-500/30"/>
-                        <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">{CURRENCY}{s.amount.toLocaleString()}</span>
-                        <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
-                        <div className="h-px flex-1 bg-indigo-500/30"/>
-                      </div>
-                      <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
+              : <div className="space-y-3">{result.settlements.map((s,i)=>(
+                  <div key={i} className="flex items-center gap-3 sm:gap-4 rounded-2xl px-5 py-4 bg-slate-900/80 border border-indigo-500/20 animate-slide-up" style={{animationDelay:`${i*60}ms`}}>
+                    <span className="text-sm sm:text-base font-bold shrink-0 text-rose-400 w-20 sm:w-28 truncate">{s.from}</span>
+                    <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+                      <div className="h-px flex-1 bg-indigo-500/30"/>
+                      <span className="text-sm font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">{CURRENCY}{s.amount.toLocaleString()}</span>
+                      <ArrowRight size={14} className="text-indigo-400 shrink-0"/>
+                      <div className="h-px flex-1 bg-indigo-500/30"/>
                     </div>
-                  ))}</div>
+                    <span className="text-sm sm:text-base font-bold shrink-0 text-theme-400 w-20 sm:w-28 truncate text-right">{s.to}</span>
+                  </div>
+                ))}</div>
             }
           </div>
 

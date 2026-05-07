@@ -43,14 +43,3 @@
 /* Remove old glow styles */
 .bg-glow-container, .bg-glow-1, .bg-glow-2 { display: none; }
 
-/* Settlement graph animations */
-@keyframes sg-draw {
-  to { stroke-dashoffset: 0; }
-}
-@keyframes sg-fade {
-  to { opacity: 1; }
-}
-@keyframes sg-pop {
-  from { opacity: 0; transform: scale(0.72); }
-  to   { opacity: 1; transform: scale(1); }
-}
