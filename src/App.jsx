@@ -2058,6 +2058,12 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
     setDeleteTarget(null);
     setDeleteStep(0);
   };
+  // Admin password gate for rename
+  const ADMIN_PASSWORD = "pokergod@69";
+  const [adminPasswordModal, setAdminPasswordModal] = useState(null); // { oldName: string } — pending rename target
+  const [adminPasswordInput, setAdminPasswordInput] = useState("");
+  const [adminPasswordErr, setAdminPasswordErr] = useState("");
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   // Rename modal state
   const [renameModal, setRenameModal] = useState(null); // { oldName: string }
   const [renameValue, setRenameValue] = useState("");
@@ -2643,7 +2649,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
       <Modal open={!!contextMenu} onClose={() => setContextMenu(null)} title={contextMenu?.name ?? ""} icon={<Avatar name={contextMenu?.name ?? "?"} i={0} size="w-9 h-9" textSize="text-sm font-bold"/>}>
         {contextMenu && (
           <div className="space-y-2">
-            <button onClick={() => { setContextMenu(null); setRenameModal({ oldName: contextMenu.name }); setRenameValue(contextMenu.name); setRenameErr(""); }}
+            <button onClick={() => { setContextMenu(null); setAdminPasswordModal({ oldName: contextMenu.name }); setAdminPasswordInput(""); setAdminPasswordErr(""); setShowAdminPassword(false); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-slate-200 text-sm font-semibold transition-all text-left">
               <Users size={18} className="text-blue-400 shrink-0"/> Rename
             </button>
@@ -2672,6 +2678,63 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Admin Password Modal — gates rename */}
+      <Modal open={!!adminPasswordModal} onClose={() => setAdminPasswordModal(null)} title="Admin Access" icon={<div className="p-2 bg-amber-500/20 rounded-lg text-amber-400"><KeyRound size={20}/></div>}>
+        <div className="space-y-4">
+          <p className="text-slate-400 text-sm leading-relaxed">Enter the admin password to rename <span className="font-bold text-slate-200">{adminPasswordModal?.oldName}</span>.</p>
+          <div>
+            <label className="text-xs font-semibold mb-2 block tracking-wider uppercase text-slate-400">Password</label>
+            <div className="relative">
+              <input
+                type={showAdminPassword ? "text" : "password"}
+                value={adminPasswordInput}
+                onChange={e => { setAdminPasswordInput(e.target.value); setAdminPasswordErr(""); }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    if (adminPasswordInput === ADMIN_PASSWORD) {
+                      const pending = adminPasswordModal;
+                      setAdminPasswordModal(null);
+                      setRenameModal({ oldName: pending.oldName });
+                      setRenameValue(pending.oldName);
+                      setRenameErr("");
+                    } else {
+                      setAdminPasswordErr("Incorrect password");
+                      haptic();
+                    }
+                  }
+                }}
+                autoFocus
+                className="w-full rounded-xl px-4 py-3.5 pr-12 text-sm sm:text-base glass-input text-slate-200"
+                placeholder="Enter admin password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAdminPassword(p => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors p-1"
+              >
+                {showAdminPassword ? <EyeOff size={16}/> : <Shield size={16}/>}
+              </button>
+            </div>
+          </div>
+          {adminPasswordErr && <Err msg={adminPasswordErr}/>}
+          <div className="flex gap-3">
+            <Btn onClick={() => setAdminPasswordModal(null)} variant="secondary" className="flex-1">Cancel</Btn>
+            <Btn onClick={() => {
+              if (adminPasswordInput === ADMIN_PASSWORD) {
+                const pending = adminPasswordModal;
+                setAdminPasswordModal(null);
+                setRenameModal({ oldName: pending.oldName });
+                setRenameValue(pending.oldName);
+                setRenameErr("");
+              } else {
+                setAdminPasswordErr("Incorrect password");
+                haptic();
+              }
+            }} variant="primary" className="flex-1"><KeyRound size={16}/> Unlock</Btn>
+          </div>
+        </div>
       </Modal>
 
       {/* Rename Player Modal */}
