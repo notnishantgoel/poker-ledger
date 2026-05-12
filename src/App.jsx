@@ -29,6 +29,7 @@ const GAMES_KEY = "poker-ledger-games";
 const NAMES_KEY = "poker-ledger-names";
 const HISTORY_KEY = "poker-ledger-history";
 const CURRENCY = "₹";
+const WIN_THRESHOLD = 500; // Minimum net profit/loss to be considered a valid win/loss
 
 const mergeHistory = (local, cloudRaw) => {
   const cloudArr = cloudRaw
@@ -1028,6 +1029,21 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
   const [lSetP,setLSetP]=useState("");
   const [lSettlements, setLSettlements] = useState([{ id: Date.now(), player: "", amount: 0 }]);
   const [lSettleAtEnd, setLSettleAtEnd] = useState(false);
+  const [elapsed, setElapsed] = useState("");
+
+  useEffect(() => {
+    if (!game.startedAt) return;
+    const update = () => {
+      const diff = Math.floor((Date.now() - game.startedAt) / 1000);
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      setElapsed(h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}` : `${m}:${s.toString().padStart(2, '0')}`);
+    };
+    update();
+    const int = setInterval(update, 1000);
+    return () => clearInterval(int);
+  }, [game.startedAt]);
 
   const total = game.players.reduce((s,p)=>s+p.cashInvested,0);
 
@@ -1270,10 +1286,18 @@ function DashboardScreen({ game, setGame, onSettle, savedNames, sessionId, viewe
             <Coins size={20} className="text-theme-400" />
             Poker Ledger
           </h1>
-          <p className="text-[10px] sm:text-xs text-slate-400 mt-1.5 font-medium flex items-center gap-1.5">
+          <p className="text-[10px] sm:text-xs text-slate-400 mt-1.5 font-medium flex flex-wrap items-center gap-1.5">
             <span className="bg-theme-500/20 text-theme-400 px-1.5 py-0.5 rounded border border-theme-500/20">{game.players.length} active</span>
             <span>&middot;</span> 
             <span>{CURRENCY}{game.chipValue}/chip</span>
+            {elapsed && (
+              <>
+                <span>&middot;</span>
+                <span className="flex items-center gap-1 bg-slate-800/80 text-slate-300 px-1.5 py-0.5 rounded border border-white/10 font-mono">
+                  <Clock size={10} /> {elapsed}
+                </span>
+              </>
+            )}
             {sessionId && (
               <>
                 <span>&middot;</span>
@@ -1931,15 +1955,15 @@ function computeInsights(history) {
     const games = [...playerGames[name]].sort((a, b) => a.date - b.date);
     let longestWin = 0, longestLoss = 0, cur = 0, curType = null;
     for (const g of games) {
-      const t = g.balance > 0 ? 'W' : g.balance < 0 ? 'L' : null;
+      const t = g.balance > WIN_THRESHOLD ? 'W' : g.balance < -WIN_THRESHOLD ? 'L' : null;
       if (t && t === curType) { cur++; } else { curType = t; cur = t ? 1 : 0; }
       if (curType === 'W' && cur > longestWin) longestWin = cur;
       if (curType === 'L' && cur > longestLoss) longestLoss = cur;
     }
     const last = games[games.length - 1];
-    const lastType = last ? (last.balance > 0 ? 'W' : last.balance < 0 ? 'L' : null) : null;
+    const lastType = last ? (last.balance > WIN_THRESHOLD ? 'W' : last.balance < -WIN_THRESHOLD ? 'L' : null) : null;
     let streak = 0;
-    if (lastType) { for (let i = games.length - 1; i >= 0; i--) { if ((lastType === 'W' && games[i].balance > 0) || (lastType === 'L' && games[i].balance < 0)) streak++; else break; } }
+    if (lastType) { for (let i = games.length - 1; i >= 0; i--) { if ((lastType === 'W' && games[i].balance > WIN_THRESHOLD) || (lastType === 'L' && games[i].balance < -WIN_THRESHOLD)) streak++; else break; } }
     streaks[name] = { current: streak, type: lastType, longestWin, longestLoss };
   }
 
@@ -2168,8 +2192,8 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
         const net = round2(b.balance ?? 0);
         map[b.name].net = round2(map[b.name].net + net);
         map[b.name].games += 1;
-        if (net > 0) map[b.name].wins += 1;
-        else if (net < 0) map[b.name].losses += 1;
+        if (net > WIN_THRESHOLD) map[b.name].wins += 1;
+        else if (net < -WIN_THRESHOLD) map[b.name].losses += 1;
         else map[b.name].draws += 1;
         if (net > map[b.name].bestWin) map[b.name].bestWin = net;
         if (net < map[b.name].worstLoss) map[b.name].worstLoss = net;
