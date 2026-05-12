@@ -29,7 +29,7 @@ const GAMES_KEY = "poker-ledger-games";
 const NAMES_KEY = "poker-ledger-names";
 const HISTORY_KEY = "poker-ledger-history";
 const CURRENCY = "₹";
-const WIN_THRESHOLD = 500; // Minimum net profit/loss to be considered a valid win/loss
+const WIN_THRESHOLD = 75; // Minimum net profit/loss to be considered a valid win/loss
 
 const mergeHistory = (local, cloudRaw) => {
   const cloudArr = cloudRaw
