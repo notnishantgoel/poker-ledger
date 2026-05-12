@@ -63,6 +63,15 @@ function pid() { return String(_pid++); }
 
 const haptic = () => { try { if(navigator.vibrate) navigator.vibrate(40); } catch { /* ignore */ } };
 
+function formatDuration(ms) {
+  if (!ms || ms < 0) return "";
+  const diff = Math.floor(ms / 1000);
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 function computeSettlements(netBalances) {
   // Clone balances to avoid mutating the original objects used for display
   const b = netBalances.map(x => ({ ...x, balance: round2(x.balance) }));
@@ -1936,8 +1945,9 @@ function computeInsights(history) {
   for (const h of history) {
     const balances = h.result?.balances || [];
     const playerCount = balances.length;
+    const logicalDate = new Date(h.id - 21600000);
     const date = new Date(h.id);
-    const dayOfWeek = date.getDay();
+    const dayOfWeek = logicalDate.getDay();
     const hour = date.getHours();
     const names = balances.map(b => b.name).filter(Boolean);
     for (const b of balances) {
@@ -2097,6 +2107,15 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
   const [hiddenPlayers, setHiddenPlayers] = useState(() => {
     try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; }
   });
+  
+  useEffect(() => {
+    const handleUpdate = () => {
+      try { setHiddenPlayers(JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []); } catch {}
+    };
+    window.addEventListener("hiddenPlayersUpdate", handleUpdate);
+    return () => window.removeEventListener("hiddenPlayersUpdate", handleUpdate);
+  }, []);
+
   const [hideConfirm, setHideConfirm] = useState(null); // name to hide
   const [contextMenu, setContextMenu] = useState(null); // { name: string }
   const [priorBalanceModal, setPriorBalanceModal] = useState(null); // { name: string }
@@ -2250,7 +2269,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
   const allChartPlayers = [...new Set(chronological.flatMap(g => (g.result?.balances || []).map(b => b.name)))].filter(name => !hiddenPlayers.includes(name));
   const chartData = chronological.reduce((acc, entry, idx) => {
     const prev = acc[idx - 1] || {};
-    const point = { date: new Date(entry.id).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) };
+    const point = { date: new Date(entry.id - 21600000).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) };
     allChartPlayers.forEach(name => {
       const bal = entry.result?.balances?.find(b => b.name === name);
       const base = prev[name] ?? (priorBalances[name] ?? 0);
@@ -2295,14 +2314,16 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
 
         const groups = [];
         [...history].sort((a, b) => (b.id || 0) - (a.id || 0)).forEach(h => {
-          const d = new Date(h.id);
+          const d = new Date(h.id - 21600000);
           const key = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
           let group = groups.find(g => g.dateKey === key);
           if (!group) {
-            group = { dateKey: key, games: [], dailyNet: {} };
+            group = { dateKey: key, games: [], dailyNet: {}, dailyDuration: 0 };
             groups.push(group);
           }
           group.games.push(h);
+          const dur = h.result?.duration || (h.gameData?.startedAt ? Math.max(0, h.id - h.gameData.startedAt) : 0);
+          if (dur > 0 && dur < 86400000) group.dailyDuration += dur;
 
           // Accumulate daily net for each player
           (h.result?.balances || []).forEach(b => {
@@ -2325,7 +2346,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                         </div>
                         <div>
                           <p className="text-slate-200 font-bold text-sm sm:text-base">{group.dateKey}</p>
-                          <p className="text-slate-500 text-xs mt-0.5 font-medium">{group.games.length} game{group.games.length !== 1 ? 's' : ''}</p>
+                          <p className="text-slate-500 text-xs mt-0.5 font-medium">{group.games.length} game{group.games.length !== 1 ? 's' : ''}{group.dailyDuration > 0 ? ` · ${formatDuration(group.dailyDuration)} played` : ''}</p>
                         </div>
                       </div>
                       <div className="mt-3 pt-3 border-t border-white/5 space-y-1.5 w-full pr-4">
@@ -2350,6 +2371,8 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                       {group.games.map((h, i) => {
                         const date = new Date(h.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         const isExpanded = expandedId === h.id;
+                        const durMs = h.result?.duration || (h.gameData?.startedAt ? Math.max(0, h.id - h.gameData.startedAt) : 0);
+                        const durStr = (durMs > 0 && durMs < 86400000) ? formatDuration(durMs) : "";
                         return (
                           <div key={h.id} className="glass-panel rounded-2xl overflow-hidden group/hist bg-slate-900/80 border border-white/5 shadow-lg">
                             {/* Collapsed header — always visible, click to expand */}
@@ -2361,7 +2384,7 @@ function HistoryScreen({ history, onBack, defaultTab = "leaderboard", mode = "st
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-3">
                                     <Clock size={13} className="text-purple-400 flex-shrink-0" />
-                                    <span className="text-slate-400 font-medium text-[11px] tracking-wider uppercase">{date}</span>
+                                    <span className="text-slate-400 font-medium text-[11px] tracking-wider uppercase">{date}{durStr ? ` · ${durStr}` : ''}</span>
                                   </div>
                                   <div className="space-y-1.5">
                                     {[...(h.result?.balances || [])].sort((a, b) => b.balance - a.balance).map(b => (
@@ -3199,6 +3222,12 @@ export default function App() {
         localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(merged));
         return merged;
       });
+      if (data.hiddenPlayers) {
+        const localHiddenPlayers = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; } })();
+        const merged = [...new Set([...localHiddenPlayers, ...data.hiddenPlayers])];
+        localStorage.setItem("poker-ledger-hidden-players", JSON.stringify(merged));
+        window.dispatchEvent(new Event("hiddenPlayersUpdate"));
+      }
       const remoteGames = data.games || {};
       const gid = activeGameIdRef.current;
       
@@ -3227,7 +3256,8 @@ export default function App() {
     const timer = setTimeout(async () => {
       if (isRemoteProfileUpdate.current) return;
       try {
-        await saveProfile(profileId, { history, savedNames, games: allGames, priorBalances });
+        const hiddenPlayers = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; } })();
+        await saveProfile(profileId, { history, savedNames, games: allGames, priorBalances, hiddenPlayers });
       } catch {}
     }, 2000);
     return () => clearTimeout(timer);
@@ -3332,7 +3362,8 @@ export default function App() {
     if (profileId) {
       (async () => {
         try {
-          await saveProfile(profileId, { history: updatedHistory, savedNames, games: allGames, priorBalances });
+          const hiddenPlayers = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; } })();
+          await saveProfile(profileId, { history: updatedHistory, savedNames, games: allGames, priorBalances, hiddenPlayers });
         } catch {}
       })();
     }
@@ -3366,7 +3397,9 @@ export default function App() {
     }
 
     if (completedResult) {
-      const record = { id: Date.now(), gameData: { ...game }, result: completedResult };
+      const durMs = game.startedAt ? Math.max(0, Date.now() - game.startedAt) : 0;
+      const enhancedResult = { ...completedResult, duration: durMs };
+      const record = { id: Date.now(), gameData: { ...game }, result: enhancedResult };
       const next = [record, ...history].slice(0, 50);
       setHistory(next);
       await store.set(HISTORY_KEY, next);
@@ -3379,7 +3412,8 @@ export default function App() {
             const merged = mergeHistory(next, cloud?.history);
             setHistory(merged);
             await store.set(HISTORY_KEY, merged);
-            await saveProfile(profileId, { history: merged, savedNames, games: nextGames });
+            const hiddenPlayers = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; } })();
+            await saveProfile(profileId, { history: merged, savedNames, games: nextGames, hiddenPlayers });
           } catch {}
         })();
       }
@@ -3556,8 +3590,10 @@ export default function App() {
       await store.set(PROFILE_KEY, pid);
     }
     const localPriorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
+    const localHiddenPlayers = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; } })();
     let mergedHist = history;
     let mergedPriorBals = localPriorBals;
+    let mergedHiddenPlayers = localHiddenPlayers;
     try {
       const cloud = await loadProfile(pid);
       if (cloud?.history) {
@@ -3569,8 +3605,12 @@ export default function App() {
         mergedPriorBals = { ...cloud.priorBalances, ...localPriorBals };
         localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(mergedPriorBals));
       }
+      if (cloud?.hiddenPlayers) {
+        mergedHiddenPlayers = [...new Set([...localHiddenPlayers, ...cloud.hiddenPlayers])];
+        localStorage.setItem("poker-ledger-hidden-players", JSON.stringify(mergedHiddenPlayers));
+      }
     } catch {}
-    await saveProfile(pid, { history: mergedHist, savedNames, games: allGames, priorBalances: mergedPriorBals });
+    await saveProfile(pid, { history: mergedHist, savedNames, games: allGames, priorBalances: mergedPriorBals, hiddenPlayers: mergedHiddenPlayers });
     return pid;
   };
 
@@ -3589,6 +3629,12 @@ export default function App() {
       const merged = { ...localPriorBals, ...data.priorBalances };
       localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(merged));
     }
+    if (data.hiddenPlayers) {
+      const localHiddenPlayers = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; } })();
+      const merged = [...new Set([...localHiddenPlayers, ...data.hiddenPlayers])];
+      localStorage.setItem("poker-ledger-hidden-players", JSON.stringify(merged));
+      window.dispatchEvent(new Event("hiddenPlayersUpdate"));
+    }
     setProfileId(code);
     await store.set(PROFILE_KEY, code);
     return true;
@@ -3602,7 +3648,8 @@ export default function App() {
       localStorage.setItem("poker-ledger-master-code", mc);
     }
     const localPriorBals = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-prior-balances")) || {}; } catch { return {}; } })();
-    await saveSnapshot(mc, { history, savedNames, priorBalances: localPriorBals });
+    const localHiddenPlayers = (() => { try { return JSON.parse(localStorage.getItem("poker-ledger-hidden-players")) || []; } catch { return []; } })();
+    await saveSnapshot(mc, { history, savedNames, priorBalances: localPriorBals, hiddenPlayers: localHiddenPlayers });
     return mc;
   };
 
@@ -3617,6 +3664,10 @@ export default function App() {
     if (data.priorBalances) {
       setPriorBalances(data.priorBalances);
       localStorage.setItem("poker-ledger-prior-balances", JSON.stringify(data.priorBalances));
+    }
+    if (data.hiddenPlayers) {
+      localStorage.setItem("poker-ledger-hidden-players", JSON.stringify(data.hiddenPlayers));
+      window.dispatchEvent(new Event("hiddenPlayersUpdate"));
     }
     // Persist master code for future use
     setMasterCode(code);
